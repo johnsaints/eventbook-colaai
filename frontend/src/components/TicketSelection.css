@@ -1,9 +1,56 @@
+.ticket-checkout-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(18rem, 0.9fr);
+  gap: 1.5rem;
+  align-items: start;
+}
+
+.lot-stack {
+  display: grid;
+  gap: 1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.lot-row-card {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.lot-row-info {
+  flex: 1 1 14rem;
+}
+
+.lot-row-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem;
+  margin-bottom: 0.35rem;
+}
+
+.lot-row-header h3 {
+  margin: 0;
+}
+
+.lot-price {
+  font-family: var(--ca-font-display);
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: var(--ca-cyan);
+  margin: 0 0 0.25rem;
+  font-variant-numeric: tabular-nums;
+}
+
 .ticket-stepper {
   display: inline-grid;
   grid-template-columns: 2.75rem minmax(2rem, auto) 2.75rem;
   align-items: center;
   gap: 0.5rem;
-  margin-top: 0.75rem;
 }
 
 .ticket-stepper button {
@@ -39,15 +86,67 @@
 
 .catalog .ticket-selection-total {
   margin-top: 1.25rem;
-  font-size: 1.1rem;
+  font-size: 1.15rem;
   font-weight: 700;
   color: var(--ca-cyan);
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
 }
 
 .ticket-cart {
   height: auto;
-  margin-top: 1.25rem;
   border-color: var(--ca-border-strong);
+}
+
+.ticket-cart-sticky {
+  position: sticky;
+  top: 5.5rem;
+}
+
+.reservation-panel {
+  max-width: 38rem;
+}
+
+.reservation-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+  margin-bottom: 1rem;
+}
+
+.timer-badge {
+  display: grid;
+  text-align: right;
+  padding: 0.45rem 0.85rem;
+  border-radius: 0.75rem;
+  background: rgba(255, 46, 158, 0.12);
+  border: 1px solid rgba(255, 46, 158, 0.4);
+  font-size: 0.78rem;
+  color: var(--ca-text-muted);
+}
+
+.timer-badge strong {
+  font-family: var(--ca-font-display);
+  font-size: 1.2rem;
+  color: #ff9fd0;
+  font-variant-numeric: tabular-nums;
+}
+
+.reservation-status {
+  padding: 0.65rem 0.9rem;
+  border-radius: 0.65rem;
+  background: rgba(0, 212, 255, 0.12);
+  border: 1px solid rgba(0, 212, 255, 0.35);
+  color: var(--ca-cyan);
+  font-weight: 600;
+}
+
+.mono-id {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.88em;
 }
 
 .ticket-cart-items {
@@ -63,13 +162,13 @@
   flex-wrap: wrap;
   justify-content: space-between;
   gap: 0.25rem 1rem;
-  padding-bottom: 0.4rem;
+  padding-bottom: 0.45rem;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .ticket-cart-action {
   min-height: 2.75rem;
-  padding: 0.6rem 1.15rem;
+  padding: 0.65rem 1.2rem;
   border: none;
   border-radius: 0.65rem;
   background: var(--ca-gradient);
@@ -87,4 +186,14 @@
 .ticket-cart-action:focus-visible {
   outline: 2px solid var(--ca-cyan);
   outline-offset: 2px;
+}
+
+@media (max-width: 820px) {
+  .ticket-checkout-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .ticket-cart-sticky {
+    position: static;
+  }
 }

@@ -1,5 +1,131 @@
 .history-section + .history-section {
-  margin-top: 2.5rem;
+  margin-top: 2.75rem;
+}
+
+.ticket-list-stack {
+  display: grid;
+  gap: 1.15rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.colaai-ticket-card {
+  padding: 0;
+  overflow: hidden;
+  border-color: var(--ca-border-strong);
+}
+
+.colaai-ticket {
+  display: grid;
+  grid-template-columns: 5.5rem minmax(0, 1.5fr) minmax(13rem, 0.9fr);
+}
+
+.colaai-ticket-brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  padding: 1rem 0.65rem;
+  background: var(--ca-gradient);
+  color: #ffffff;
+}
+
+.colaai-ticket-symbol {
+  width: 2.5rem;
+  height: 2.5rem;
+  object-fit: contain;
+  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.35));
+}
+
+.colaai-ticket-label {
+  font-family: var(--ca-font-display);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+}
+
+.colaai-ticket-main {
+  padding: 1.25rem 1.35rem;
+  display: grid;
+  gap: 0.65rem;
+}
+
+.colaai-ticket-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem 0.85rem;
+}
+
+.colaai-ticket-head h3 {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.colaai-ticket-lot {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 600;
+  color: var(--ca-cyan);
+  margin: 0;
+}
+
+.colaai-ticket-stub {
+  position: relative;
+  padding: 1.25rem;
+  background: rgba(7, 21, 43, 0.72);
+  border-left: 2px dashed rgba(0, 212, 255, 0.35);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.colaai-ticket-stub::before,
+.colaai-ticket-stub::after {
+  content: '';
+  position: absolute;
+  left: -0.6rem;
+  width: 1.1rem;
+  height: 1.1rem;
+  border-radius: 50%;
+  background: var(--ca-bg);
+}
+
+.colaai-ticket-stub::before {
+  top: -0.55rem;
+}
+
+.colaai-ticket-stub::after {
+  bottom: -0.55rem;
+}
+
+.stub-icon-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--ca-text-muted);
+}
+
+.stub-icon-row svg {
+  color: var(--ca-cyan);
+}
+
+.order-card-body {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.order-amount {
+  font-size: 1.05rem;
+  color: var(--ca-cyan);
+  margin: 0.25rem 0 0;
 }
 
 .history-code {
@@ -8,9 +134,10 @@
   color: var(--ca-cyan);
   background: rgba(0, 212, 255, 0.12);
   border: 1px solid rgba(0, 212, 255, 0.3);
-  padding: 0.2rem 0.5rem;
-  border-radius: 0.4rem;
+  padding: 0.3rem 0.55rem;
+  border-radius: 0.45rem;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.85rem;
   font-weight: 600;
   overflow-wrap: anywhere;
 }
@@ -48,7 +175,7 @@
 }
 
 .history-cancel {
-  margin-top: 1rem;
+  margin-top: 0.65rem;
 }
 
 .history-cancel .event-meta {
@@ -59,4 +186,26 @@
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
+}
+
+@media (max-width: 760px) {
+  .colaai-ticket {
+    grid-template-columns: 1fr;
+  }
+
+  .colaai-ticket-brand {
+    flex-direction: row;
+    justify-content: flex-start;
+    padding: 0.75rem 1.25rem;
+  }
+
+  .colaai-ticket-stub {
+    border-left: none;
+    border-top: 2px dashed rgba(0, 212, 255, 0.35);
+  }
+
+  .colaai-ticket-stub::before,
+  .colaai-ticket-stub::after {
+    display: none;
+  }
 }

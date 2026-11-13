@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link } from 'react-router'
+import symbolIcon from '../assets/colaai-icon-128.png'
 import { sessionTokenKey } from '../api'
 import AppLayout from '../components/AppLayout'
 import CancelOrderAction from '../components/CancelOrderAction'
+import { ArrowLeftIcon, CalendarIcon, PinIcon, QrCodeIcon, TicketIcon } from '../components/Icons'
 import { formatDate } from '../events'
 import { cancelMyOrder, listMyOrders, listMyTickets, type CancelOrderResult, type HistoryAccess, type HistoryOrder, type HistoryPage, type HistoryResult, type HistoryTicket } from '../history'
 import { formatPrice, priceInCents } from '../orders'
@@ -12,6 +14,12 @@ const ticketStatuses: Record<HistoryTicket['status'], string> = {
   VALID: 'Válido',
   USED: 'Utilizado',
   CANCELLED: 'Cancelado',
+}
+
+const ticketStatusClass: Record<HistoryTicket['status'], string> = {
+  VALID: 'status-pill status-valid',
+  USED: 'status-pill status-used',
+  CANCELLED: 'status-pill status-cancelled',
 }
 
 const orderStatuses: Record<HistoryOrder['status'], string> = {
@@ -27,28 +35,73 @@ function dateLabel(iso: string) {
 
 function renderTicket(ticket: HistoryTicket) {
   return (
-    <>
-      <h3>{ticket.event.title}</h3>
-      <p className="event-meta">{ticket.event.location} · {dateLabel(ticket.event.startsAt)}</p>
-      <p>{ticket.lot.name}</p>
-      <p>Status <strong>{ticketStatuses[ticket.status]}</strong></p>
-      <p>Código do ingresso <code className="history-code">{ticket.code}</code></p>
-    </>
+    <div className="colaai-ticket">
+      <div className="colaai-ticket-brand">
+        <img src={symbolIcon} alt="" className="colaai-ticket-symbol" />
+        <span className="colaai-ticket-label">INGRESSO</span>
+      </div>
+
+      <div className="colaai-ticket-main">
+        <div className="colaai-ticket-head">
+          <h3>{ticket.event.title}</h3>
+          <span className={ticketStatusClass[ticket.status]}>
+            <strong>{ticketStatuses[ticket.status]}</strong>
+          </span>
+        </div>
+
+        <p className="colaai-ticket-lot">
+          <TicketIcon className="meta-icon" />
+          <span>{ticket.lot.name}</span>
+        </p>
+
+        <div className="card-meta-list">
+          <p className="event-meta meta-row">
+            <PinIcon className="meta-icon" />
+            <span>{ticket.event.location}</span>
+          </p>
+          <p className="event-meta meta-row">
+            <CalendarIcon className="meta-icon" />
+            <span>{dateLabel(ticket.event.startsAt)}</span>
+          </p>
+        </div>
+      </div>
+
+      <div className="colaai-ticket-stub">
+        <div className="stub-icon-row">
+          <QrCodeIcon />
+          <span>Código do ingresso</span>
+        </div>
+        <code className="history-code">{ticket.code}</code>
+      </div>
+    </div>
   )
 }
 
 function renderOrder(order: HistoryOrder, action: ReactNode) {
   return (
-    <>
-      <h3>{order.event.title}</h3>
-      <p className="event-meta">{order.event.location} · {dateLabel(order.event.startsAt)}</p>
-      <p>Status <strong>{orderStatuses[order.status]}</strong></p>
-      <p>Valor do pedido <strong>{formatPrice(priceInCents(order.totalAmount))}</strong></p>
-      <p>Pedido em {dateLabel(order.createdAt)}</p>
-      {order.status === 'PENDING' && <p>Reserva até {dateLabel(order.expiresAt)}</p>}
-      <p>Número do pedido <code className="history-code">{order.id}</code></p>
+    <div className="order-card-body">
+      <div className="colaai-ticket-head">
+        <h3>{order.event.title}</h3>
+        <span className="status-pill status-neutral">
+          <strong>{orderStatuses[order.status]}</strong>
+        </span>
+      </div>
+      <div className="card-meta-list">
+        <p className="event-meta meta-row">
+          <PinIcon className="meta-icon" />
+          <span>{order.event.location}</span>
+        </p>
+        <p className="event-meta meta-row">
+          <CalendarIcon className="meta-icon" />
+          <span>{dateLabel(order.event.startsAt)}</span>
+        </p>
+      </div>
+      <p className="order-amount">Valor do pedido <strong>{formatPrice(priceInCents(order.totalAmount))}</strong></p>
+      <p className="event-meta">Pedido em {dateLabel(order.createdAt)}</p>
+      {order.status === 'PENDING' && <p className="event-meta">Reserva até {dateLabel(order.expiresAt)}</p>}
+      <p className="event-meta">Número do pedido <code className="history-code">{order.id}</code></p>
       {action}
-    </>
+    </div>
   )
 }
 
@@ -113,10 +166,12 @@ function HistorySection<T extends { id: string }>({
         current.data.data.length === 0 ? (
           <p>{page === 1 ? emptyMessage : 'Nenhum resultado nesta página.'}</p>
         ) : (
-          <ul className="event-list">
+          <ul className={id === 'my-tickets-title' ? 'ticket-list-stack' : 'event-list'}>
             {current.data.data.map(item => (
               <li key={item.id}>
-                <article className="event-card">{renderItem(item)}</article>
+                <article className={id === 'my-tickets-title' ? 'event-card colaai-ticket-card' : 'event-card'}>
+                  {renderItem(item)}
+                </article>
               </li>
             ))}
           </ul>
@@ -202,7 +257,8 @@ export default function BuyerHistoryPage() {
     <AppLayout>
       <main className="catalog">
         <header className="page-header">
-          <p><Link to="/" className="back-link">← Voltar aos eventos</Link></p>
+          <p><Link to="/" className="back-link"><ArrowLeftIcon /> Voltar aos eventos</Link></p>
+          <span className="eyebrow">Área do comprador</span>
           <h1>Meus Ingressos</h1>
         </header>
       {token && !access ? (

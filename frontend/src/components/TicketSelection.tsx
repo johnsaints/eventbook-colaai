@@ -106,21 +106,31 @@ export default function TicketSelection({ event, initialItems }: {
   if (reservation) return <ReservationConfirmation order={reservation.order} lotNames={reservation.lotNames} />
 
   return (
-    <section aria-labelledby="lots-title">
-      <h2 id="lots-title">Lotes à venda</h2>
-      {selection.length === 0 ? (
-        <p>Nenhum lote à venda no momento.</p>
-      ) : (
-        <>
-          <ul className="event-list">
+    <section aria-labelledby="lots-title" className="ticket-checkout-layout">
+      <div className="ticket-lots-column">
+        <h2 id="lots-title">Lotes à venda</h2>
+        {selection.length === 0 ? (
+          <div className="state-banner">
+            <p>Nenhum lote à venda no momento.</p>
+          </div>
+        ) : (
+          <ul className="lot-stack">
             {selection.map(({ lot, available, quantity }) => (
               <li key={lot.id}>
-                <article className="event-card">
-                  <h3>{lot.name}</h3>
-                  <p>{formatPrice(priceInCents(lot.price))}</p>
-                  <p className="event-meta">
-                    {available > 0 ? 'Ingressos disponíveis: ' + available : 'Lote esgotado'}
-                  </p>
+                <article className="event-card lot-row-card">
+                  <div className="lot-row-info">
+                    <div className="lot-row-header">
+                      <h3>{lot.name}</h3>
+                      <span className={available > 0 ? 'status-pill status-valid' : 'status-pill status-cancelled'}>
+                        {available > 0 ? 'Disponível' : 'Esgotado'}
+                      </span>
+                    </div>
+                    <p className="lot-price">{formatPrice(priceInCents(lot.price))}</p>
+                    <p className="event-meta">
+                      {available > 0 ? 'Ingressos disponíveis: ' + available : 'Lote esgotado'}
+                    </p>
+                  </div>
+
                   <div className="ticket-stepper" role="group" aria-label={'Seleção de ' + lot.name}>
                     <button
                       type="button"
@@ -144,43 +154,47 @@ export default function TicketSelection({ event, initialItems }: {
               </li>
             ))}
           </ul>
-        </>
-      )}
-      <section className="event-card ticket-cart" aria-labelledby="cart-title">
-        <h2 id="cart-title">Resumo do carrinho</h2>
-        {selected.length === 0 ? (
-          <p>Selecione ingressos para montar sua reserva.</p>
-        ) : (
-          <>
-            <ul className="ticket-cart-items">
-              {selected.map(({ lot, quantity, subtotal }) => (
-                <li key={lot.id}>
-                  <span>{quantity} × {lot.name}</span>
-                  <span>{formatPrice(subtotal)}</span>
-                </li>
-              ))}
-            </ul>
-            <p className="ticket-selection-total">
-              Total estimado <strong>{formatPrice(total)}</strong>
-            </p>
-          </>
         )}
-        {error && <p role="alert">{error}</p>}
-        {selected.length > 0 && (
-          hasSession ? (
-            <button className="ticket-cart-action" type="button" disabled={busy} onClick={() => void submit()}>
-              {busy ? 'Confirmando reserva…' : 'Reservar ingressos'}
-            </button>
+      </div>
+
+      <aside className="ticket-cart-column">
+        <section className="event-card ticket-cart ticket-cart-sticky" aria-labelledby="cart-title">
+          <h2 id="cart-title">Resumo do carrinho</h2>
+          {selected.length === 0 ? (
+            <p className="event-meta">Selecione ingressos para montar sua reserva.</p>
           ) : (
-            <Link
-              to="/login"
-              state={{ reservationDraft: draft }}
-            >
-              Entrar para reservar
-            </Link>
-          )
-        )}
-      </section>
+            <>
+              <ul className="ticket-cart-items">
+                {selected.map(({ lot, quantity, subtotal }) => (
+                  <li key={lot.id}>
+                    <span>{quantity} × {lot.name}</span>
+                    <span>{formatPrice(subtotal)}</span>
+                  </li>
+                ))}
+              </ul>
+              <p className="ticket-selection-total">
+                Total estimado <strong>{formatPrice(total)}</strong>
+              </p>
+            </>
+          )}
+          {error && <p className="form-alert" role="alert">{error}</p>}
+          {selected.length > 0 && (
+            hasSession ? (
+              <button className="ticket-cart-action btn-full" type="button" disabled={busy} onClick={() => void submit()}>
+                {busy ? 'Confirmando reserva…' : 'Reservar ingressos'}
+              </button>
+            ) : (
+              <Link
+                to="/login"
+                state={{ reservationDraft: draft }}
+                className="btn btn-primary btn-full"
+              >
+                Entrar para reservar
+              </Link>
+            )
+          )}
+        </section>
+      </aside>
     </section>
   )
 }

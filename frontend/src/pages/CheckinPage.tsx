@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link } from 'react-router'
 import { sessionTokenKey } from '../api'
 import AppLayout from '../components/AppLayout'
+import { ArrowLeftIcon, QrCodeIcon, ShieldCheckIcon } from '../components/Icons'
 import { listCheckinEvents, submitCheckin, type CheckinEvent, type CheckinResult } from '../checkin'
 import { formatDate } from '../events'
 import './CheckinPage.css'
@@ -115,64 +116,80 @@ export default function CheckinPage() {
 
   return (
     <AppLayout>
-      <main className="catalog">
-        <header className="page-header">
-          <p><Link to="/" className="back-link">← Voltar aos eventos</Link></p>
-          <h1>Check-in de ingressos</h1>
-        </header>
+      <main className="catalog checkin-page">
+        <div className="checkin-shell">
+          <header className="page-header">
+            <p><Link to="/" className="back-link"><ArrowLeftIcon /> Voltar aos eventos</Link></p>
+            <span className="eyebrow">Portaria ColaAí</span>
+            <h1 className="checkin-title">
+              <ShieldCheckIcon className="title-icon" />
+              Check-in de ingressos
+            </h1>
+          </header>
 
-      {list.status === 'loading' && <p role="status">Carregando seus eventos…</p>}
-      {list.status === 'signed-out' && <p><Link to="/login">Entrar</Link> com uma conta STAFF.</p>}
-      {list.status === 'forbidden' && (
-        <p role="alert">Esta área é reservada ao perfil STAFF. <Link to="/login">Trocar de conta</Link>.</p>
-      )}
-      {list.status === 'error' && (
-        <div>
-          <p role="alert">Não foi possível carregar seus eventos.</p>
-          <button type="button" onClick={() => {
-            setList({ status: 'loading' })
-            setRevision(value => value + 1)
-          }}>Tentar novamente</button>
-        </div>
-      )}
-      {list.status === 'ready' && (list.events.length === 0 ? (
-        <p>Nenhum evento vinculado. Peça ao organizador para adicionar sua conta à equipe.</p>
-      ) : (
-        <form className="event-card auth-form checkin-form" onSubmit={handleSubmit}>
-          <label>
-            Evento
-            <select value={eventId} required disabled={submitting} onChange={event => {
-              setEventId(event.target.value)
-              setCode('')
-              setResult(null)
-            }}>
-              <option value="" disabled>Selecione um evento</option>
-              {list.events.map(event => (
-                <option key={event.id} value={event.id}>
-                  {event.title} · {formatDate.format(new Date(event.startsAt))} · {event.location}
-                </option>
-              ))}
-            </select>
-          </label>
-          {selectedEvent && (
-            <p className="event-meta checkin-event-details">
-              <time dateTime={selectedEvent.startsAt}>{formatDate.format(new Date(selectedEvent.startsAt))}</time>
-              {' · '}{selectedEvent.location}
-            </p>
+          {list.status === 'loading' && <p className="state-banner" role="status">Carregando seus eventos…</p>}
+          {list.status === 'signed-out' && (
+            <div className="state-banner">
+              <p><Link to="/login">Entrar</Link> com uma conta STAFF.</p>
+            </div>
           )}
-          <label>
-            Código do ingresso
-            <input ref={codeRef} name="code" value={code} onChange={event => setCode(event.target.value)}
-              required autoComplete="off" spellCheck={false} maxLength={191}
-              disabled={!eventId} readOnly={submitting} aria-describedby="checkin-hint" />
-          </label>
-          <p className="event-meta" id="checkin-hint">Digite ou cole o código e pressione Enter para validar.</p>
-          <button type="submit" disabled={submitting || !eventId || !code.trim()}>
-            {submitting ? 'Validando…' : 'Validar ingresso'}
-          </button>
-          {result && <CheckinFeedback result={result} />}
-        </form>
-      ))}
+          {list.status === 'forbidden' && (
+            <div className="state-banner state-error">
+              <p role="alert">Esta área é reservada ao perfil STAFF. <Link to="/login">Trocar de conta</Link>.</p>
+            </div>
+          )}
+          {list.status === 'error' && (
+            <div className="state-banner state-error">
+              <p role="alert">Não foi possível carregar seus eventos.</p>
+              <button type="button" className="btn btn-secondary" onClick={() => {
+                setList({ status: 'loading' })
+                setRevision(value => value + 1)
+              }}>Tentar novamente</button>
+            </div>
+          )}
+          {list.status === 'ready' && (list.events.length === 0 ? (
+            <div className="state-banner">
+              <p>Nenhum evento vinculado. Peça ao organizador para adicionar sua conta à equipe.</p>
+            </div>
+          ) : (
+            <form className="event-card auth-form checkin-form" onSubmit={handleSubmit}>
+              <label>
+                Evento
+                <select value={eventId} required disabled={submitting} onChange={event => {
+                  setEventId(event.target.value)
+                  setCode('')
+                  setResult(null)
+                }}>
+                  <option value="" disabled>Selecione um evento</option>
+                  {list.events.map(event => (
+                    <option key={event.id} value={event.id}>
+                      {event.title} · {formatDate.format(new Date(event.startsAt))} · {event.location}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {selectedEvent && (
+                <p className="event-meta checkin-event-details">
+                  <time dateTime={selectedEvent.startsAt}>{formatDate.format(new Date(selectedEvent.startsAt))}</time>
+                  {' · '}{selectedEvent.location}
+                </p>
+              )}
+              <label>
+                Código do ingresso
+                <input ref={codeRef} name="code" value={code} onChange={event => setCode(event.target.value)}
+                  required autoComplete="off" spellCheck={false} maxLength={191}
+                  placeholder="Escaneie ou cole o código do ingresso"
+                  disabled={!eventId} readOnly={submitting} aria-describedby="checkin-hint" />
+              </label>
+              <p className="event-meta" id="checkin-hint">Digite ou cole o código e pressione Enter para validar.</p>
+              <button type="submit" className="btn btn-primary btn-full" disabled={submitting || !eventId || !code.trim()}>
+                <QrCodeIcon />
+                {submitting ? 'Validando…' : 'Validar ingresso'}
+              </button>
+              {result && <CheckinFeedback result={result} />}
+            </form>
+          ))}
+        </div>
       </main>
     </AppLayout>
   )

@@ -96,15 +96,25 @@ export default function ReservationConfirmation({
   const remainder = String(seconds % 60).padStart(2, '0')
 
   return (
-    <section className="event-card ticket-cart" aria-labelledby="reservation-title">
-      <h2 id="reservation-title" ref={headingRef} tabIndex={-1}>
-        {paid ? 'Pagamento confirmado' : 'Reserva de ingressos'}
-      </h2>
-      <p role="status">{paymentMessages[status]}</p>
-      {showAction && seconds > 0 && (
-        <p>Tempo restante <strong role="timer" aria-label="Tempo restante para a reserva">{minutes}:{remainder}</strong></p>
-      )}
-      <p>Pedido <strong>{order.id}</strong></p>
+    <section className="event-card ticket-cart reservation-panel" aria-labelledby="reservation-title">
+      <div className="reservation-header">
+        <div>
+          <span className="eyebrow">{paid ? 'Confirmado' : 'Reserva ativa'}</span>
+          <h2 id="reservation-title" ref={headingRef} tabIndex={-1}>
+            {paid ? 'Pagamento confirmado' : 'Reserva de ingressos'}
+          </h2>
+        </div>
+        {showAction && seconds > 0 && (
+          <div className="timer-badge">
+            <span>Tempo restante</span>{' '}
+            <strong role="timer" aria-label="Tempo restante para a reserva">{minutes}:{remainder}</strong>
+          </div>
+        )}
+      </div>
+
+      <p className={paid ? 'form-status' : 'reservation-status'} role="status">{paymentMessages[status]}</p>
+      <p className="event-meta">Pedido <strong className="mono-id">{order.id}</strong></p>
+
       <ul className="ticket-cart-items">
         {order.items.map(item => (
           <li key={item.lotId}>
@@ -118,16 +128,16 @@ export default function ReservationConfirmation({
         <strong>{formatPrice(priceInCents(paid?.totalAmount ?? order.totalAmount))}</strong>
       </p>
       {paid && (
-        <>
+        <div className="reservation-paid-actions">
           <p>{paid.ticketCount === 1 ? '1 ingresso emitido.' : paid.ticketCount + ' ingressos emitidos.'}</p>
-          <p><Link to="/meus-ingressos">Ver meus ingressos</Link></p>
-        </>
+          <p><Link to="/meus-ingressos" className="btn btn-primary">Ver meus ingressos</Link></p>
+        </div>
       )}
-      {status === 'retry' && payment.kind === 'retry' && <p role="alert">{payment.message}</p>}
-      {status === 'login' && <Link to="/login">Entrar novamente</Link>}
+      {status === 'retry' && payment.kind === 'retry' && <p className="form-alert" role="alert">{payment.message}</p>}
+      {status === 'login' && <Link to="/login" className="btn btn-secondary">Entrar novamente</Link>}
       {showAction && (
         <button
-          className="ticket-cart-action"
+          className="ticket-cart-action btn-full"
           ref={actionRef}
           type="button"
           disabled={busy}

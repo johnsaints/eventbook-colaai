@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useParams } from 'react-router'
 import AppLayout from '../components/AppLayout'
+import { ArrowLeftIcon, CalendarIcon, PinIcon } from '../components/Icons'
 import TicketSelection from '../components/TicketSelection'
 import { formatDate, getEvent, type EventDetails } from '../events'
 import type { ReservationDraft } from '../orders'
@@ -50,16 +51,26 @@ export default function EventPage() {
   return (
     <AppLayout>
       <main className="catalog">
-        <header className="page-header">
-          <p><Link to="/" className="back-link">← Voltar aos eventos</Link></p>
+        <header className="event-detail-hero">
+          <p>
+            <Link to="/" className="back-link">
+              <ArrowLeftIcon />
+              Voltar aos eventos
+            </Link>
+          </p>
+          <span className="eyebrow">Detalhes do evento</span>
           <h1 tabIndex={-1} ref={headingRef}>{event?.title ?? 'Detalhes do evento'}</h1>
           {event && (
             <div className="event-hero-meta">
               <p className="lead-text">{event.description}</p>
               <div className="meta-pills">
-                <span className="meta-pill">📍 {event.location}</span>
                 <span className="meta-pill">
-                  🗓️ <time dateTime={event.startsAt}>{formatDate.format(new Date(event.startsAt))}</time>
+                  <PinIcon className="meta-icon" />
+                  {event.location}
+                </span>
+                <span className="meta-pill">
+                  <CalendarIcon className="meta-icon" />
+                  <time dateTime={event.startsAt}>{formatDate.format(new Date(event.startsAt))}</time>
                 </span>
               </div>
             </div>

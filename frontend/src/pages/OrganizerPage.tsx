@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, Navigate } from 'react-router'
 import { canAccessPanel, getCurrentUser, sessionTokenKey, type AuthUser } from '../api'
 import AppLayout from '../components/AppLayout'
+import { ArrowLeftIcon, CalendarIcon, ChartIcon, PinIcon, PlusIcon, TicketIcon, UsersIcon } from '../components/Icons'
 import { formatDate, getEventForEdit, getMyEvents, type EditableEvent, type OrganizerEvent } from '../events'
 import EventForm from '../components/EventForm'
 import EventLotsPanel from '../components/EventLotsPanel'
@@ -33,6 +34,7 @@ export default function OrganizerPage() {
   const [lotsEventId, setLotsEventId] = useState<string | null>(null)
   const [staffEventId, setStaffEventId] = useState<string | null>(null)
   const [occupancyEventId, setOccupancyEventId] = useState<string | null>(null)
+  const [showCreateForm, setShowCreateForm] = useState(false)
   const [editing, setEditing] = useState<EditState | null>(null)
   const [editNotice, setEditNotice] = useState('')
   const editRequest = useRef<AbortController | null>(null)
@@ -122,8 +124,9 @@ export default function OrganizerPage() {
       return { ...current, events }
     })
 
-    setEditNotice(editing ? 'Evento atualizado.' : '')
+    setEditNotice(editing ? 'Evento atualizado.' : 'Evento criado.')
     setEditing(null)
+    setShowCreateForm(false)
   }
 
   function markPublished(eventId: string) {
@@ -150,122 +153,192 @@ export default function OrganizerPage() {
   const staffEvent = isOrganizer ? myEvents?.find((event) => event.id === staffEventId) : null
   const occupancyEvent = isOrganizer ? myEvents?.find((event) => event.id === occupancyEventId) : null
 
+  const statusPillClass: Record<OrganizerEvent['status'], string> = {
+    DRAFT: 'status-pill status-neutral',
+    PUBLISHED: 'status-pill status-valid',
+    CANCELLED: 'status-pill status-cancelled',
+  }
+
+  const publishedCount = myEvents?.filter((e) => e.status === 'PUBLISHED').length ?? 0
+  const draftCount = myEvents?.filter((e) => e.status === 'DRAFT').length ?? 0
+
   return (
     <AppLayout>
       <main className="catalog">
-        <header className="page-header">
-          <p><Link to="/" className="back-link">← Voltar aos eventos</Link></p>
-          <h1 tabIndex={-1} ref={panelHeadingRef}>Painel de eventos</h1>
+        <header className="page-header dashboard-header">
+          <div>
+            <p><Link to="/" className="back-link"><ArrowLeftIcon /> Voltar aos eventos</Link></p>
+            <span className="eyebrow">Área do organizador</span>
+            <h1 tabIndex={-1} ref={panelHeadingRef}>Painel de eventos</h1>
+          </div>
+          {myEvents && (
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => {
+                if (editing) cancelEdit()
+                setShowCreateForm((prev) => !prev)
+              }}
+            >
+              <PlusIcon />
+              {showCreateForm && !editing ? 'Fechar formulário' : 'Novo evento'}
+            </button>
+          )}
         </header>
 
-      {panel.status === 'loading' && <p role="status">Carregando painel…</p>}
-      {panel.status === 'error' && (
-        <>
-          <p role="alert">Não foi possível carregar o painel.</p>
-          <button type="button" onClick={retryPanel}>Tentar novamente</button>
-        </>
-      )}
+        {panel.status === 'loading' && <p className="state-banner" role="status">Carregando painel…</p>}
+        {panel.status === 'error' && (
+          <div className="state-banner state-error">
+            <p role="alert">Não foi possível carregar o painel.</p>
+            <button type="button" className="btn btn-secondary" onClick={retryPanel}>Tentar novamente</button>
+          </div>
+        )}
 
-      {panel.status === 'ready' && (
-        <section className="event-card auth-form">
-          {canAccessPanel(panel.user.role) ? (
-            <>
-              <h2>Olá, {panel.user.name}</h2>
-              <p>Perfil: {panel.user.role}</p>
-            </>
-          ) : (
-            <p role="alert">Seu perfil não tem acesso ao painel.</p>
-          )}
-          <button type="button" onClick={logout}>Sair</button>
-        </section>
-      )}
+        {panel.status === 'ready' && (
+          <section className="dashboard-summary">
+            <div className="event-card dashboard-profile">
+              {canAccessPanel(panel.user.role) ? (
+                <>
+                  <div>
+                    <h2>Olá, {panel.user.name}</h2>
+                    <p className="event-meta">Perfil: <span className="role-badge">{panel.user.role}</span></p>
+                  </div>
+                  {myEvents && (
+                    <dl className="dashboard-kpis">
+                      <div className="kpi-box">
+                        <dt>Total</dt>
+                        <dd>{myEvents.length}</dd>
+                      </div>
+                      <div className="kpi-box">
+                        <dt>Publicados</dt>
+                        <dd>{publishedCount}</dd>
+                      </div>
+                      <div className="kpi-box">
+                        <dt>Rascunhos</dt>
+                        <dd>{draftCount}</dd>
+                      </div>
+                    </dl>
+                  )}
+                </>
+              ) : (
+                <p className="form-alert" role="alert">Seu perfil não tem acesso ao painel.</p>
+              )}
+              <button type="button" className="btn btn-ghost btn-sm" onClick={logout}>Sair</button>
+            </div>
+          </section>
+        )}
 
-      {myEvents && (
-        <section aria-labelledby="event-form-title" className="panel-events">
-          <h2 id="event-form-title" tabIndex={-1}>{editing ? 'Editar evento' : 'Novo evento'}</h2>
-          {editNotice && <p role="status">{editNotice}</p>}
-          {editing && <button type="button" onClick={cancelEdit}>Cancelar edição</button>}
-          {editing?.status === 'loading' && <p role="status">Carregando evento…</p>}
-          {editing?.status === 'error' && <p role="alert">{editing.message}</p>}
-          {(!editing || editing.status === 'ready') && (
-            <EventForm
-              key={editing?.event.id ?? 'new'}
-              token={token}
-              initialEvent={editing?.event}
-              onSaved={savePanelEvent}
-              onSessionExpired={logout}
-            />
-          )}
-        </section>
-      )}
+        {editNotice && <p className="form-status" role="status">{editNotice}</p>}
 
-      {myEvents && (
-        <section aria-labelledby="my-events-title" className="panel-events">
-          <h2 id="my-events-title">Meus eventos</h2>
-          {myEvents.length === 0 ? (
-            <p>Nenhum evento cadastrado.</p>
-          ) : (
-            <ul className="event-list">
-              {myEvents.map((event) => (
-                <li key={event.id}>
-                  <article className="event-card">
-                    <h3>{event.title}</h3>
-                    <p>Status: {statusLabel[event.status]}</p>
-                    <p className="event-meta">{event.location}</p>
-                    <p className="event-meta">
-                      <time dateTime={event.startsAt}>
-                        {formatDate.format(new Date(event.startsAt))}
-                      </time>
-                    </p>
-                    <div className="event-actions">
-                      <button type="button" aria-label={`Editar ${event.title}`} onClick={() => void openEditor(event.id)}>
-                        Editar
-                      </button>
-                      <button
-                        id={`lots-trigger-${event.id}`}
-                        type="button"
-                        aria-label={`Ver lotes de ${event.title}`}
-                        aria-expanded={lotsEventId === event.id}
-                        onClick={() => setLotsEventId((current) => current === event.id ? null : event.id)}
-                      >
-                        Ver lotes
-                      </button>
-                      {isOrganizer && (
-                        <button
-                          id={`staff-trigger-${event.id}`}
-                          type="button"
-                          aria-label={`Gerenciar equipe de ${event.title}`}
-                          aria-expanded={staffEventId === event.id}
-                          onClick={() => setStaffEventId(current => current === event.id ? null : event.id)}
-                        >
-                          Gerenciar equipe
+        {myEvents && (showCreateForm || editing) && (
+          <section aria-labelledby="event-form-title" className="panel-events event-card">
+            <div className="lot-management-header">
+              <h2 id="event-form-title" tabIndex={-1}>{editing ? 'Editar evento' : 'Novo evento'}</h2>
+              {editing ? (
+                <button type="button" className="btn btn-ghost btn-sm" onClick={cancelEdit}>Cancelar edição</button>
+              ) : (
+                <button type="button" className="btn btn-ghost btn-sm" onClick={() => setShowCreateForm(false)}>Fechar</button>
+              )}
+            </div>
+            {editing?.status === 'loading' && <p role="status">Carregando evento…</p>}
+            {editing?.status === 'error' && <p className="form-alert" role="alert">{editing.message}</p>}
+            {(!editing || editing.status === 'ready') && (
+              <EventForm
+                key={editing?.event.id ?? 'new'}
+                token={token}
+                initialEvent={editing?.event}
+                onSaved={savePanelEvent}
+                onSessionExpired={logout}
+              />
+            )}
+          </section>
+        )}
+
+        {myEvents && (
+          <section aria-labelledby="my-events-title" className="panel-events">
+            <h2 id="my-events-title">Meus eventos</h2>
+            {myEvents.length === 0 ? (
+              <div className="state-banner">
+                <p>Nenhum evento cadastrado ainda. Clique em “Novo evento” para começar.</p>
+              </div>
+            ) : (
+              <ul className="event-list">
+                {myEvents.map((event) => (
+                  <li key={event.id}>
+                    <article className="event-card organizer-event-card">
+                      <div className="colaai-ticket-head">
+                        <h3>{event.title}</h3>
+                        <span className={statusPillClass[event.status]}>
+                          Status: {statusLabel[event.status]}
+                        </span>
+                      </div>
+                      <div className="card-meta-list">
+                        <p className="event-meta meta-row">
+                          <PinIcon className="meta-icon" />
+                          <span>{event.location}</span>
+                        </p>
+                        <p className="event-meta meta-row">
+                          <CalendarIcon className="meta-icon" />
+                          <time dateTime={event.startsAt}>
+                            {formatDate.format(new Date(event.startsAt))}
+                          </time>
+                        </p>
+                      </div>
+                      <div className="event-actions">
+                        <button type="button" className="btn btn-ghost btn-sm" aria-label={`Editar ${event.title}`} onClick={() => void openEditor(event.id)}>
+                          Editar
                         </button>
-                      )}
-                      {isOrganizer && (
                         <button
-                          id={`occupancy-trigger-${event.id}`}
+                          id={`lots-trigger-${event.id}`}
                           type="button"
-                          aria-label={`Ver ocupação de ${event.title}`}
-                          aria-expanded={occupancyEventId === event.id}
-                          onClick={() => setOccupancyEventId(current => current === event.id ? null : event.id)}
+                          className="btn btn-secondary btn-sm"
+                          aria-label={`Ver lotes de ${event.title}`}
+                          aria-expanded={lotsEventId === event.id}
+                          onClick={() => setLotsEventId((current) => current === event.id ? null : event.id)}
                         >
-                          Ver ocupação
+                          <TicketIcon />
+                          Ver lotes
                         </button>
-                      )}
-                      <PublishEventAction
-                        event={event}
-                        token={token}
-                        onPublished={markPublished}
-                        onSessionExpired={logout}
-                      />
-                    </div>
-                  </article>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-      )}
+                        {isOrganizer && (
+                          <button
+                            id={`staff-trigger-${event.id}`}
+                            type="button"
+                            className="btn btn-ghost btn-sm"
+                            aria-label={`Gerenciar equipe de ${event.title}`}
+                            aria-expanded={staffEventId === event.id}
+                            onClick={() => setStaffEventId(current => current === event.id ? null : event.id)}
+                          >
+                            <UsersIcon />
+                            Gerenciar equipe
+                          </button>
+                        )}
+                        {isOrganizer && (
+                          <button
+                            id={`occupancy-trigger-${event.id}`}
+                            type="button"
+                            className="btn btn-ghost btn-sm"
+                            aria-label={`Ver ocupação de ${event.title}`}
+                            aria-expanded={occupancyEventId === event.id}
+                            onClick={() => setOccupancyEventId(current => current === event.id ? null : event.id)}
+                          >
+                            <ChartIcon />
+                            Ver ocupação
+                          </button>
+                        )}
+                        <PublishEventAction
+                          event={event}
+                          token={token}
+                          onPublished={markPublished}
+                          onSessionExpired={logout}
+                        />
+                      </div>
+                    </article>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        )}
 
       {lotsEvent && (
         <EventLotsPanel

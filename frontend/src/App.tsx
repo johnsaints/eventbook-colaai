@@ -3,6 +3,7 @@ import { BrowserRouter, Link, Route, Routes } from 'react-router'
 import symbolIcon from './assets/colaai-icon-128.png'
 import { apiUrl } from './api'
 import AppLayout from './components/AppLayout'
+import { CalendarIcon, PinIcon, QrCodeIcon, SearchIcon, ShieldCheckIcon, TicketIcon } from './components/Icons'
 import { formatDate, type EventSummary } from './events'
 import BuyerHistoryPage from './pages/BuyerHistoryPage'
 import CheckinPage from './pages/CheckinPage'
@@ -127,45 +128,75 @@ function CatalogPage() {
     <AppLayout>
       <main className="catalog">
         <section className="hero-banner" aria-label="Destaque ColaAí">
-          <div className="hero-content">
-            <span className="hero-pill">
-              <img src={symbolIcon} alt="" className="hero-pill-icon" />
-              Ingressos e acessos digitais
-            </span>
-            <h1>ColaAí nos melhores eventos</h1>
-            <p className="hero-subtitle">
-              Shows, festivais, teatro, futebol e encontros de tecnologia com reserva garantida e entrada ágil.
-            </p>
+          <div className="hero-grid">
+            <div className="hero-content">
+              <span className="hero-pill">
+                <img src={symbolIcon} alt="" className="hero-pill-icon" />
+                Ingressos e acessos digitais
+              </span>
+              <h1>ColaAí nos melhores eventos</h1>
+              <p className="hero-subtitle">
+                Shows, festivais, teatro, futebol e encontros de tecnologia com reserva garantida e entrada ágil.
+              </p>
 
-            <form className="search-bar" onSubmit={handleSearchSubmit} role="search" aria-label="Buscar eventos">
-              <input
-                type="search"
-                value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
-                placeholder="Buscar por show, festival, teatro, local…"
-                aria-label="Buscar por nome ou local do evento"
-              />
-              <button type="submit" className="btn btn-primary">Buscar</button>
-            </form>
+              <form className="search-bar" onSubmit={handleSearchSubmit} role="search" aria-label="Buscar eventos">
+                <div className="search-input-wrap">
+                  <SearchIcon className="search-icon" />
+                  <input
+                    type="search"
+                    value={searchInput}
+                    onChange={(e) => setSearchInput(e.target.value)}
+                    placeholder="Buscar por show, festival, teatro, local…"
+                    aria-label="Buscar por nome ou local do evento"
+                  />
+                </div>
+                <button type="submit" className="btn btn-primary">Buscar</button>
+              </form>
 
-            <div className="category-pills" role="group" aria-label="Filtrar por categoria">
-              {CATEGORIES.map((cat) => (
-                <button
-                  key={cat.id}
-                  type="button"
-                  className={activeCategory === cat.id ? 'chip chip-active' : 'chip'}
-                  onClick={() => selectCategory(cat)}
-                >
-                  {cat.label}
-                </button>
-              ))}
+              <div className="category-pills" role="group" aria-label="Filtrar por categoria">
+                {CATEGORIES.map((cat) => (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    className={activeCategory === cat.id ? 'chip chip-active' : 'chip'}
+                    onClick={() => selectCategory(cat)}
+                  >
+                    {cat.label}
+                  </button>
+                ))}
+              </div>
             </div>
+
+            <aside className="hero-showcase" aria-hidden="true">
+              <div className="showcase-pass">
+                <div className="showcase-pass-top">
+                  <img src={symbolIcon} alt="" className="showcase-logo" />
+                  <span className="showcase-tag">PASSE DIGITAL</span>
+                </div>
+                <p className="showcase-title">Seu ingresso em segundos</p>
+                <ul className="showcase-features">
+                  <li><TicketIcon /> Reserva segura por 15 minutos</li>
+                  <li><QrCodeIcon /> Código único por ingresso emitido</li>
+                  <li><ShieldCheckIcon /> Validação instantânea na portaria</li>
+                </ul>
+                <div className="showcase-wristband" />
+              </div>
+            </aside>
           </div>
         </section>
 
         <section className="events-section" aria-labelledby="events-title">
           <div className="section-header">
-            <h2 id="events-title" tabIndex={-1} ref={headingRef}>Eventos publicados</h2>
+            <div>
+              <h2 id="events-title" tabIndex={-1} ref={headingRef}>Eventos publicados</h2>
+              {catalog.status === 'ready' && (
+                <p className="section-subtitle">
+                  {catalog.meta.total === 1
+                    ? '1 evento disponível agora'
+                    : `${catalog.meta.total} eventos disponíveis para reserva`}
+                </p>
+              )}
+            </div>
             {activeQuery && (
               <button type="button" className="btn btn-ghost btn-sm" onClick={clearFilters}>
                 Limpar busca (“{activeQuery}”)
@@ -221,9 +252,12 @@ function CatalogPage() {
                             <p className="card-description">{event.description}</p>
 
                             <div className="card-meta-list">
-                              <p className="event-meta">📍 {event.location}</p>
-                              <p className="event-meta">
-                                🗓️{' '}
+                              <p className="event-meta meta-row">
+                                <PinIcon className="meta-icon" />
+                                <span>{event.location}</span>
+                              </p>
+                              <p className="event-meta meta-row">
+                                <CalendarIcon className="meta-icon" />
                                 <time dateTime={event.startsAt}>
                                   {formatDate.format(date)}
                                 </time>
@@ -231,7 +265,8 @@ function CatalogPage() {
                             </div>
 
                             <div className="card-footer">
-                              <Link to={`/events/${event.id}`} className="btn btn-secondary btn-sm">
+                              <Link to={`/events/${event.id}`} className="btn btn-secondary btn-sm btn-full">
+                                <TicketIcon />
                                 Ver ingressos
                               </Link>
                             </div>
