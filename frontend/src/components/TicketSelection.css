@@ -1,0 +1,90 @@
+.ticket-stepper {
+  display: inline-grid;
+  grid-template-columns: 2.75rem minmax(2rem, auto) 2.75rem;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.ticket-stepper button {
+  min-height: 2.75rem;
+  padding: 0;
+  border: 1px solid var(--ca-border-strong);
+  border-radius: 0.55rem;
+  background: rgba(0, 212, 255, 0.14);
+  color: var(--ca-cyan);
+  cursor: pointer;
+  font: inherit;
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.ticket-stepper button[aria-disabled="true"] {
+  border-color: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.05);
+  color: #6b81a3;
+  cursor: default;
+}
+
+.ticket-stepper button:focus-visible {
+  outline: 2px solid var(--ca-cyan);
+  outline-offset: 2px;
+}
+
+.ticket-stepper output {
+  text-align: center;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.catalog .ticket-selection-total {
+  margin-top: 1.25rem;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--ca-cyan);
+}
+
+.ticket-cart {
+  height: auto;
+  margin-top: 1.25rem;
+  border-color: var(--ca-border-strong);
+}
+
+.ticket-cart-items {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0 0 1rem;
+  padding: 0;
+  list-style: none;
+}
+
+.ticket-cart-items li {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.25rem 1rem;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.ticket-cart-action {
+  min-height: 2.75rem;
+  padding: 0.6rem 1.15rem;
+  border: none;
+  border-radius: 0.65rem;
+  background: var(--ca-gradient);
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.ticket-cart-action:disabled {
+  cursor: default;
+  opacity: 0.7;
+}
+
+.ticket-cart-action:focus-visible {
+  outline: 2px solid var(--ca-cyan);
+  outline-offset: 2px;
+}

@@ -1,157 +1,115 @@
-import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
-import type { ApiError } from '../services/api';
+import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { Link, useLocation, useNavigate } from 'react-router'
+import { login, registerUser, sessionTokenKey } from '../api'
+import AppLayout from '../components/AppLayout'
+import type { ReservationDraft } from '../orders'
 
-export const RegisterPage: React.FC = () => {
-  const navigate = useNavigate();
-  const { register } = useAuth();
+export default function RegisterPage() {
+  const navigate = useNavigate()
+  const { state } = useLocation()
+  const loginContext = state as { reservationDraft?: ReservationDraft; returnToHistory?: boolean } | null
+  const reservationDraft = loginContext?.reservationDraft
 
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState('')
+  const requestRef = useRef<AbortController | null>(null)
 
-  const [fieldErrors, setFieldErrors] = useState<{
-    name?: string;
-    email?: string;
-    password?: string;
-    confirmPassword?: string;
-  }>({});
-  const [apiError, setApiError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  useEffect(() => () => requestRef.current?.abort(), [])
 
-  // 1. Validação de campos
-  const validateForm = (): boolean => {
-    const errors: typeof fieldErrors = {};
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (requestRef.current) return
 
-    if (!name.trim() || name.trim().length < 3) {
-      errors.name = 'O nome deve ter pelo menos 3 caracteres.';
-    }
+    const form = new FormData(event.currentTarget)
+    const name = String(form.get('name') ?? '').trim()
+    const email = String(form.get('email') ?? '').trim()
+    const password = String(form.get('password') ?? '')
 
-    if (!email.trim()) {
-      errors.email = 'O e-mail é obrigatório.';
-    } else if (!emailRegex.test(email)) {
-      errors.email = 'Introduza um e-mail válido.';
-    }
+    const controller = new AbortController()
+    requestRef.current = controller
+    setSubmitting(true)
+    setError('')
 
-    if (!password) {
-      errors.password = 'A palavra-passe é obrigatória.';
-    } else if (password.length < 6) {
-      errors.password = 'A palavra-passe deve ter pelo menos 6 caracteres.';
-    }
-
-    if (confirmPassword !== password) {
-      errors.confirmPassword = 'As palavras-passe não coincidem.';
-    }
-
-    setFieldErrors(errors);
-    return Object.keys(errors).length === 0;
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setApiError(null);
-
-    if (!validateForm()) return;
-
-    setIsLoading(true);
     try {
-      await register({ name, email, password });
-      // 3. Redirecionamento após sucesso
-      navigate('/events');
+      await registerUser(name, email, password, controller.signal)
+      if (controller.signal.aborted) return
+
+      const session = await login(email, password, controller.signal)
+      if (controller.signal.aborted) return
+
+      if (session) {
+        sessionStorage.setItem(sessionTokenKey, session.token)
+        if (typeof reservationDraft?.eventId === 'string' && Array.isArray(reservationDraft.items)) {
+          void navigate('/events/' + encodeURIComponent(reservationDraft.eventId), {
+            replace: true,
+            state: { reservationDraft },
+          })
+          return
+        }
+        if (loginContext?.returnToHistory === true) {
+          void navigate('/meus-ingressos', { replace: true })
+          return
+        }
+        void navigate('/', { replace: true })
+        return
+      }
+
+      void navigate('/login', { replace: true, state })
     } catch (err) {
-      // 2. Exibição de erros vindos da API (ex: 409 e-mail já registado)
-      const error = err as ApiError;
-      setApiError(error.message || 'Erro ao criar conta.');
-      if (error.errors) {
-        setFieldErrors({
-          name: error.errors.name?.[0],
-          email: error.errors.email?.[0],
-          password: error.errors.password?.[0],
-        });
+      if (controller.signal.aborted) return
+      if (err instanceof TypeError) {
+        setError('Não foi possível conectar à API. Verifique sua conexão e tente novamente.')
+      } else {
+        setError(err instanceof Error ? err.message : 'Não foi possível criar a conta. Tente novamente.')
       }
     } finally {
-      setIsLoading(false);
+      requestRef.current = null
+      if (!controller.signal.aborted) setSubmitting(false)
     }
-  };
+  }
 
   return (
-    <div style={{ maxWidth: '400px', margin: '60px auto', padding: '24px', border: '1px solid #ddd', borderRadius: '8px' }}>
-      <h2>Criar Conta - EventBook</h2>
+    <AppLayout>
+      <main className="catalog auth-page">
+        <div className="auth-card">
+          <header className="auth-header">
+            <span className="eyebrow">Conta de comprador</span>
+            <h1>Criar conta no ColaAí</h1>
+            <p className="event-meta">Cadastre-se para reservar e gerenciar seus ingressos.</p>
+          </header>
 
-      {apiError && (
-        <div role="alert" style={{ backgroundColor: '#fee2e2', color: '#dc2626', padding: '12px', borderRadius: '4px', marginBottom: '16px' }}>
-          {apiError}
+          <form className="auth-form" onSubmit={handleSubmit}>
+            <label>
+              Nome completo
+              <input name="name" type="text" minLength={3} autoComplete="name" placeholder="Seu nome" required />
+            </label>
+            <label>
+              E-mail
+              <input name="email" type="email" autoComplete="email" placeholder="voce@exemplo.com" required />
+            </label>
+            <label>
+              Senha
+              <input
+                name="password"
+                type="password"
+                minLength={6}
+                autoComplete="new-password"
+                placeholder="Mínimo de 6 caracteres"
+                required
+              />
+            </label>
+            {error && <p className="form-alert" role="alert">{error}</p>}
+            <button type="submit" className="btn btn-primary" disabled={submitting}>
+              {submitting ? 'Criando conta…' : 'Criar conta'}
+            </button>
+          </form>
+
+          <p className="auth-switch">
+            Já tem uma conta?{' '}
+            <Link to="/login" state={state}>Entrar</Link>
+          </p>
         </div>
-      )}
-
-      <form onSubmit={handleSubmit} noValidate>
-        <div style={{ marginBottom: '16px' }}>
-          <label htmlFor="name" style={{ display: 'block', marginBottom: '4px' }}>Nome completo</label>
-          <input
-            id="name"
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="O seu nome"
-            style={{ width: '100%', padding: '8px', boxSizing: 'border-box' }}
-          />
-          {fieldErrors.name && <span style={{ color: '#dc2626', fontSize: '12px' }}>{fieldErrors.name}</span>}
-        </div>
-
-        <div style={{ marginBottom: '16px' }}>
-          <label htmlFor="email" style={{ display: 'block', marginBottom: '4px' }}>E-mail</label>
-          <input
-            id="email"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="seu@email.com"
-            style={{ width: '100%', padding: '8px', boxSizing: 'border-box' }}
-          />
-          {fieldErrors.email && <span style={{ color: '#dc2626', fontSize: '12px' }}>{fieldErrors.email}</span>}
-        </div>
-
-        <div style={{ marginBottom: '16px' }}>
-          <label htmlFor="password" style={{ display: 'block', marginBottom: '4px' }}>Palavra-passe</label>
-          <input
-            id="password"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="Mínimo 6 caracteres"
-            style={{ width: '100%', padding: '8px', boxSizing: 'border-box' }}
-          />
-          {fieldErrors.password && <span style={{ color: '#dc2626', fontSize: '12px' }}>{fieldErrors.password}</span>}
-        </div>
-
-        <div style={{ marginBottom: '16px' }}>
-          <label htmlFor="confirmPassword" style={{ display: 'block', marginBottom: '4px' }}>Confirmar Palavra-passe</label>
-          <input
-            id="confirmPassword"
-            type="password"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            placeholder="Repita a palavra-passe"
-            style={{ width: '100%', padding: '8px', boxSizing: 'border-box' }}
-          />
-          {fieldErrors.confirmPassword && <span style={{ color: '#dc2626', fontSize: '12px' }}>{fieldErrors.confirmPassword}</span>}
-        </div>
-
-        <button
-          type="submit"
-          disabled={isLoading}
-          style={{ width: '100%', padding: '10px', backgroundColor: '#16a34a', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
-        >
-          {isLoading ? 'A registar...' : 'Criar Conta'}
-        </button>
-      </form>
-
-      <p style={{ marginTop: '16px', fontSize: '14px', textAlign: 'center' }}>
-        Já possui uma conta? <Link to="/login">Inicie sessão</Link>
-      </p>
-    </div>
-  );
-};
+      </main>
+    </AppLayout>
+  )
+}

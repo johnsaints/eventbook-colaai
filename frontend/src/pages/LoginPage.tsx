@@ -1,122 +1,120 @@
-import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
-import type { ApiError } from '../services/api';
+import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { Link, useLocation, useNavigate } from 'react-router'
+import { canAccessPanel, login, sessionTokenKey, type AuthUser } from '../api'
+import AppLayout from '../components/AppLayout'
+import type { ReservationDraft } from '../orders'
 
-export const LoginPage: React.FC = () => {
-  const navigate = useNavigate();
-  const { login } = useAuth();
+export default function LoginPage() {
+  const navigate = useNavigate()
+  const { state } = useLocation()
+  const loginContext = state as { reservationDraft?: ReservationDraft; returnToHistory?: boolean } | null
+  const reservationDraft = loginContext?.reservationDraft
+  const [user, setUser] = useState<AuthUser | null>(null)
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState('')
+  const requestRef = useRef<AbortController | null>(null)
 
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string }>({});
-  const [apiError, setApiError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  useEffect(() => () => requestRef.current?.abort(), [])
 
-  // 1. Validação de campos no Frontend
-  const validateForm = (): boolean => {
-    const errors: { email?: string; password?: string } = {};
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (requestRef.current) return
 
-    if (!email.trim()) {
-      errors.email = 'O e-mail é obrigatório.';
-    } else if (!emailRegex.test(email)) {
-      errors.email = 'Introduza um e-mail válido.';
-    }
+    const form = new FormData(event.currentTarget)
+    const email = String(form.get('email') ?? '').trim()
+    const password = String(form.get('password') ?? '')
+    const controller = new AbortController()
+    requestRef.current = controller
+    setSubmitting(true)
+    setError('')
 
-    if (!password) {
-      errors.password = 'A palavra-passe é obrigatória.';
-    } else if (password.length < 6) {
-      errors.password = 'A palavra-passe deve ter pelo menos 6 caracteres.';
-    }
-
-    setFieldErrors(errors);
-    return Object.keys(errors).length === 0;
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setApiError(null);
-
-    if (!validateForm()) return;
-
-    setIsLoading(true);
     try {
-      const loggedUser = await login({ email, password });
+      const session = await login(email, password, controller.signal)
+      if (controller.signal.aborted) return
 
-      // 3. Redirecionamento após sucesso (de acordo com o perfil/Role)
-      if (loggedUser.role === 'ADMIN' || loggedUser.role === 'ORGANIZER') {
-        navigate('/dashboard');
-      } else if (loggedUser.role === 'STAFF') {
-        navigate('/checkin');
-      } else {
-        navigate('/events');
+      if (!session) {
+        setError('E-mail ou senha incorretos.')
+        return
       }
-    } catch (err) {
-      // 2. Exibição de erros vindos da API
-      const error = err as ApiError;
-      setApiError(error.message || 'Erro ao efetuar login.');
-      if (error.errors) {
-        setFieldErrors({
-          email: error.errors.email?.[0],
-          password: error.errors.password?.[0],
-        });
+
+      sessionStorage.setItem(sessionTokenKey, session.token)
+      if (typeof reservationDraft?.eventId === 'string' && Array.isArray(reservationDraft.items)) {
+        void navigate('/events/' + encodeURIComponent(reservationDraft.eventId), {
+          replace: true,
+          state: { reservationDraft },
+        })
+        return
+      }
+      if (loginContext?.returnToHistory === true && session.user.role === 'BUYER') {
+        void navigate('/meus-ingressos', { replace: true })
+        return
+      }
+      setUser(session.user)
+    } catch (error) {
+      if (controller.signal.aborted) return
+
+      if (error instanceof TypeError) {
+        setError('Não foi possível conectar à API. Verifique sua conexão e tente novamente.')
+      } else {
+        setError(error instanceof Error ? error.message : 'Não foi possível entrar. Tente novamente.')
       }
     } finally {
-      setIsLoading(false);
+      requestRef.current = null
+      if (!controller.signal.aborted) setSubmitting(false)
     }
-  };
+  }
+
+  function logout() {
+    sessionStorage.removeItem(sessionTokenKey)
+    setUser(null)
+  }
 
   return (
-    <div style={{ maxWidth: '400px', margin: '60px auto', padding: '24px', border: '1px solid #ddd', borderRadius: '8px' }}>
-      <h2>Entrar no EventBook</h2>
+    <AppLayout>
+      <main className="catalog auth-page">
+        <div className="auth-card">
+          <header className="auth-header">
+            <span className="eyebrow">Acesso</span>
+            <h1>Entrar no ColaAí</h1>
+            <p className="event-meta">Entre com sua conta de comprador, organizador ou staff.</p>
+          </header>
 
-      {/* Exibição do erro vindo da API */}
-      {apiError && (
-        <div role="alert" style={{ backgroundColor: '#fee2e2', color: '#dc2626', padding: '12px', borderRadius: '4px', marginBottom: '16px' }}>
-          {apiError}
+          {user ? (
+            <div className="auth-form">
+              <p className="form-status" role="status">Sessão iniciada como {user.name}.</p>
+              <p className="event-meta">Perfil: <span className="role-badge">{user.role}</span></p>
+              <div className="auth-actions">
+                {canAccessPanel(user.role) && <Link to="/painel" className="btn btn-primary">Abrir painel</Link>}
+                {user.role === 'BUYER' && <Link to="/meus-ingressos" className="btn btn-primary">Meus Ingressos</Link>}
+                {user.role === 'STAFF' && <Link to="/check-in" className="btn btn-primary">Abrir check-in</Link>}
+                <button type="button" className="btn btn-ghost" onClick={logout}>Sair</button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <form className="auth-form" onSubmit={handleSubmit}>
+                <label>
+                  E-mail
+                  <input name="email" type="email" autoComplete="username" placeholder="voce@exemplo.com" required />
+                </label>
+                <label>
+                  Senha
+                  <input name="password" type="password" autoComplete="current-password" placeholder="Sua senha" required />
+                </label>
+                {error && <p className="form-alert" role="alert">{error}</p>}
+                <button type="submit" className="btn btn-primary" disabled={submitting}>
+                  {submitting ? 'Entrando…' : 'Entrar'}
+                </button>
+              </form>
+
+              <p className="auth-switch">
+                Ainda não tem conta?{' '}
+                <Link to="/register" state={state}>Criar conta</Link>
+              </p>
+            </>
+          )}
         </div>
-      )}
-
-      <form onSubmit={handleSubmit} noValidate>
-        <div style={{ marginBottom: '16px' }}>
-          <label htmlFor="email" style={{ display: 'block', marginBottom: '4px' }}>E-mail</label>
-          <input
-            id="email"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="seu@email.com"
-            style={{ width: '100%', padding: '8px', boxSizing: 'border-box' }}
-          />
-          {fieldErrors.email && <span style={{ color: '#dc2626', fontSize: '12px' }}>{fieldErrors.email}</span>}
-        </div>
-
-        <div style={{ marginBottom: '16px' }}>
-          <label htmlFor="password" style={{ display: 'block', marginBottom: '4px' }}>Palavra-passe</label>
-          <input
-            id="password"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="••••••"
-            style={{ width: '100%', padding: '8px', boxSizing: 'border-box' }}
-          />
-          {fieldErrors.password && <span style={{ color: '#dc2626', fontSize: '12px' }}>{fieldErrors.password}</span>}
-        </div>
-
-        <button
-          type="submit"
-          disabled={isLoading}
-          style={{ width: '100%', padding: '10px', backgroundColor: '#2563eb', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
-        >
-          {isLoading ? 'A entrar...' : 'Entrar'}
-        </button>
-      </form>
-
-      <p style={{ marginTop: '16px', fontSize: '14px', textAlign: 'center' }}>
-        Ainda não tem conta? <Link to="/register">Registe-se aqui</Link>
-      </p>
-    </div>
-  );
-};
+      </main>
+    </AppLayout>
+  )
+}

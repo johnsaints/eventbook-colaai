@@ -1,0 +1,76 @@
+.occupancy-panel {
+  overflow-wrap: anywhere;
+  margin-top: 2rem;
+}
+
+.occupancy-actions {
+  margin-bottom: 1rem;
+}
+
+.occupancy-actions button {
+  font: inherit;
+  padding: 0.45rem 0.85rem;
+}
+
+.occupancy-actions button[aria-disabled='true'] {
+  opacity: 0.65;
+  cursor: wait;
+}
+
+.occupancy-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 9rem), 1fr));
+  gap: 0.75rem;
+  margin: 0 0 1.25rem;
+}
+
+.occupancy-summary .event-card {
+  padding: 0.95rem;
+}
+
+.occupancy-summary dt {
+  color: var(--ca-text-muted);
+  font-size: 0.85rem;
+}
+
+.occupancy-summary dd {
+  margin: 0.25rem 0 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--ca-cyan);
+  font-variant-numeric: tabular-nums;
+}
+
+.occupancy-lots {
+  display: grid;
+  gap: 1.25rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.occupancy-lot-title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.occupancy-lot-title strong:last-child {
+  flex-shrink: 0;
+  color: var(--ca-cyan);
+}
+
+.occupancy-bar {
+  height: 0.75rem;
+  margin: 0.45rem 0;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.occupancy-bar-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--ca-gradient);
+}

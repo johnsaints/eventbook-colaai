@@ -1,0 +1,37 @@
+.checkin-form select {
+  width: 100%;
+  min-width: 0;
+  padding: 0.68rem 0.85rem;
+  font: inherit;
+}
+
+.checkin-form :is(select, input, button):focus-visible {
+  outline: 2px solid var(--ca-cyan);
+  outline-offset: 2px;
+}
+
+.checkin-form :is(#checkin-hint, .checkin-event-details) {
+  margin-bottom: 0;
+}
+
+.checkin-feedback {
+  padding: 1rem;
+  border: 1px solid currentColor;
+  border-radius: 0.75rem;
+}
+
+.checkin-feedback p {
+  margin: 0.35rem 0 0;
+}
+
+.checkin-approved {
+  color: var(--ca-success-text);
+  background: var(--ca-success-bg);
+  border-color: var(--ca-success-border);
+}
+
+.checkin-rejected {
+  color: var(--ca-danger-text);
+  background: var(--ca-danger-bg);
+  border-color: var(--ca-danger-border);
+}

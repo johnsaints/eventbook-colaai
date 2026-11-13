@@ -1,0 +1,1885 @@
+openapi: 3.1.1
+info:
+  title: EventBook API
+  version: 1.0.0
+  description: API HTTP do EventBook para eventos, lotes, reservas, ingressos, check-in e ocupação.
+servers:
+  - url: http://localhost:3333
+    description: Backend local
+tags:
+  - name: Operação
+    description: Disponibilidade do processo da API.
+  - name: Autenticação
+    description: Cadastro, login e perfil da conta.
+  - name: Eventos
+    description: Vitrine, criação, edição e publicação de eventos.
+  - name: Lotes
+    description: Oferta, quantidade disponível e gestão de lotes.
+  - name: Pedidos
+    description: Reserva, checkout simulado, histórico e cancelamento.
+  - name: Equipe
+    description: Vínculos do staff e eventos atribuídos.
+  - name: Ingressos
+    description: Ingressos emitidos e validação na entrada.
+  - name: Ocupação
+    description: Vendas, entradas registradas e taxas por lote.
+security:
+  - bearerAuth: []
+paths:
+  /health:
+    get:
+      tags:
+        - Operação
+      operationId: getHealth
+      summary: Verificar disponibilidade da API
+      security: []
+      responses:
+        '200':
+          description: API disponível.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Health'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /register:
+    post:
+      tags:
+        - Autenticação
+      operationId: register
+      summary: Cadastrar uma conta de comprador
+      description: O cadastro público atribui o perfil BUYER. Compartilha com o login o limite de dez
+        requisições por IP em quinze minutos.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterInput'
+      responses:
+        '201':
+          description: Conta BUYER criada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+          headers:
+            RateLimit:
+              description: Cota restante e tempo até a renovação.
+              schema:
+                type: string
+            RateLimit-Policy:
+              description: Política de dez tentativas em quinze minutos.
+              schema:
+                type: string
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '409':
+          description: E-mail já cadastrado. Código `EMAIL_ALREADY_EXISTS`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /login:
+    post:
+      tags:
+        - Autenticação
+      operationId: login
+      summary: Iniciar sessão
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginInput'
+      responses:
+        '200':
+          description: Sessão iniciada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginSession'
+          headers:
+            RateLimit:
+              description: Cota restante e tempo até a renovação.
+              schema:
+                type: string
+            RateLimit-Policy:
+              description: Política de dez tentativas em quinze minutos.
+              schema:
+                type: string
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          description: E-mail ou senha incorretos. Código `INVALID_CREDENTIALS`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /me:
+    get:
+      tags:
+        - Autenticação
+      operationId: getProfile
+      summary: Consultar o perfil autenticado
+      responses:
+        '200':
+          description: Perfil atual.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Usuário não encontrado. Código `USER_NOT_FOUND`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /events:
+    get:
+      tags:
+        - Eventos
+      operationId: listPublishedEvents
+      summary: Listar eventos publicados
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+        - name: q
+          in: query
+          required: false
+          description: Termo opcional para filtrar eventos por título, local ou descrição.
+          schema:
+            type: string
+            maxLength: 100
+      responses:
+        '200':
+          description: Página de eventos publicados, ordenada pelo início.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventPage'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      tags:
+        - Eventos
+      operationId: createEvent
+      summary: Criar um evento em rascunho
+      description: Acesso para ORGANIZER ou ADMIN. A conta autenticada se torna a proprietária do evento.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EventCreateInput'
+      responses:
+        '201':
+          description: Evento criado em DRAFT.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Event'
+        '400':
+          description: Payload inválido ou término igual ou anterior ao início. Códigos `VALIDATION_ERROR`
+            e `INVALID_EVENT_DATES`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /events/mine:
+    get:
+      tags:
+        - Eventos
+      operationId: listMyEvents
+      summary: Listar os eventos da conta autenticada
+      description: Acesso para ORGANIZER ou ADMIN. A lista contém apenas eventos em que a conta é proprietária.
+      responses:
+        '200':
+          description: Eventos da conta, em ordem de início.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MyEvents'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /events/{id}:
+    get:
+      tags:
+        - Eventos
+      operationId: getEvent
+      summary: Consultar os detalhes de um evento
+      description: Visitantes veem eventos publicados com lotes ativos, dentro da janela de venda e com
+        estoque livre. O dono e ADMIN veem o evento e todos os lotes.
+      security:
+        - {}
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/EventId'
+      responses:
+        '200':
+          description: Evento com seu organizador e seus lotes.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventDetails'
+        '404':
+          $ref: '#/components/responses/EventNotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    patch:
+      tags:
+        - Eventos
+      operationId: updateEvent
+      summary: Editar os dados de um evento
+      description: Acesso para ORGANIZER dono ou ADMIN. Eventos já iniciados não podem ser editados.
+      parameters:
+        - $ref: '#/components/parameters/EventId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EventUpdateInput'
+      responses:
+        '200':
+          description: Evento atualizado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Event'
+        '400':
+          description: Dados inválidos ou datas incompatíveis. Códigos `VALIDATION_ERROR` e `INVALID_EVENT_DATES`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/EventNotFound'
+        '422':
+          description: Evento já iniciado, capacidade insuficiente ou término antes do fim das vendas.
+            Códigos `EVENT_IN_PAST`, `LOT_CAPACITY_EXCEEDED` e `INVALID_SALE_WINDOW`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /events/{id}/publish:
+    post:
+      tags:
+        - Eventos
+      operationId: publishEvent
+      summary: Publicar um evento
+      description: Acesso para ORGANIZER dono ou ADMIN. O evento precisa ser futuro e ter pelo menos um
+        lote.
+      parameters:
+        - $ref: '#/components/parameters/EventId'
+      responses:
+        '200':
+          description: Evento publicado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Event'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/EventNotFound'
+        '422':
+          description: Publicação recusada. Códigos `EVENT_IN_PAST` e `EVENT_WITHOUT_LOTS`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /events/{id}/lots:
+    get:
+      tags:
+        - Lotes
+      operationId: listEventLots
+      summary: Listar lotes do evento
+      description: Visitantes veem os lotes ativos de eventos publicados. O dono e ADMIN veem todos os
+        lotes. A consulta detalhada do evento aplica também janela de venda e estoque para visitantes.
+      security:
+        - {}
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/EventId'
+      responses:
+        '200':
+          description: Lotes do evento, ordenados pelo início das vendas.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Lot'
+        '404':
+          $ref: '#/components/responses/EventNotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      tags:
+        - Lotes
+      operationId: createEventLot
+      summary: Cadastrar lote de ingressos
+      description: Acesso para ORGANIZER dono ou ADMIN. O fim das vendas deve respeitar o término do evento
+        e a soma dos lotes deve caber na capacidade.
+      parameters:
+        - $ref: '#/components/parameters/EventId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LotCreateInput'
+      responses:
+        '201':
+          description: Lote cadastrado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Lot'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/EventNotFound'
+        '422':
+          description: Janela de venda ou capacidade incompatível. Códigos `INVALID_SALE_WINDOW` e `LOT_CAPACITY_EXCEEDED`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /events/{id}/lots/manage:
+    get:
+      tags:
+        - Lotes
+      operationId: listManagedLots
+      summary: Consultar lotes com estoque livre
+      description: Acesso para ORGANIZER dono ou ADMIN. O estoque livre é a quantidade cadastrada menos
+        vendas e reservas.
+      parameters:
+        - $ref: '#/components/parameters/EventId'
+      responses:
+        '200':
+          description: Todos os lotes e suas quantidades disponíveis.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ManagedLot'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/EventNotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /events/{id}/lots/{lotId}:
+    patch:
+      tags:
+        - Lotes
+      operationId: updateEventLot
+      summary: Editar um lote
+      description: Acesso para ORGANIZER dono ou ADMIN. A quantidade precisa cobrir as vendas e reservas
+        do lote.
+      parameters:
+        - $ref: '#/components/parameters/EventId'
+        - $ref: '#/components/parameters/LotId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LotUpdateInput'
+      responses:
+        '200':
+          description: Lote atualizado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Lot'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Evento ou lote ausente. Códigos `EVENT_NOT_FOUND` e `LOT_NOT_FOUND`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '422':
+          description: Janela, capacidade ou quantidade incompatível. Códigos `INVALID_SALE_WINDOW`, `LOT_CAPACITY_EXCEEDED`
+            e `LOT_QUANTITY_BELOW_COMMITTED`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /orders:
+    post:
+      tags:
+        - Pedidos
+      operationId: reserveTickets
+      summary: Reservar ingressos
+      description: Acesso para BUYER. Cada item referencia um lote do evento publicado. A reserva congela
+        o preço de cada lote.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReserveInput'
+      responses:
+        '201':
+          description: Pedido pendente e estoque reservado por 15 minutos.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Reservation'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Evento indisponível ou lote ausente. Códigos `EVENT_NOT_FOUND` e `LOT_NOT_FOUND`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '409':
+          description: Estoque insuficiente. Código `INSUFFICIENT_STOCK`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '422':
+          description: Lote inativo ou fora da janela de venda. Códigos `LOT_INACTIVE` e `LOT_OUT_OF_SALE_WINDOW`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /orders/me:
+    get:
+      tags:
+        - Pedidos
+      operationId: listMyOrders
+      summary: Consultar o histórico de pedidos
+      parameters:
+        - $ref: '#/components/parameters/HistoryPage'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Pedidos da conta BUYER, do mais recente ao mais antigo.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderPage'
+          headers:
+            Cache-Control:
+              description: A resposta contém dados privados.
+              schema:
+                type: string
+                const: no-store
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /orders/{id}:
+    get:
+      tags:
+        - Pedidos
+      operationId: getOrder
+      summary: Consultar um pedido
+      description: Acesso para BUYER dono. Uma reserva vencida é exibida como EXPIRED.
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+      responses:
+        '200':
+          description: Pedido e seus itens.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/OrderNotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /orders/{id}/cancel:
+    post:
+      tags:
+        - Pedidos
+      operationId: cancelOrder
+      summary: Cancelar um pedido
+      description: Acesso para BUYER dono. A reserva pendente deve estar válida. Pedidos pagos podem ser
+        cancelados até 12 horas antes do início do evento, inclusive.
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+      responses:
+        '200':
+          description: Pedido cancelado e estoque devolvido. Repetir um cancelamento confirmado devolve
+            o pedido já cancelado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/OrderNotFound'
+        '409':
+          description: Estado incompatível com cancelamento. Código `ORDER_NOT_PENDING`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '422':
+          description: Reserva vencida ou prazo de cancelamento encerrado. Códigos `ORDER_EXPIRED` e `CANCELLATION_WINDOW_CLOSED`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /orders/{id}/checkout:
+    post:
+      tags:
+        - Pedidos
+      operationId: checkoutOrder
+      summary: Pagar um pedido com o checkout simulado
+      description: Acesso para BUYER dono de um pedido pendente e dentro do prazo. O checkout converte
+        reservas em vendas e emite os ingressos na mesma transação.
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+      responses:
+        '200':
+          description: Pagamento confirmado e ingressos emitidos.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Checkout'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/OrderNotFound'
+        '409':
+          description: Pedido pago ou estado incompatível. Códigos `ORDER_ALREADY_PAID` e `ORDER_NOT_PENDING`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '422':
+          description: Reserva vencida ou pagamento recusado. Códigos `ORDER_EXPIRED` e `PAYMENT_DECLINED`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /staff/events:
+    get:
+      tags:
+        - Equipe
+      operationId: listAssignedEvents
+      summary: Listar eventos atribuídos ao staff
+      responses:
+        '200':
+          description: Eventos atribuídos à conta STAFF, ordenados pelo início.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/EventReference'
+          headers:
+            Cache-Control:
+              description: A resposta contém dados privados.
+              schema:
+                type: string
+                const: no-store
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /events/{id}/staff:
+    get:
+      tags:
+        - Equipe
+      operationId: listEventStaff
+      summary: Consultar equipe de um evento
+      description: Acesso para ORGANIZER dono.
+      parameters:
+        - $ref: '#/components/parameters/EventId'
+      responses:
+        '200':
+          description: Equipe vinculada.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/StaffAssignment'
+          headers:
+            Cache-Control:
+              description: A resposta contém dados privados.
+              schema:
+                type: string
+                const: no-store
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/EventNotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      tags:
+        - Equipe
+      operationId: addEventStaff
+      summary: Vincular uma conta STAFF a um evento
+      description: Acesso para ORGANIZER dono. Use o e-mail de uma conta STAFF.
+      parameters:
+        - $ref: '#/components/parameters/EventId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddStaffInput'
+      responses:
+        '201':
+          description: Vínculo criado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StaffAssignment'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Evento ou conta STAFF ausente. Códigos `EVENT_NOT_FOUND` e `STAFF_NOT_FOUND`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '409':
+          description: Conta já vinculada. Código `STAFF_ALREADY_ASSIGNED`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /events/{id}/staff/{userId}:
+    delete:
+      tags:
+        - Equipe
+      operationId: removeEventStaff
+      summary: Remover o vínculo de staff
+      description: Acesso para ORGANIZER dono.
+      parameters:
+        - $ref: '#/components/parameters/EventId'
+        - $ref: '#/components/parameters/StaffUserId'
+      responses:
+        '204':
+          description: Vínculo removido ou já ausente.
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/EventNotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /tickets/me:
+    get:
+      tags:
+        - Ingressos
+      operationId: listMyTickets
+      summary: Listar os ingressos do comprador
+      parameters:
+        - $ref: '#/components/parameters/HistoryPage'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Ingressos da conta BUYER, do mais recente ao mais antigo.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TicketPage'
+          headers:
+            Cache-Control:
+              description: A resposta contém dados privados.
+              schema:
+                type: string
+                const: no-store
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /tickets/{code}/checkin:
+    post:
+      tags:
+        - Ingressos
+      operationId: checkInTicket
+      summary: Validar um ingresso na entrada
+      description: Acesso para STAFF vinculado ao evento. A janela começa duas horas antes do início e
+        termina no fim do evento. As duas bordas estão incluídas.
+      parameters:
+        - $ref: '#/components/parameters/TicketCode'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CheckInInput'
+      responses:
+        '201':
+          description: Entrada registrada e ingresso marcado como USED.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CheckIn'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Evento ou ingresso ausente. Códigos `EVENT_NOT_FOUND` e `TICKET_NOT_FOUND`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '409':
+          description: Ingresso já utilizado. Código `TICKET_ALREADY_USED`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '422':
+          description: Ingresso de outro evento, cancelado ou check-in fora do horário. Códigos `TICKET_WRONG_EVENT`,
+            `TICKET_INVALID` e `CHECKIN_WINDOW_CLOSED`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /events/{id}/occupancy:
+    get:
+      tags:
+        - Ocupação
+      operationId: getEventOccupancy
+      summary: Consultar ocupação de um evento
+      description: Acesso para ORGANIZER dono. A taxa de ocupação usa check-ins registrados e estoque
+        cadastrado, incluindo lotes inativos.
+      parameters:
+        - $ref: '#/components/parameters/EventId'
+      responses:
+        '200':
+          description: Totais e ocupação por lote. Em um evento sem lotes, os totais são zero.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Occupancy'
+          headers:
+            Cache-Control:
+              description: A resposta contém dados privados.
+              schema:
+                type: string
+                const: no-store
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/EventNotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    EventId:
+      name: id
+      in: path
+      required: true
+      description: ID do evento.
+      schema:
+        type: string
+        format: uuid
+    LotId:
+      name: lotId
+      in: path
+      required: true
+      description: ID do lote.
+      schema:
+        type: string
+        format: uuid
+    OrderId:
+      name: id
+      in: path
+      required: true
+      description: ID do pedido.
+      schema:
+        type: string
+        format: uuid
+    StaffUserId:
+      name: userId
+      in: path
+      required: true
+      description: ID da conta STAFF vinculada.
+      schema:
+        type: string
+        format: uuid
+    TicketCode:
+      name: code
+      in: path
+      required: true
+      description: Código exibido em Meus Ingressos.
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 191
+    Page:
+      name: page
+      in: query
+      description: Página, começando em 1.
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    HistoryPage:
+      name: page
+      in: query
+      description: Página, começando em 1.
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 2147483647
+        default: 1
+    Limit:
+      name: limit
+      in: query
+      description: Itens por página.
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 50
+        default: 10
+  responses:
+    InvalidRequest:
+      description: Dados ou parâmetros inválidos. Código `VALIDATION_ERROR`.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Unauthorized:
+      description: Token ausente, inválido ou expirado. Código `UNAUTHORIZED`.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Forbidden:
+      description: Perfil ou vínculo insuficiente. Código `FORBIDDEN`.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    InternalError:
+      description: Erro interno. Código `INTERNAL_SERVER_ERROR`.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    EventNotFound:
+      description: Evento ausente ou inacessível. Código `EVENT_NOT_FOUND`.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    OrderNotFound:
+      description: Pedido ausente ou pertencente a outra conta. Código `ORDER_NOT_FOUND`.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    TooManyRequests:
+      description: Limite compartilhado de autenticação excedido. Código `RATE_LIMIT_EXCEEDED`.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+      headers:
+        RateLimit:
+          description: Cota restante e tempo até a renovação.
+          schema:
+            type: string
+        RateLimit-Policy:
+          description: Política de dez tentativas em quinze minutos.
+          schema:
+            type: string
+        Retry-After:
+          description: Segundos até liberar uma nova tentativa.
+          schema:
+            type: integer
+            minimum: 1
+  schemas:
+    ApiError:
+      type: object
+      required:
+        - code
+        - message
+        - details
+      properties:
+        code:
+          type: string
+          example: EVENT_NOT_FOUND
+        message:
+          type: string
+          example: Evento não encontrado.
+        details:
+          description: Detalhes da falha, como erros por campo. Pode ser nulo.
+    Health:
+      type: object
+      required:
+        - status
+        - timestamp
+      properties:
+        status:
+          type: string
+          const: ok
+        timestamp:
+          type: string
+          format: date-time
+    Role:
+      type: string
+      enum:
+        - BUYER
+        - ORGANIZER
+        - STAFF
+        - ADMIN
+    User:
+      type: object
+      required:
+        - id
+        - name
+        - email
+        - role
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        role:
+          $ref: '#/components/schemas/Role'
+    UserProfile:
+      allOf:
+        - $ref: '#/components/schemas/User'
+        - type: object
+          required:
+            - createdAt
+          properties:
+            createdAt:
+              type: string
+              format: date-time
+    RegisterInput:
+      type: object
+      required:
+        - name
+        - email
+        - password
+      properties:
+        name:
+          type: string
+          minLength: 2
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 6
+          format: password
+          writeOnly: true
+    LoginInput:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 1
+          format: password
+          writeOnly: true
+    LoginSession:
+      type: object
+      required:
+        - token
+        - user
+      properties:
+        token:
+          type: string
+          description: JWT Bearer com validade de um dia.
+        user:
+          $ref: '#/components/schemas/User'
+    Pagination:
+      type: object
+      required:
+        - page
+        - limit
+        - total
+        - totalPages
+      properties:
+        page:
+          type: integer
+          minimum: 1
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 50
+        total:
+          type: integer
+          minimum: 0
+        totalPages:
+          type: integer
+          minimum: 0
+    EventStatus:
+      type: string
+      enum:
+        - DRAFT
+        - PUBLISHED
+        - CANCELLED
+    EventReference:
+      type: object
+      required:
+        - id
+        - title
+        - location
+        - startsAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        location:
+          type: string
+        startsAt:
+          type: string
+          format: date-time
+    ManagedEventSummary:
+      allOf:
+        - $ref: '#/components/schemas/EventReference'
+        - type: object
+          required:
+            - status
+          properties:
+            status:
+              $ref: '#/components/schemas/EventStatus'
+    EventCreateInput:
+      type: object
+      required:
+        - title
+        - description
+        - location
+        - startsAt
+        - endsAt
+        - capacity
+      properties:
+        title:
+          type: string
+          minLength: 3
+        description:
+          type: string
+          minLength: 10
+        location:
+          type: string
+          minLength: 3
+        startsAt:
+          type: string
+          format: date-time
+        endsAt:
+          type: string
+          format: date-time
+        capacity:
+          type: integer
+          minimum: 1
+      description: O término deve ser posterior ao início.
+    EventUpdateInput:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 3
+        description:
+          type: string
+          minLength: 10
+        location:
+          type: string
+          minLength: 3
+        startsAt:
+          type: string
+          format: date-time
+        endsAt:
+          type: string
+          format: date-time
+        capacity:
+          type: integer
+          minimum: 1
+      description: Informe os campos a alterar. O término resultante deve ser posterior ao início.
+    Event:
+      type: object
+      required:
+        - id
+        - title
+        - description
+        - location
+        - startsAt
+        - endsAt
+        - capacity
+        - organizerId
+        - status
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+          minLength: 3
+        description:
+          type: string
+          minLength: 10
+        location:
+          type: string
+          minLength: 3
+        startsAt:
+          type: string
+          format: date-time
+        endsAt:
+          type: string
+          format: date-time
+        capacity:
+          type: integer
+          minimum: 1
+        organizerId:
+          type: string
+          format: uuid
+        status:
+          $ref: '#/components/schemas/EventStatus'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    PublicEvent:
+      allOf:
+        - $ref: '#/components/schemas/Event'
+        - type: object
+          required:
+            - organizer
+          properties:
+            organizer:
+              type: object
+              required:
+                - id
+                - name
+              properties:
+                id:
+                  type: string
+                  format: uuid
+                name:
+                  type: string
+    EventDetails:
+      allOf:
+        - $ref: '#/components/schemas/PublicEvent'
+        - type: object
+          required:
+            - lots
+          properties:
+            lots:
+              type: array
+              items:
+                $ref: '#/components/schemas/EventDetailLot'
+    EventPage:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/PublicEvent'
+        meta:
+          $ref: '#/components/schemas/Pagination'
+    MyEvents:
+      type: object
+      required:
+        - data
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/ManagedEventSummary'
+    LotCreateInput:
+      type: object
+      required:
+        - name
+        - price
+        - quantity
+        - salesStartAt
+        - salesEndAt
+      properties:
+        name:
+          type: string
+          minLength: 3
+          maxLength: 191
+        price:
+          description: Valor em reais com até duas casas decimais.
+          oneOf:
+            - type: number
+              minimum: 0
+              maximum: 99999999.99
+              multipleOf: 0.01
+            - type: string
+              minLength: 1
+              example: '25.00'
+        quantity:
+          oneOf:
+            - type: integer
+              minimum: 1
+              maximum: 2147483647
+            - type: string
+              minLength: 1
+              example: '20'
+        salesStartAt:
+          type: string
+          format: date-time
+          pattern: Z$
+        salesEndAt:
+          type: string
+          format: date-time
+          pattern: Z$
+        active:
+          type: boolean
+          default: true
+      description: Informe o horário de venda em UTC com sufixo Z. O término deve ser posterior ao início.
+    LotUpdateInput:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 3
+          maxLength: 191
+        price:
+          description: Valor em reais com até duas casas decimais.
+          oneOf:
+            - type: number
+              minimum: 0
+              maximum: 99999999.99
+              multipleOf: 0.01
+            - type: string
+              minLength: 1
+              example: '25.00'
+        quantity:
+          oneOf:
+            - type: integer
+              minimum: 1
+              maximum: 2147483647
+            - type: string
+              minLength: 1
+              example: '20'
+        salesStartAt:
+          type: string
+          format: date-time
+          pattern: Z$
+        salesEndAt:
+          type: string
+          format: date-time
+          pattern: Z$
+        active:
+          type: boolean
+    Lot:
+      type: object
+      required:
+        - id
+        - eventId
+        - name
+        - price
+        - quantity
+        - salesStartAt
+        - salesEndAt
+        - active
+        - createdAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        eventId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        price:
+          type: string
+          pattern: ^[0-9]+(\.[0-9]{1,2})?$
+          example: '25'
+        quantity:
+          type: integer
+          minimum: 1
+        salesStartAt:
+          type: string
+          format: date-time
+        salesEndAt:
+          type: string
+          format: date-time
+        active:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+    ManagedLot:
+      allOf:
+        - $ref: '#/components/schemas/Lot'
+        - type: object
+          required:
+            - availableQuantity
+          properties:
+            availableQuantity:
+              type: integer
+              minimum: 0
+    EventDetailLot:
+      type: object
+      required:
+        - id
+        - eventId
+        - name
+        - price
+        - totalQuantity
+        - soldQuantity
+        - reservedQty
+        - salesStartsAt
+        - salesEndsAt
+        - active
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        eventId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        price:
+          type: string
+          pattern: ^[0-9]+(\.[0-9]{1,2})?$
+          example: '25'
+        totalQuantity:
+          type: integer
+          minimum: 1
+        soldQuantity:
+          type: integer
+          minimum: 0
+        reservedQty:
+          type: integer
+          minimum: 0
+        salesStartsAt:
+          type: string
+          format: date-time
+        salesEndsAt:
+          type: string
+          format: date-time
+        active:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    OrderStatus:
+      type: string
+      enum:
+        - PENDING
+        - PAID
+        - CANCELLED
+        - EXPIRED
+    ReserveInput:
+      type: object
+      required:
+        - eventId
+        - items
+      properties:
+        eventId:
+          type: string
+          format: uuid
+        items:
+          type: array
+          items:
+            type: object
+            required:
+              - lotId
+              - quantity
+            properties:
+              lotId:
+                type: string
+                format: uuid
+              quantity:
+                type: integer
+                minimum: 1
+                maximum: 2147483647
+            additionalProperties: false
+          minItems: 1
+          description: Informe cada lote apenas uma vez.
+      additionalProperties: false
+    OrderItem:
+      type: object
+      required:
+        - lotId
+        - quantity
+        - unitPriceSnapshot
+      properties:
+        lotId:
+          type: string
+          format: uuid
+        quantity:
+          type: integer
+          minimum: 1
+          maximum: 2147483647
+        unitPriceSnapshot:
+          type: string
+          pattern: ^[0-9]+\.[0-9]{2}$
+          example: '50.00'
+    Reservation:
+      type: object
+      required:
+        - id
+        - eventId
+        - status
+        - totalAmount
+        - createdAt
+        - expiresAt
+        - items
+      properties:
+        id:
+          type: string
+          format: uuid
+        eventId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          const: PENDING
+        totalAmount:
+          type: string
+          pattern: ^[0-9]+\.[0-9]{2}$
+          example: '50.00'
+        createdAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderItem'
+    Order:
+      type: object
+      required:
+        - id
+        - eventId
+        - status
+        - totalAmount
+        - createdAt
+        - expiresAt
+        - cancelledAt
+        - items
+      properties:
+        id:
+          type: string
+          format: uuid
+        eventId:
+          type: string
+          format: uuid
+        status:
+          $ref: '#/components/schemas/OrderStatus'
+        totalAmount:
+          type: string
+          pattern: ^[0-9]+\.[0-9]{2}$
+          example: '50.00'
+        createdAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+        cancelledAt:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderItem'
+    OrderHistoryItem:
+      type: object
+      required:
+        - id
+        - eventId
+        - status
+        - totalAmount
+        - createdAt
+        - expiresAt
+        - paidAt
+        - cancelledAt
+        - event
+      properties:
+        id:
+          type: string
+          format: uuid
+        eventId:
+          type: string
+          format: uuid
+        status:
+          $ref: '#/components/schemas/OrderStatus'
+        totalAmount:
+          type: string
+          pattern: ^[0-9]+\.[0-9]{2}$
+          example: '50.00'
+        createdAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+        paidAt:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        cancelledAt:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        event:
+          $ref: '#/components/schemas/EventReference'
+    OrderPage:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderHistoryItem'
+        meta:
+          $ref: '#/components/schemas/Pagination'
+    Checkout:
+      type: object
+      required:
+        - id
+        - eventId
+        - status
+        - paidAt
+        - totalAmount
+        - ticketCount
+      properties:
+        id:
+          type: string
+          format: uuid
+        eventId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          const: PAID
+        paidAt:
+          type: string
+          format: date-time
+        totalAmount:
+          type: string
+          pattern: ^[0-9]+\.[0-9]{2}$
+          example: '50.00'
+        ticketCount:
+          type: integer
+          minimum: 1
+    Ticket:
+      type: object
+      required:
+        - id
+        - code
+        - orderId
+        - status
+        - usedAt
+        - createdAt
+        - event
+        - lot
+      properties:
+        id:
+          type: string
+          format: uuid
+        code:
+          type: string
+          description: Código opaco do ingresso. Use o valor completo no check-in.
+        orderId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum:
+            - VALID
+            - USED
+            - CANCELLED
+        usedAt:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        event:
+          $ref: '#/components/schemas/EventReference'
+        lot:
+          type: object
+          required:
+            - id
+            - name
+          properties:
+            id:
+              type: string
+              format: uuid
+            name:
+              type: string
+    TicketPage:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Ticket'
+        meta:
+          $ref: '#/components/schemas/Pagination'
+    StaffAssignment:
+      type: object
+      required:
+        - userId
+        - name
+        - email
+        - createdAt
+      properties:
+        userId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        createdAt:
+          type: string
+          format: date-time
+    AddStaffInput:
+      type: object
+      required:
+        - email
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 191
+      additionalProperties: false
+    CheckInInput:
+      type: object
+      required:
+        - eventId
+      properties:
+        eventId:
+          type: string
+          format: uuid
+      additionalProperties: false
+    CheckIn:
+      type: object
+      required:
+        - id
+        - ticketId
+        - eventId
+        - checkedInAt
+        - status
+      properties:
+        id:
+          type: string
+          format: uuid
+        ticketId:
+          type: string
+          format: uuid
+        eventId:
+          type: string
+          format: uuid
+        checkedInAt:
+          type: string
+          format: date-time
+        status:
+          type: string
+          const: USED
+    OccupancyMetrics:
+      type: object
+      required:
+        - totalTickets
+        - soldTickets
+        - checkIns
+        - occupancyPercentage
+      properties:
+        totalTickets:
+          type: integer
+          minimum: 0
+        soldTickets:
+          type: integer
+          minimum: 0
+        checkIns:
+          type: integer
+          minimum: 0
+        occupancyPercentage:
+          type: number
+          minimum: 0
+          multipleOf: 0.01
+          description: Check-ins divididos pelo estoque cadastrado, em percentual. Retorna zero se o estoque
+            for zero.
+    OccupancyLot:
+      allOf:
+        - $ref: '#/components/schemas/OccupancyMetrics'
+        - type: object
+          required:
+            - id
+            - name
+          properties:
+            id:
+              type: string
+              format: uuid
+            name:
+              type: string
+    Occupancy:
+      type: object
+      required:
+        - eventId
+        - totals
+        - lots
+      properties:
+        eventId:
+          type: string
+          format: uuid
+        totals:
+          $ref: '#/components/schemas/OccupancyMetrics'
+        lots:
+          type: array
+          items:
+            $ref: '#/components/schemas/OccupancyLot'

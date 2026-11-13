@@ -1,0 +1,95 @@
+name: EventBook CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: eventbook-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Build, testes e imagens
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      DATABASE_URL: mysql://root:eventbook_ci_only@localhost:3306/eventbook_test
+      E2E_DATABASE_URL: mysql://root:eventbook_ci_only@127.0.0.1:3306/eventbook_e2e
+      JWT_SECRET: eventbook-ci-test-only
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: eventbook_ci_only
+          MYSQL_ROOT_HOST: '%'
+          MYSQL_DATABASE: eventbook_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 --silent"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
+            e2e/package-lock.json
+
+      - name: Instalar dependências
+        run: |
+          npm ci --prefix backend
+          npm ci --prefix frontend
+          npm ci --prefix e2e
+
+      - name: Preparar bancos de teste e cliente Prisma
+        working-directory: backend
+        run: |
+          docker exec -e MYSQL_PWD=eventbook_ci_only "${{ job.services.mysql.id }}" mysql -u root -e 'CREATE DATABASE IF NOT EXISTS eventbook_e2e;'
+          npx prisma generate
+          npx prisma migrate deploy
+
+      - name: Compilar API e frontend e verificar lint
+        run: |
+          npm --prefix backend run build
+          npm --prefix backend run lint
+          npm --prefix frontend run build
+          npm --prefix frontend run lint -- src
+
+      - name: Testes unitários e de integração
+        working-directory: backend
+        run: npm test
+
+      - name: Instalar Chromium
+        working-directory: e2e
+        run: npx playwright install --with-deps chromium
+
+      - name: Teste de ponta a ponta
+        working-directory: e2e
+        run: npm test -- --trace on
+
+      - name: Verificar Compose e construir imagens
+        run: |
+          docker compose config --quiet
+          docker compose build backend frontend
+
+      - name: Guardar trace e resultados
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: eventbook-e2e
+          path: e2e/test-results/
+          retention-days: 7
+          if-no-files-found: ignore

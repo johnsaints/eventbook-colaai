@@ -1,0 +1,54 @@
+services:
+  mysql:
+    image: mysql:8.0
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_ROOT_HOST: '%'
+      MYSQL_DATABASE: eventbook
+    ports:
+      - "127.0.0.1:${EVENTBOOK_MYSQL_PORT:-3306}:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./docker/mysql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "MYSQL_PWD=$$MYSQL_ROOT_PASSWORD mysql --protocol=TCP -h 127.0.0.1 -u root -N -e 'SELECT 1'"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+      start_period: 20s
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3333
+      DATABASE_URL: mysql://root:rootpassword@mysql:3306/eventbook
+      JWT_SECRET: ${EVENTBOOK_JWT_SECRET:-eventbook-compose-local-only}
+      CORS_ORIGINS: "http://localhost:${EVENTBOOK_WEB_PORT:-5173},http://127.0.0.1:${EVENTBOOK_WEB_PORT:-5173}"
+    depends_on:
+      mysql:
+        condition: service_healthy
+        restart: true
+    ports:
+      - "127.0.0.1:${EVENTBOOK_API_PORT:-3333}:3333"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3333/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+  frontend:
+    build: ./frontend
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+        restart: true
+    ports:
+      - "127.0.0.1:${EVENTBOOK_WEB_PORT:-5173}:80"
+
+volumes:
+  mysql_data:

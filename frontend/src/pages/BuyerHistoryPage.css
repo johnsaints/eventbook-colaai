@@ -1,0 +1,62 @@
+.history-section + .history-section {
+  margin-top: 2.5rem;
+}
+
+.history-code {
+  display: inline-block;
+  max-width: 100%;
+  color: var(--ca-cyan);
+  background: rgba(0, 212, 255, 0.12);
+  border: 1px solid rgba(0, 212, 255, 0.3);
+  padding: 0.2rem 0.5rem;
+  border-radius: 0.4rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.history-nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+  margin-top: 1.25rem;
+}
+
+.history-action {
+  min-height: 2.5rem;
+  padding: 0.5rem 0.9rem;
+  border: 1px solid var(--ca-border-strong);
+  border-radius: 0.55rem;
+  background: rgba(0, 212, 255, 0.12);
+  color: var(--ca-cyan);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.history-action[aria-disabled="true"] {
+  border-color: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.05);
+  color: #6b81a3;
+  cursor: default;
+}
+
+.history-action:focus-visible {
+  outline: 2px solid var(--ca-cyan);
+  outline-offset: 2px;
+}
+
+.history-cancel {
+  margin-top: 1rem;
+}
+
+.history-cancel .event-meta {
+  margin-top: 0.5rem;
+}
+
+.history-confirm-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
