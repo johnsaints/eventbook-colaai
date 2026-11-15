@@ -1,14 +1,27 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link } from 'react-router'
-import symbolIcon from '../assets/colaai-icon-128.png'
+import ribbonSymbol from '../assets/colaai-simbolo-matriz.png'
+import logoWordmark from '../assets/ColaAi_wordmark_aprovado_transparente.webp'
 import { sessionTokenKey } from '../api'
 import AppLayout from '../components/AppLayout'
 import CancelOrderAction from '../components/CancelOrderAction'
-import { ArrowLeftIcon, CalendarIcon, PinIcon, QrCodeIcon, TicketIcon } from '../components/Icons'
+import { ArrowLeftIcon, CalendarIcon, ClockIcon, PinIcon, TicketIcon } from '../components/Icons'
+import TicketQrCode from '../components/TicketQrCode'
 import { formatDate } from '../events'
 import { cancelMyOrder, listMyOrders, listMyTickets, type CancelOrderResult, type HistoryAccess, type HistoryOrder, type HistoryPage, type HistoryResult, type HistoryTicket } from '../history'
 import { formatPrice, priceInCents } from '../orders'
 import './BuyerHistoryPage.css'
+
+const formatTicketDate = new Intl.DateTimeFormat('pt-BR', {
+  day: '2-digit',
+  month: '2-digit',
+  year: 'numeric',
+})
+
+const formatTicketTime = new Intl.DateTimeFormat('pt-BR', {
+  hour: '2-digit',
+  minute: '2-digit',
+})
 
 const ticketStatuses: Record<HistoryTicket['status'], string> = {
   VALID: 'Válido',
@@ -17,9 +30,9 @@ const ticketStatuses: Record<HistoryTicket['status'], string> = {
 }
 
 const ticketStatusClass: Record<HistoryTicket['status'], string> = {
-  VALID: 'status-pill status-valid',
-  USED: 'status-pill status-used',
-  CANCELLED: 'status-pill status-cancelled',
+  VALID: 'ticket-badge ticket-badge-valid',
+  USED: 'ticket-badge ticket-badge-used',
+  CANCELLED: 'ticket-badge ticket-badge-cancelled',
 }
 
 const orderStatuses: Record<HistoryOrder['status'], string> = {
@@ -34,44 +47,63 @@ function dateLabel(iso: string) {
 }
 
 function renderTicket(ticket: HistoryTicket) {
+  const startsAt = new Date(ticket.event.startsAt)
+
   return (
     <div className="colaai-ticket">
       <div className="colaai-ticket-brand">
-        <img src={symbolIcon} alt="" className="colaai-ticket-symbol" />
-        <span className="colaai-ticket-label">INGRESSO</span>
-      </div>
+        <svg
+          className="colaai-ticket-crowd"
+          viewBox="0 0 400 90"
+          preserveAspectRatio="none"
+          aria-hidden="true"
+        >
+          <path
+            d="M0 90V66c7-1 10-12 13-22l4 20c5-1 11 4 14 10 4-9 7-22 10-33l5 22c4-5 11-2 15 4 5-12 8-28 11-39l6 27c4-4 10-1 14 5 5-8 8-18 11-26l4 21c6-3 12 2 16 9 4-11 7-24 9-34l5 25c5-4 12-1 17 6 4-9 8-20 11-29l4 23c6-2 12 4 16 11 5-13 9-29 12-40l5 28c6-3 12 1 16 8 4-9 7-21 10-30l5 24c5-2 11 3 15 9 4-11 8-23 11-33l4 25c6-3 13 2 17 8 4-9 7-20 9-29l6 22c6-3 12 2 16 10 5-12 8-26 11-36l5 26c6-2 12 3 16 10 4-9 7-19 10-27l5 21c6-2 13 3 17 9 4-11 8-24 10-32l6 23c5-2 10 2 14 8V90H0Z"
+            fill="currentColor"
+          />
+        </svg>
 
-      <div className="colaai-ticket-main">
-        <div className="colaai-ticket-head">
-          <h3>{ticket.event.title}</h3>
-          <span className={ticketStatusClass[ticket.status]}>
-            <strong>{ticketStatuses[ticket.status]}</strong>
-          </span>
-        </div>
-
-        <p className="colaai-ticket-lot">
-          <TicketIcon className="meta-icon" />
-          <span>{ticket.lot.name}</span>
-        </p>
-
-        <div className="card-meta-list">
-          <p className="event-meta meta-row">
-            <PinIcon className="meta-icon" />
-            <span>{ticket.event.location}</span>
-          </p>
-          <p className="event-meta meta-row">
-            <CalendarIcon className="meta-icon" />
-            <span>{dateLabel(ticket.event.startsAt)}</span>
-          </p>
+        <div className="colaai-ticket-brand-stack">
+          <img src={ribbonSymbol} alt="" className="colaai-ticket-symbol" />
+          <img src={logoWordmark} alt="ColaAí" className="colaai-ticket-wordmark" />
+          <span className="colaai-ticket-label">INGRESSO</span>
         </div>
       </div>
 
-      <div className="colaai-ticket-stub">
-        <div className="stub-icon-row">
-          <QrCodeIcon />
-          <span>Código do ingresso</span>
+      <div className="colaai-ticket-sheet">
+        <div className="colaai-ticket-main">
+          <div className="colaai-ticket-head">
+            <h3>{ticket.event.title}</h3>
+            <span className={ticketStatusClass[ticket.status]}>
+              <strong>{ticketStatuses[ticket.status]}</strong>
+            </span>
+          </div>
+
+          <ul className="colaai-ticket-details">
+            <li>
+              <CalendarIcon className="ticket-detail-icon" />
+              <time dateTime={ticket.event.startsAt}>{formatTicketDate.format(startsAt)}</time>
+            </li>
+            <li>
+              <ClockIcon className="ticket-detail-icon" />
+              <span>{formatTicketTime.format(startsAt)}</span>
+            </li>
+            <li>
+              <PinIcon className="ticket-detail-icon" />
+              <span>{ticket.event.location}</span>
+            </li>
+            <li className="ticket-detail-lot">
+              <TicketIcon className="ticket-detail-icon" />
+              <span>{ticket.lot.name}</span>
+            </li>
+          </ul>
         </div>
-        <code className="history-code">{ticket.code}</code>
+
+        <div className="colaai-ticket-stub">
+          <TicketQrCode value={ticket.code} className="colaai-ticket-qr" />
+          <code className="history-code colaai-ticket-code">{ticket.code}</code>
+        </div>
       </div>
     </div>
   )
