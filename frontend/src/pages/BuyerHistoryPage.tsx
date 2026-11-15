@@ -7,6 +7,7 @@ import AppLayout from '../components/AppLayout'
 import CancelOrderAction from '../components/CancelOrderAction'
 import { ArrowLeftIcon, CalendarIcon, ClockIcon, PinIcon, TicketIcon } from '../components/Icons'
 import TicketQrCode from '../components/TicketQrCode'
+import TicketStageArtwork from '../components/TicketStageArtwork'
 import { formatDate } from '../events'
 import { cancelMyOrder, listMyOrders, listMyTickets, type CancelOrderResult, type HistoryAccess, type HistoryOrder, type HistoryPage, type HistoryResult, type HistoryTicket } from '../history'
 import { formatPrice, priceInCents } from '../orders'
@@ -51,19 +52,9 @@ function renderTicket(ticket: HistoryTicket) {
 
   return (
     <div className="colaai-ticket">
-      <div className="colaai-ticket-brand">
-        <svg
-          className="colaai-ticket-crowd"
-          viewBox="0 0 400 90"
-          preserveAspectRatio="none"
-          aria-hidden="true"
-        >
-          <path
-            d="M0 90V66c7-1 10-12 13-22l4 20c5-1 11 4 14 10 4-9 7-22 10-33l5 22c4-5 11-2 15 4 5-12 8-28 11-39l6 27c4-4 10-1 14 5 5-8 8-18 11-26l4 21c6-3 12 2 16 9 4-11 7-24 9-34l5 25c5-4 12-1 17 6 4-9 8-20 11-29l4 23c6-2 12 4 16 11 5-13 9-29 12-40l5 28c6-3 12 1 16 8 4-9 7-21 10-30l5 24c5-2 11 3 15 9 4-11 8-23 11-33l4 25c6-3 13 2 17 8 4-9 7-20 9-29l6 22c6-3 12 2 16 10 5-12 8-26 11-36l5 26c6-2 12 3 16 10 4-9 7-19 10-27l5 21c6-2 13 3 17 9 4-11 8-24 10-32l6 23c5-2 10 2 14 8V90H0Z"
-            fill="currentColor"
-          />
-        </svg>
+      <TicketStageArtwork />
 
+      <div className="colaai-ticket-brand">
         <div className="colaai-ticket-brand-stack">
           <img src={ribbonSymbol} alt="" className="colaai-ticket-symbol" />
           <img src={logoWordmark} alt="ColaAí" className="colaai-ticket-wordmark" />

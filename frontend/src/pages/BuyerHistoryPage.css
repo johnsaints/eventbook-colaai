@@ -22,52 +22,42 @@
 
 .colaai-ticket {
   display: grid;
-  grid-template-columns: minmax(15rem, 0.85fr) minmax(0, 1.25fr);
-  padding: 0.9rem 1.25rem 0.9rem 0;
-  border-radius: 1.1rem;
+  grid-template-columns: minmax(16.5rem, 0.9fr) minmax(0, 1.25fr);
+  padding: 0.85rem 1.25rem 0.85rem 0;
+  border-radius: 1.05rem;
   overflow: hidden;
   position: relative;
-  background:
-    linear-gradient(108deg, #00d4ff 0%, #0b7bff 22%, #071734 45%, #7a3dff 74%, #ff2e9e 100%);
+  background: #07163b;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28), inset 0 -1px 0 rgba(255, 46, 158, 0.4);
   mask-image:
-    radial-gradient(circle at 0 32%, transparent 7px, #000 7.5px),
-    radial-gradient(circle at 0 50%, transparent 7px, #000 7.5px),
-    radial-gradient(circle at 0 68%, transparent 7px, #000 7.5px),
-    radial-gradient(circle at 100% 32%, transparent 7px, #000 7.5px),
-    radial-gradient(circle at 100% 50%, transparent 7px, #000 7.5px),
-    radial-gradient(circle at 100% 68%, transparent 7px, #000 7.5px),
+    radial-gradient(circle at 0 18%, transparent 4.5px, #000 5px),
+    radial-gradient(circle at 0 29%, transparent 4.5px, #000 5px),
+    radial-gradient(circle at 0 53%, transparent 12px, #000 12.5px),
+    radial-gradient(circle at 100% 30%, transparent 7.5px, #000 8px),
+    radial-gradient(circle at 100% 50%, transparent 7.5px, #000 8px),
+    radial-gradient(circle at 100% 70%, transparent 7.5px, #000 8px),
     radial-gradient(circle at calc(100% - 12.25rem) 0, transparent 9px, #000 9.5px),
     radial-gradient(circle at calc(100% - 12.25rem) 100%, transparent 9px, #000 9.5px);
   mask-composite: intersect;
 }
 
+.colaai-ticket-backdrop {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  pointer-events: none;
+}
+
 .colaai-ticket-brand {
   position: relative;
-  margin: -0.9rem 0;
-  padding: 1.45rem 1.35rem 1.65rem;
+  z-index: 1;
+  padding: 0.9rem 1.25rem 1.25rem;
   display: flex;
   align-items: center;
   justify-content: center;
-  overflow: hidden;
-  background:
-    radial-gradient(circle at 82% 10%, rgba(255, 46, 158, 0.55) 0%, transparent 45%),
-    radial-gradient(circle at 64% 12%, rgba(0, 212, 255, 0.58) 0%, transparent 48%),
-    radial-gradient(ellipse 68% 58% at 10% 18%, rgba(0, 212, 255, 0.68) 0%, transparent 66%),
-    radial-gradient(ellipse 55% 40% at 88% 82%, rgba(122, 61, 255, 0.45) 0%, transparent 65%),
-    linear-gradient(140deg, #062149 0%, #071530 55%, #09183a 100%);
   color: #ffffff;
-}
-
-.colaai-ticket-crowd {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  width: 100%;
-  height: 3.1rem;
-  color: #030b1c;
-  opacity: 0.85;
-  pointer-events: none;
 }
 
 .colaai-ticket-brand-stack {
@@ -77,7 +67,7 @@
   flex-direction: column;
   align-items: center;
   text-align: center;
-  gap: 0.2rem;
+  gap: 0.15rem;
 }
 
 .colaai-ticket-symbol {
@@ -100,17 +90,20 @@
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.28em;
-  color: rgba(255, 255, 255, 0.92);
-  margin-top: 0.15rem;
+  color: rgba(255, 255, 255, 0.94);
+  margin-top: 0.12rem;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.55);
 }
 
 .colaai-ticket-sheet {
+  position: relative;
+  z-index: 1;
   display: grid;
   grid-template-columns: minmax(0, 1fr) 11rem;
   background: #ffffff;
   color: #0b1f3c;
   border-radius: 0.95rem;
-  box-shadow: 0 8px 24px rgba(4, 12, 30, 0.3);
+  box-shadow: 0 8px 24px rgba(4, 12, 30, 0.34);
   overflow: hidden;
   min-height: 11.75rem;
 }
@@ -312,8 +305,8 @@
   }
 
   .colaai-ticket-brand {
-    margin: -0.85rem -0.85rem 0;
-    padding: 1.25rem 1rem;
+    margin: 0;
+    padding: 1.25rem 1rem 1.75rem;
   }
 
   .colaai-ticket-sheet {
