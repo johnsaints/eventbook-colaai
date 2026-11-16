@@ -149,6 +149,45 @@ async function main() {
         { name: 'Plateia Única', price: 60, totalQuantity: 180, soldQuantity: 40 },
       ],
     },
+    {
+      id: '7a1f3c20-1111-4000-8000-000000000006',
+      title: 'Festival Gastronômico Sabores do Litoral',
+      description: 'Feira aberta de gastronomia regional com chefs convidados, música ao vivo e degustações.',
+      location: 'Passeio Público · Fortaleza, CE',
+      offsetDays: 18,
+      durationHours: 8,
+      capacity: 600,
+      lots: [
+        { name: 'Acesso Diurno', price: 35, totalQuantity: 400, soldQuantity: 145 },
+        { name: 'Passaporte Degustação', price: 95, totalQuantity: 200, soldQuantity: 70 },
+      ],
+    },
+    {
+      id: '7a1f3c20-1111-4000-8000-000000000007',
+      title: 'Sunset Eletrônico Beira-Mar — Show Especial',
+      description: 'Show ao pôr do sol com line-up de música eletrônica, palco frente mar e área lounge.',
+      location: 'Aterro da Praia de Iracema · Fortaleza, CE',
+      offsetDays: 25,
+      durationHours: 7,
+      capacity: 900,
+      lots: [
+        { name: 'Pista Sunset', price: 110, totalQuantity: 600, soldQuantity: 240 },
+        { name: 'Backstage Lounge', price: 240, totalQuantity: 300, soldQuantity: 95 },
+      ],
+    },
+    {
+      id: '7a1f3c20-1111-4000-8000-000000000008',
+      title: 'Summit Cloud & Arquitetura Full Stack',
+      description: 'Conferência de tecnologia com trilhas de engenharia, workshops práticos e networking.',
+      location: 'Centro Dragão do Mar · Fortaleza, CE',
+      offsetDays: 30,
+      durationHours: 8,
+      capacity: 350,
+      lots: [
+        { name: 'Ingresso Conferência', price: 130, totalQuantity: 250, soldQuantity: 85 },
+        { name: 'Full Pass + Workshop', price: 260, totalQuantity: 100, soldQuantity: 30 },
+      ],
+    },
   ];
 
   for (const item of extraEvents) {

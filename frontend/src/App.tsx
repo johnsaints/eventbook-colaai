@@ -1,10 +1,26 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type ComponentType, type FormEvent, type SVGProps } from 'react'
 import { BrowserRouter, Link, Route, Routes } from 'react-router'
 import symbolIcon from './assets/colaai-icon-128.png'
 import { apiUrl } from './api'
 import AppLayout from './components/AppLayout'
-import { CalendarIcon, PinIcon, QrCodeIcon, SearchIcon, ShieldCheckIcon, TicketIcon } from './components/Icons'
-import { formatDate, type EventSummary } from './events'
+import {
+  ArrowRightIcon,
+  CalendarIcon,
+  CloseIcon,
+  LaptopIcon,
+  MusicIcon,
+  PinIcon,
+  SearchIcon,
+  ShieldCheckIcon,
+  SparklesIcon,
+  TheaterIcon,
+  TicketIcon,
+  TrophyIcon,
+  UtensilsIcon,
+} from './components/Icons'
+import SymplaHeroCarousel from './components/SymplaHeroCarousel'
+import SymplaShelfCarousel from './components/SymplaShelfCarousel'
+import { formatDate, getEventCategoryVisual, type EventSummary } from './events'
 import BuyerHistoryPage from './pages/BuyerHistoryPage'
 import CheckinPage from './pages/CheckinPage'
 import EventPage from './pages/EventPage'
@@ -28,32 +44,25 @@ type CategoryFilter = {
   id: string
   label: string
   query: string
+  Icon: ComponentType<SVGProps<SVGSVGElement>>
 }
 
 const CATEGORIES: CategoryFilter[] = [
-  { id: 'all', label: 'Todos', query: '' },
-  { id: 'show', label: 'Shows', query: 'Show' },
-  { id: 'festival', label: 'Festivais', query: 'Festival' },
-  { id: 'teatro', label: 'Teatro', query: 'Teatro' },
-  { id: 'futebol', label: 'Futebol', query: 'Futebol' },
-  { id: 'tech', label: 'Tecnologia', query: 'Tecnologia' },
+  { id: 'all', label: 'Todos', query: '', Icon: SparklesIcon },
+  { id: 'show', label: 'Shows', query: 'Show', Icon: MusicIcon },
+  { id: 'festival', label: 'Festivais', query: 'Festival', Icon: TicketIcon },
+  { id: 'teatro', label: 'Teatro & Humor', query: 'Teatro', Icon: TheaterIcon },
+  { id: 'futebol', label: 'Esportes', query: 'Futebol', Icon: TrophyIcon },
+  { id: 'tech', label: 'Tecnologia', query: 'Tecnologia', Icon: LaptopIcon },
+  { id: 'food', label: 'Gastronomia', query: 'Gastron', Icon: UtensilsIcon },
 ]
-
-function inferCategory(event: EventSummary): { label: string; tone: string } {
-  const text = `${event.title} ${event.description}`.toLowerCase()
-  if (text.includes('festival')) return { label: 'Festival', tone: 'tone-festival' }
-  if (text.includes('show') || text.includes('turnê') || text.includes('música')) return { label: 'Show', tone: 'tone-show' }
-  if (text.includes('teatro') || text.includes('stand-up') || text.includes('comédia')) return { label: 'Teatro & Cultura', tone: 'tone-theater' }
-  if (text.includes('futebol') || text.includes('clássico') || text.includes('estádio')) return { label: 'Esportes', tone: 'tone-sports' }
-  if (text.includes('tecnologia') || text.includes('tech') || text.includes('dev')) return { label: 'Tecnologia', tone: 'tone-tech' }
-  return { label: 'Evento', tone: 'tone-default' }
-}
 
 const monthShort = new Intl.DateTimeFormat('pt-BR', { month: 'short' })
 const dayNum = new Intl.DateTimeFormat('pt-BR', { day: '2-digit' })
 
 function CatalogPage() {
   const [catalog, setCatalog] = useState<CatalogState>({ status: 'loading' })
+  const [highlights, setHighlights] = useState<EventSummary[]>([])
   const [attempt, setAttempt] = useState(0)
   const [page, setPage] = useState(1)
   const [searchInput, setSearchInput] = useState('')
@@ -84,6 +93,9 @@ function CatalogPage() {
 
         if (!controller.signal.aborted) {
           setCatalog({ status: 'ready', events: body.data, meta })
+          if (!activeQuery.trim() && page === 1) {
+            setHighlights(body.data.slice(0, 6))
+          }
         }
       } catch {
         if (!controller.signal.aborted) setCatalog({ status: 'error' })
@@ -124,82 +136,93 @@ function CatalogPage() {
     setActiveQuery('')
   }
 
+  const isFiltered = Boolean(activeQuery.trim())
+
   return (
     <AppLayout>
-      <main className="catalog">
-        <section className="hero-banner" aria-label="Destaque ColaAí">
-          <div className="hero-grid">
-            <div className="hero-content">
-              <span className="hero-pill">
-                <img src={symbolIcon} alt="" className="hero-pill-icon" />
-                Ingressos e acessos digitais
-              </span>
-              <h1>ColaAí nos melhores eventos</h1>
-              <p className="hero-subtitle">
-                Shows, festivais, teatro, futebol e encontros de tecnologia com reserva garantida e entrada ágil.
-              </p>
+      <main className="catalog home-sympla">
+        <section className="sympla-top-bar" aria-label="Busca e boas-vindas ColaAí">
+          <div className="sympla-top-intro">
+            <span className="hero-pill">
+              <img src={symbolIcon} alt="" className="hero-pill-icon" />
+              Ingressos e acessos digitais ColaAí
+            </span>
+            <h1>Descubra e garanta seu lugar nos melhores eventos</h1>
+          </div>
 
-              <form className="search-bar" onSubmit={handleSearchSubmit} role="search" aria-label="Buscar eventos">
-                <div className="search-input-wrap">
-                  <SearchIcon className="search-icon" />
-                  <input
-                    type="search"
-                    value={searchInput}
-                    onChange={(e) => setSearchInput(e.target.value)}
-                    placeholder="Buscar por show, festival, teatro, local…"
-                    aria-label="Buscar por nome ou local do evento"
-                  />
-                </div>
-                <button type="submit" className="btn btn-primary">Buscar</button>
-              </form>
-
-              <div className="category-pills" role="group" aria-label="Filtrar por categoria">
-                {CATEGORIES.map((cat) => (
-                  <button
-                    key={cat.id}
-                    type="button"
-                    className={activeCategory === cat.id ? 'chip chip-active' : 'chip'}
-                    onClick={() => selectCategory(cat)}
-                  >
-                    {cat.label}
-                  </button>
-                ))}
-              </div>
+          <form className="search-bar sympla-search-bar" onSubmit={handleSearchSubmit} role="search" aria-label="Buscar eventos">
+            <div className="search-input-wrap">
+              <SearchIcon className="search-icon" />
+              <input
+                type="search"
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                placeholder="Pesquisar eventos, shows, teatros, cidades…"
+                aria-label="Buscar por nome ou local do evento"
+              />
+              {searchInput && (
+                <button
+                  type="button"
+                  className="search-clear-btn"
+                  onClick={clearFilters}
+                  aria-label="Limpar campo de busca"
+                >
+                  <CloseIcon width={15} height={15} />
+                </button>
+              )}
             </div>
+            <button type="submit" className="btn btn-primary">Buscar</button>
+          </form>
+        </section>
 
-            <aside className="hero-showcase" aria-hidden="true">
-              <div className="showcase-pass">
-                <div className="showcase-pass-top">
-                  <img src={symbolIcon} alt="" className="showcase-logo" />
-                  <span className="showcase-tag">PASSE DIGITAL</span>
-                </div>
-                <p className="showcase-title">Seu ingresso em segundos</p>
-                <ul className="showcase-features">
-                  <li><TicketIcon /> Reserva segura por 15 minutos</li>
-                  <li><QrCodeIcon /> Código único por ingresso emitido</li>
-                  <li><ShieldCheckIcon /> Validação instantânea na portaria</li>
-                </ul>
-                <div className="showcase-wristband" />
-              </div>
-            </aside>
+        {!isFiltered && highlights.length > 0 && (
+          <SymplaHeroCarousel events={highlights} />
+        )}
+
+        <section className="sympla-categories" aria-label="Explorar por categoria">
+          <div className="sympla-cat-strip" role="group" aria-label="Filtrar por categoria">
+            {CATEGORIES.map((cat) => {
+              const Icon = cat.Icon
+              const active = activeCategory === cat.id
+              return (
+                <button
+                  key={cat.id}
+                  type="button"
+                  className={active ? 'sympla-cat-btn is-active' : 'sympla-cat-btn'}
+                  aria-pressed={active}
+                  onClick={() => selectCategory(cat)}
+                >
+                  <span className="sympla-cat-circle" aria-hidden="true">
+                    <Icon width={22} height={22} />
+                  </span>
+                  <span className="sympla-cat-label">{cat.label}</span>
+                </button>
+              )
+            })}
           </div>
         </section>
+
+        {!isFiltered && highlights.length >= 2 && (
+          <SymplaShelfCarousel events={highlights} />
+        )}
 
         <section className="events-section" aria-labelledby="events-title">
           <div className="section-header">
             <div>
-              <h2 id="events-title" tabIndex={-1} ref={headingRef}>Eventos publicados</h2>
+              <h2 id="events-title" tabIndex={-1} ref={headingRef}>
+                {isFiltered ? `Resultados para “${activeQuery}”` : 'Todos os eventos'}
+              </h2>
               {catalog.status === 'ready' && (
                 <p className="section-subtitle">
                   {catalog.meta.total === 1
-                    ? '1 evento disponível agora'
-                    : `${catalog.meta.total} eventos disponíveis para reserva`}
+                    ? '1 evento publicado disponível agora'
+                    : `${catalog.meta.total} eventos publicados disponíveis para reserva`}
                 </p>
               )}
             </div>
-            {activeQuery && (
+            {isFiltered && (
               <button type="button" className="btn btn-ghost btn-sm" onClick={clearFilters}>
-                Limpar busca (“{activeQuery}”)
+                Limpar filtros
               </button>
             )}
           </div>
@@ -229,7 +252,7 @@ function CatalogPage() {
               <>
                 <ul className="event-list">
                   {catalog.events.map((event) => {
-                    const cat = inferCategory(event)
+                    const cat = getEventCategoryVisual(event)
                     const date = new Date(event.startsAt)
                     const day = dayNum.format(date)
                     const month = monthShort.format(date).replace('.', '').toUpperCase()
@@ -246,6 +269,13 @@ function CatalogPage() {
                           </div>
 
                           <div className="card-body">
+                            <p className="sympla-card-date">
+                              <CalendarIcon width={14} height={14} aria-hidden="true" />
+                              <time dateTime={event.startsAt}>
+                                {formatDate.format(date)}
+                              </time>
+                            </p>
+
                             <h3>
                               <Link to={`/events/${event.id}`}>{event.title}</Link>
                             </h3>
@@ -255,12 +285,6 @@ function CatalogPage() {
                               <p className="event-meta meta-row">
                                 <PinIcon className="meta-icon" />
                                 <span>{event.location}</span>
-                              </p>
-                              <p className="event-meta meta-row">
-                                <CalendarIcon className="meta-icon" />
-                                <time dateTime={event.startsAt}>
-                                  {formatDate.format(date)}
-                                </time>
                               </p>
                             </div>
 
@@ -303,6 +327,23 @@ function CatalogPage() {
               </>
             )
           )}
+        </section>
+
+        <section className="sympla-producer-banner" aria-label="Para organizadores de eventos">
+          <div className="sympla-producer-copy">
+            <span className="eyebrow">
+              <ShieldCheckIcon width={15} height={15} style={{ verticalAlign: 'text-bottom', marginRight: '0.3rem' }} />
+              ColaAí Produtores
+            </span>
+            <h2>Organize e venda ingressos do seu evento com segurança</h2>
+            <p className="event-meta">
+              Publique eventos por lotes, acompanhe a ocupação em tempo real e controle o check-in digital da portaria.
+            </p>
+          </div>
+          <Link to="/painel" className="btn btn-primary">
+            Abrir painel do organizador
+            <ArrowRightIcon />
+          </Link>
         </section>
       </main>
     </AppLayout>

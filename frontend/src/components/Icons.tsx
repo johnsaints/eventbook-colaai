@@ -113,3 +113,75 @@ export function ClockIcon(props: IconProps) {
     </svg>
   )
 }
+
+export function ArrowRightIcon(props: IconProps) {
+  return (
+    <svg {...baseProps} {...props}>
+      <path d="m9 18 6-6-6-6" />
+    </svg>
+  )
+}
+
+export function SparklesIcon(props: IconProps) {
+  return (
+    <svg {...baseProps} {...props}>
+      <path d="M12 3l1.9 4.7L18.5 9.5l-4.6 1.8L12 16l-1.9-4.7L5.5 9.5l4.6-1.8L12 3Z" />
+      <path d="M5 17l.9 2.1L8 20l-2.1.9L5 23l-.9-2.1L2 20l2.1-.9L5 17Z" />
+      <path d="M19 14l.7 1.6L21.3 16l-1.6.7L19 18.3l-.7-1.6-1.6-.7 1.6-.7L19 14Z" />
+    </svg>
+  )
+}
+
+export function MusicIcon(props: IconProps) {
+  return (
+    <svg {...baseProps} {...props}>
+      <path d="M9 18V5l12-2v13" />
+      <circle cx="6" cy="18" r="3" />
+      <circle cx="18" cy="16" r="3" />
+    </svg>
+  )
+}
+
+export function TheaterIcon(props: IconProps) {
+  return (
+    <svg {...baseProps} {...props}>
+      <path d="M4 5c4-1.5 12-1.5 16 0v5c0 4.5-3.5 8-8 9-4.5-1-8-4.5-8-9V5Z" />
+      <path d="M8.5 10h.01M15.5 10h.01M9 14c1.8 1.5 4.2 1.5 6 0" />
+    </svg>
+  )
+}
+
+export function TrophyIcon(props: IconProps) {
+  return (
+    <svg {...baseProps} {...props}>
+      <path d="M6 9H4a2 2 0 0 1-2-2V5h4M18 9h2a2 2 0 0 0 2-2V5h-4" />
+      <path d="M6 4h12v6a6 6 0 0 1-12 0V4Z" />
+      <path d="M12 16v4M8 20h8" />
+    </svg>
+  )
+}
+
+export function LaptopIcon(props: IconProps) {
+  return (
+    <svg {...baseProps} {...props}>
+      <rect x="4" y="5" width="16" height="11" rx="2" />
+      <path d="M2 19h20" />
+    </svg>
+  )
+}
+
+export function UtensilsIcon(props: IconProps) {
+  return (
+    <svg {...baseProps} {...props}>
+      <path d="M6 3v7a2 2 0 0 0 2 2v9M10 3v7M15 3v18M15 3c2.2 0 4 1.8 4 4s-1.8 4-4 4" />
+    </svg>
+  )
+}
+
+export function CloseIcon(props: IconProps) {
+  return (
+    <svg {...baseProps} {...props}>
+      <path d="M18 6 6 18M6 6l12 12" />
+    </svg>
+  )
+}

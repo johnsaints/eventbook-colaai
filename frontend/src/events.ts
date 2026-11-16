@@ -24,6 +24,27 @@ export const formatDate = new Intl.DateTimeFormat('pt-BR', {
   timeStyle: 'short',
 })
 
+export function getEventCategoryVisual(event: Pick<EventSummary, 'title' | 'description'>): { label: string; tone: string } {
+  const title = event.title.toLowerCase()
+  const text = `${title} ${event.description.toLowerCase()}`
+  if (title.includes('gastron')) return { label: 'Gastronomia', tone: 'tone-food' }
+  if (title.includes('festival')) return { label: 'Festival', tone: 'tone-festival' }
+  if (text.includes('show') || text.includes('turnê') || text.includes('música') || text.includes('eletrônico')) {
+    return { label: 'Show & Festa', tone: 'tone-show' }
+  }
+  if (text.includes('teatro') || text.includes('stand-up') || text.includes('comédia')) {
+    return { label: 'Teatro & Humor', tone: 'tone-theater' }
+  }
+  if (text.includes('futebol') || text.includes('clássico') || text.includes('estádio')) {
+    return { label: 'Esportes', tone: 'tone-sports' }
+  }
+  if (text.includes('tecnologia') || text.includes('tech') || text.includes('cloud') || text.includes('summit')) {
+    return { label: 'Tecnologia', tone: 'tone-tech' }
+  }
+  if (text.includes('gastron')) return { label: 'Gastronomia', tone: 'tone-food' }
+  return { label: 'Evento', tone: 'tone-default' }
+}
+
 export async function getEvent(eventId: string, signal: AbortSignal) {
   const response = await fetch(`${apiUrl}/events/${encodeURIComponent(eventId)}`, { signal })
 
