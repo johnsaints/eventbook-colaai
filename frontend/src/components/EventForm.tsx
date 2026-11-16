@@ -177,9 +177,10 @@ export default function EventForm({ token, initialEvent, onSaved, onSessionExpir
         <div className="cover-preview-box">
           <img src={previewSrc} alt="Prévia da capa do evento" className="cover-preview-img" />
           <div className="cover-preview-overlay">
-            <span className="category-badge">
-              <ImageIcon width={13} height={13} />
-              {coverImage ? 'Imagem personalizada' : `Padrão · ${categoryPreview.label}`}
+            <span className="ca-badge">
+              <span className="ca-badge-bar" aria-hidden="true" />
+              <ImageIcon width={13} height={13} variant="gradient" />
+              <span>{coverImage ? 'Imagem personalizada' : `Padrão · ${categoryPreview.label}`}</span>
             </span>
           </div>
         </div>

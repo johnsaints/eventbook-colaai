@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState, type ComponentType, type FormEvent, type SVGProps } from 'react'
+import { useEffect, useRef, useState, type ComponentType, type FormEvent } from 'react'
 import { BrowserRouter, Link, Route, Routes } from 'react-router'
-import symbolIcon from './assets/colaai-icon-128.png'
 import { apiUrl } from './api'
 import AppLayout from './components/AppLayout'
 import {
+  ArrowLeftIcon,
   ArrowRightIcon,
+  BrandGridIcon,
   CalendarIcon,
   CloseIcon,
   LaptopIcon,
@@ -12,11 +13,11 @@ import {
   PinIcon,
   SearchIcon,
   ShieldCheckIcon,
-  SparklesIcon,
   TheaterIcon,
   TicketIcon,
   TrophyIcon,
   UtensilsIcon,
+  type CaIconProps,
 } from './components/Icons'
 import SymplaHeroCarousel from './components/SymplaHeroCarousel'
 import SymplaShelfCarousel from './components/SymplaShelfCarousel'
@@ -44,11 +45,11 @@ type CategoryFilter = {
   id: string
   label: string
   query: string
-  Icon: ComponentType<SVGProps<SVGSVGElement>>
+  Icon: ComponentType<CaIconProps>
 }
 
 const CATEGORIES: CategoryFilter[] = [
-  { id: 'all', label: 'Todos', query: '', Icon: SparklesIcon },
+  { id: 'all', label: 'Todos', query: '', Icon: BrandGridIcon },
   { id: 'show', label: 'Shows', query: 'Show', Icon: MusicIcon },
   { id: 'festival', label: 'Festivais', query: 'Festival', Icon: TicketIcon },
   { id: 'teatro', label: 'Teatro & Humor', query: 'Teatro', Icon: TheaterIcon },
@@ -143,10 +144,7 @@ function CatalogPage() {
       <main className="catalog home-sympla">
         <section className="sympla-top-bar" aria-label="Busca e boas-vindas ColaAí">
           <div className="sympla-top-intro">
-            <span className="hero-pill">
-              <img src={symbolIcon} alt="" className="hero-pill-icon" />
-              Ingressos e acessos digitais ColaAí
-            </span>
+            <span className="eyebrow">Ingressos e acessos digitais ColaAí</span>
             <h1>Descubra e garanta seu lugar nos melhores eventos</h1>
           </div>
 
@@ -192,8 +190,8 @@ function CatalogPage() {
                   aria-pressed={active}
                   onClick={() => selectCategory(cat)}
                 >
-                  <span className="sympla-cat-circle" aria-hidden="true">
-                    <Icon width={22} height={22} />
+                  <span className="ca-cat-squircle" aria-hidden="true">
+                    <Icon width={22} height={22} variant={active ? 'current' : 'gradient'} />
                   </span>
                   <span className="sympla-cat-label">{cat.label}</span>
                 </button>
@@ -208,7 +206,7 @@ function CatalogPage() {
 
         <section className="events-section" aria-labelledby="events-title">
           <div className="section-header">
-            <div>
+            <div className="ca-section-heading">
               <h2 id="events-title" tabIndex={-1} ref={headingRef}>
                 {isFiltered ? `Resultados para “${activeQuery}”` : 'Todos os eventos'}
               </h2>
@@ -263,8 +261,11 @@ function CatalogPage() {
                         <article className="event-card catalog-card">
                           <div className={`card-cover ${cat.tone}`}>
                             <img src={coverSrc} alt="" className="card-cover-img" loading="lazy" />
-                            <span className="category-badge">{cat.label}</span>
-                            <div className="date-badge" aria-hidden="true">
+                            <span className="ca-badge">
+                              <span className="ca-badge-bar" aria-hidden="true" />
+                              <span>{cat.label}</span>
+                            </span>
+                            <div className="ca-date-stamp date-badge" aria-hidden="true">
                               <span className="date-day">{day}</span>
                               <span className="date-month">{month}</span>
                             </div>
@@ -285,7 +286,7 @@ function CatalogPage() {
 
                             <div className="card-meta-list">
                               <p className="event-meta meta-row">
-                                <PinIcon className="meta-icon" />
+                                <PinIcon variant="gradient" className="meta-icon" />
                                 <span>{event.location}</span>
                               </p>
                             </div>
@@ -311,7 +312,8 @@ function CatalogPage() {
                       disabled={page <= 1}
                       onClick={() => setPage(p => Math.max(1, p - 1))}
                     >
-                      ← Anterior
+                      <ArrowLeftIcon width={15} height={15} />
+                      Anterior
                     </button>
                     <span className="pagination-info">
                       Página {catalog.meta.page} de {catalog.meta.totalPages}
@@ -322,7 +324,8 @@ function CatalogPage() {
                       disabled={page >= catalog.meta.totalPages}
                       onClick={() => setPage(p => Math.min(catalog.meta.totalPages, p + 1))}
                     >
-                      Próxima →
+                      Próxima
+                      <ArrowRightIcon width={15} height={15} />
                     </button>
                   </nav>
                 )}
@@ -333,16 +336,14 @@ function CatalogPage() {
 
         <section className="sympla-producer-banner" aria-label="Para organizadores de eventos">
           <div className="sympla-producer-copy">
-            <span className="eyebrow">
-              <ShieldCheckIcon width={15} height={15} style={{ verticalAlign: 'text-bottom', marginRight: '0.3rem' }} />
-              ColaAí Produtores
-            </span>
+            <span className="eyebrow">ColaAí Produtores</span>
             <h2>Organize e venda ingressos do seu evento com segurança</h2>
             <p className="event-meta">
               Publique eventos por lotes, acompanhe a ocupação em tempo real e controle o check-in digital da portaria.
             </p>
           </div>
           <Link to="/painel" className="btn btn-primary">
+            <ShieldCheckIcon width={17} height={17} />
             Abrir painel do organizador
             <ArrowRightIcon />
           </Link>

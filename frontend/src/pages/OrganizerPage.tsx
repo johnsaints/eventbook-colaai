@@ -274,11 +274,11 @@ export default function OrganizerPage() {
                       </div>
                       <div className="card-meta-list">
                         <p className="event-meta meta-row">
-                          <PinIcon className="meta-icon" />
+                          <PinIcon variant="gradient" className="meta-icon" />
                           <span>{event.location}</span>
                         </p>
                         <p className="event-meta meta-row">
-                          <CalendarIcon className="meta-icon" />
+                          <CalendarIcon variant="gradient" className="meta-icon" />
                           <time dateTime={event.startsAt}>
                             {formatDate.format(new Date(event.startsAt))}
                           </time>

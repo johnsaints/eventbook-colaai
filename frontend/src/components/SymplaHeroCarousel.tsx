@@ -3,7 +3,7 @@ import { Link } from 'react-router'
 import ribbonSymbol from '../assets/colaai-simbolo-matriz.png'
 import logoWordmark from '../assets/ColaAi_wordmark_aprovado_transparente.webp'
 import { formatDate, getEventCategoryVisual, resolveEventCoverSrc, type EventSummary } from '../events'
-import { ArrowLeftIcon, ArrowRightIcon, CalendarIcon, PinIcon, SparklesIcon, TicketIcon } from './Icons'
+import { ArrowLeftIcon, ArrowRightIcon, CalendarIcon, PinIcon, TicketIcon } from './Icons'
 
 const monthShort = new Intl.DateTimeFormat('pt-BR', { month: 'short' })
 const dayNum = new Intl.DateTimeFormat('pt-BR', { day: '2-digit' })
@@ -81,11 +81,11 @@ export default function SymplaHeroCarousel({ events }: SymplaHeroCarouselProps) 
                   <img src={coverSrc} alt="" className="sympla-slide-bg-img" />
                   <div className="sympla-slide-scrim" aria-hidden="true" />
                   <div className="sympla-visual-top">
-                    <span className="sympla-featured-badge">
-                      <SparklesIcon width={14} height={14} />
-                      Em destaque · {cat.label}
+                    <span className="ca-badge">
+                      <span className="ca-badge-bar" aria-hidden="true" />
+                      <span>Destaque · {cat.label}</span>
                     </span>
-                    <div className="sympla-visual-date" aria-hidden="true">
+                    <div className="ca-date-stamp sympla-visual-date" aria-hidden="true">
                       <span className="date-day">{day}</span>
                       <span className="date-month">{month}</span>
                     </div>
@@ -99,7 +99,7 @@ export default function SymplaHeroCarousel({ events }: SymplaHeroCarouselProps) 
 
                 <div className="sympla-slide-content">
                   <div className="sympla-slide-kicker">
-                    <span className="eyebrow">Destaque ColaAí</span>
+                    <span className="eyebrow">Em cartaz no ColaAí</span>
                     {count > 1 && (
                       <span className="slide-counter">{slideIdx + 1} / {count}</span>
                     )}
@@ -118,11 +118,11 @@ export default function SymplaHeroCarousel({ events }: SymplaHeroCarouselProps) 
 
                   <div className="sympla-slide-meta">
                     <p className="meta-row">
-                      <CalendarIcon className="meta-icon" />
+                      <CalendarIcon variant="gradient" className="meta-icon" />
                       <time dateTime={ev.startsAt}>{formatDate.format(startsAt)}</time>
                     </p>
                     <p className="meta-row">
-                      <PinIcon className="meta-icon" />
+                      <PinIcon variant="gradient" className="meta-icon" />
                       <span>{ev.location}</span>
                     </p>
                   </div>

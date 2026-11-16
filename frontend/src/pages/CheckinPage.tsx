@@ -122,7 +122,7 @@ export default function CheckinPage() {
             <p><Link to="/" className="back-link"><ArrowLeftIcon /> Voltar aos eventos</Link></p>
             <span className="eyebrow">Portaria ColaAí</span>
             <h1 className="checkin-title">
-              <ShieldCheckIcon className="title-icon" />
+              <ShieldCheckIcon variant="gradient" width={26} height={26} className="title-icon" />
               Check-in de ingressos
             </h1>
           </header>

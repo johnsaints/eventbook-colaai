@@ -111,11 +111,11 @@ function renderOrder(order: HistoryOrder, action: ReactNode) {
       </div>
       <div className="card-meta-list">
         <p className="event-meta meta-row">
-          <PinIcon className="meta-icon" />
+          <PinIcon variant="gradient" className="meta-icon" />
           <span>{order.event.location}</span>
         </p>
         <p className="event-meta meta-row">
-          <CalendarIcon className="meta-icon" />
+          <CalendarIcon variant="gradient" className="meta-icon" />
           <span>{dateLabel(order.event.startsAt)}</span>
         </p>
       </div>

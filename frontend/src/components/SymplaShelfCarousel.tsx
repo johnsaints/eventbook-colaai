@@ -24,7 +24,7 @@ export default function SymplaShelfCarousel({ events }: SymplaShelfCarouselProps
   return (
     <section className="sympla-shelf-section" aria-labelledby="trending-title">
       <div className="section-header">
-        <div>
+        <div className="ca-section-heading">
           <h2 id="trending-title">Em alta no ColaAí</h2>
           <p className="section-subtitle">Os próximos eventos mais procurados da programação</p>
         </div>
@@ -64,8 +64,11 @@ export default function SymplaShelfCarousel({ events }: SymplaShelfCarouselProps
               <article className="event-card catalog-card">
                 <div className={`card-cover ${cat.tone}`}>
                   <img src={coverSrc} alt="" className="card-cover-img" loading="lazy" />
-                  <span className="category-badge">{cat.label}</span>
-                  <div className="date-badge" aria-hidden="true">
+                  <span className="ca-badge">
+                    <span className="ca-badge-bar" aria-hidden="true" />
+                    <span>{cat.label}</span>
+                  </span>
+                  <div className="ca-date-stamp date-badge" aria-hidden="true">
                     <span className="date-day">{day}</span>
                     <span className="date-month">{month}</span>
                   </div>
@@ -80,7 +83,7 @@ export default function SymplaShelfCarousel({ events }: SymplaShelfCarouselProps
                     <Link to={`/events/${ev.id}`}>{ev.title}</Link>
                   </h3>
                   <p className="event-meta meta-row sympla-card-location">
-                    <PinIcon className="meta-icon" />
+                    <PinIcon variant="gradient" className="meta-icon" />
                     <span>{ev.location}</span>
                   </p>
 

@@ -72,11 +72,11 @@ export default function EventPage() {
                 <p className="lead-text">{event.description}</p>
                 <div className="meta-pills">
                   <span className="meta-pill">
-                    <PinIcon className="meta-icon" />
+                    <PinIcon variant="gradient" className="meta-icon" />
                     {event.location}
                   </span>
                   <span className="meta-pill">
-                    <CalendarIcon className="meta-icon" />
+                    <CalendarIcon variant="gradient" className="meta-icon" />
                     <time dateTime={event.startsAt}>{formatDate.format(new Date(event.startsAt))}</time>
                   </span>
                 </div>
