@@ -30,7 +30,6 @@ export default function TicketQrCode({ value, className }: TicketQrCodeProps) {
       className={className}
       shapeRendering="crispEdges"
     >
-      <rect width={size} height={size} fill="#ffffff" />
       <path d={path} fill="#0b1f3c" />
     </svg>
   )

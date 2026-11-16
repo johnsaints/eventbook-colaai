@@ -2,12 +2,12 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link } from 'react-router'
 import ribbonSymbol from '../assets/colaai-simbolo-matriz.png'
 import logoWordmark from '../assets/ColaAi_wordmark_aprovado_transparente.webp'
+import ticketTemplateBg from '../assets/colaai-ticket-base.webp'
 import { sessionTokenKey } from '../api'
 import AppLayout from '../components/AppLayout'
 import CancelOrderAction from '../components/CancelOrderAction'
-import { ArrowLeftIcon, CalendarIcon, ClockIcon, PinIcon, TicketIcon } from '../components/Icons'
+import { ArrowLeftIcon, ArrowRightIcon, CalendarIcon, ClockIcon, PinIcon, TicketIcon } from '../components/Icons'
 import TicketQrCode from '../components/TicketQrCode'
-import TicketStageArtwork from '../components/TicketStageArtwork'
 import { formatDate } from '../events'
 import { cancelMyOrder, listMyOrders, listMyTickets, type CancelOrderResult, type HistoryAccess, type HistoryOrder, type HistoryPage, type HistoryResult, type HistoryTicket } from '../history'
 import { formatPrice, priceInCents } from '../orders'
@@ -31,9 +31,9 @@ const ticketStatuses: Record<HistoryTicket['status'], string> = {
 }
 
 const ticketStatusClass: Record<HistoryTicket['status'], string> = {
-  VALID: 'ticket-badge ticket-badge-valid',
-  USED: 'ticket-badge ticket-badge-used',
-  CANCELLED: 'ticket-badge ticket-badge-cancelled',
+  VALID: 'ca-ticket-status ca-ticket-status-valid',
+  USED: 'ca-ticket-status ca-ticket-status-used',
+  CANCELLED: 'ca-ticket-status ca-ticket-status-cancelled',
 }
 
 const orderStatuses: Record<HistoryOrder['status'], string> = {
@@ -52,40 +52,39 @@ function renderTicket(ticket: HistoryTicket) {
 
   return (
     <div className="colaai-ticket">
-      <TicketStageArtwork />
+      <img src={ticketTemplateBg} alt="" className="colaai-ticket-bg" />
 
-      <div className="colaai-ticket-brand">
-        <div className="colaai-ticket-brand-stack">
-          <img src={ribbonSymbol} alt="" className="colaai-ticket-symbol" />
-          <img src={logoWordmark} alt="ColaAí" className="colaai-ticket-wordmark" />
-          <span className="colaai-ticket-label">INGRESSO</span>
-        </div>
+      <div className="colaai-ticket-mobile-brand" aria-hidden="true">
+        <img src={ribbonSymbol} alt="" className="colaai-ticket-mobile-symbol" />
+        <img src={logoWordmark} alt="" className="colaai-ticket-mobile-wordmark" />
+        <span className="colaai-ticket-mobile-label">INGRESSO</span>
       </div>
 
-      <div className="colaai-ticket-sheet">
+      <div className="colaai-ticket-overlay">
         <div className="colaai-ticket-main">
           <div className="colaai-ticket-head">
             <h3>{ticket.event.title}</h3>
             <span className={ticketStatusClass[ticket.status]}>
+              <span className="ca-ticket-status-bar" aria-hidden="true" />
               <strong>{ticketStatuses[ticket.status]}</strong>
             </span>
           </div>
 
           <ul className="colaai-ticket-details">
             <li>
-              <CalendarIcon className="ticket-detail-icon" />
+              <CalendarIcon width={16} height={16} className="ticket-detail-icon" />
               <time dateTime={ticket.event.startsAt}>{formatTicketDate.format(startsAt)}</time>
             </li>
             <li>
-              <ClockIcon className="ticket-detail-icon" />
+              <ClockIcon width={16} height={16} className="ticket-detail-icon" />
               <span>{formatTicketTime.format(startsAt)}</span>
             </li>
             <li>
-              <PinIcon className="ticket-detail-icon" />
+              <PinIcon width={16} height={16} className="ticket-detail-icon" />
               <span>{ticket.event.location}</span>
             </li>
             <li className="ticket-detail-lot">
-              <TicketIcon className="ticket-detail-icon" />
+              <TicketIcon width={16} height={16} variant="gradient" className="ticket-detail-icon" />
               <span>{ticket.lot.name}</span>
             </li>
           </ul>
@@ -93,7 +92,7 @@ function renderTicket(ticket: HistoryTicket) {
 
         <div className="colaai-ticket-stub">
           <TicketQrCode value={ticket.code} className="colaai-ticket-qr" />
-          <code className="history-code colaai-ticket-code">{ticket.code}</code>
+          <code className="colaai-ticket-code">{ticket.code}</code>
         </div>
       </div>
     </div>
@@ -103,7 +102,7 @@ function renderTicket(ticket: HistoryTicket) {
 function renderOrder(order: HistoryOrder, action: ReactNode) {
   return (
     <div className="order-card-body">
-      <div className="colaai-ticket-head">
+      <div className="colaai-ticket-head order-card-head">
         <h3>{order.event.title}</h3>
         <span className="status-pill status-neutral">
           <strong>{orderStatuses[order.status]}</strong>
@@ -175,7 +174,7 @@ function HistorySection<T extends { id: string }>({
   const canGoForward = current?.data != null && page < totalPages
 
   return (
-    <section className="history-section" aria-labelledby={id}>
+    <section className="history-section ca-section-heading" aria-labelledby={id}>
       <h2 id={id}>{title}</h2>
       {notice && <p role="status">{notice}</p>}
       {!current && <p role="status">Carregando…</p>}
@@ -208,9 +207,10 @@ function HistorySection<T extends { id: string }>({
             aria-disabled={!canGoBack}
             onClick={() => { if (canGoBack) setPage(page - 1) }}
           >
+            <ArrowLeftIcon width={15} height={15} />
             Anterior
           </button>
-          <span aria-live="polite">Página {page}{page <= totalPages ? ' de ' + totalPages : ''}</span>
+          <span className="pagination-info" aria-live="polite">Página {page}{page <= totalPages ? ' de ' + totalPages : ''}</span>
           <button
             className="history-action"
             type="button"
@@ -218,6 +218,7 @@ function HistorySection<T extends { id: string }>({
             onClick={() => { if (canGoForward) setPage(page + 1) }}
           >
             Próxima
+            <ArrowRightIcon width={15} height={15} />
           </button>
         </nav>
       )}
