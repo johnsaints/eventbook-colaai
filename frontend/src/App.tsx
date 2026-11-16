@@ -20,7 +20,7 @@ import {
 } from './components/Icons'
 import SymplaHeroCarousel from './components/SymplaHeroCarousel'
 import SymplaShelfCarousel from './components/SymplaShelfCarousel'
-import { formatDate, getEventCategoryVisual, type EventSummary } from './events'
+import { formatDate, getEventCategoryVisual, resolveEventCoverSrc, type EventSummary } from './events'
 import BuyerHistoryPage from './pages/BuyerHistoryPage'
 import CheckinPage from './pages/CheckinPage'
 import EventPage from './pages/EventPage'
@@ -253,6 +253,7 @@ function CatalogPage() {
                 <ul className="event-list">
                   {catalog.events.map((event) => {
                     const cat = getEventCategoryVisual(event)
+                    const coverSrc = resolveEventCoverSrc(event)
                     const date = new Date(event.startsAt)
                     const day = dayNum.format(date)
                     const month = monthShort.format(date).replace('.', '').toUpperCase()
@@ -261,6 +262,7 @@ function CatalogPage() {
                       <li key={event.id}>
                         <article className="event-card catalog-card">
                           <div className={`card-cover ${cat.tone}`}>
+                            <img src={coverSrc} alt="" className="card-cover-img" loading="lazy" />
                             <span className="category-badge">{cat.label}</span>
                             <div className="date-badge" aria-hidden="true">
                               <span className="date-day">{day}</span>

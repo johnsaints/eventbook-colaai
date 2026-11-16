@@ -58,6 +58,7 @@ model Event {
   startsAt    DateTime
   endsAt      DateTime
   capacity    Int
+  coverImage  String?     @db.MediumText
   status      EventStatus @default(DRAFT)
   organizerId String
   createdAt   DateTime    @default(now())

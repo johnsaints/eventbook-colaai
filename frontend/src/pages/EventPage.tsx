@@ -3,7 +3,7 @@ import { Link, useLocation, useParams } from 'react-router'
 import AppLayout from '../components/AppLayout'
 import { ArrowLeftIcon, CalendarIcon, PinIcon } from '../components/Icons'
 import TicketSelection from '../components/TicketSelection'
-import { formatDate, getEvent, type EventDetails } from '../events'
+import { formatDate, getEvent, resolveEventCoverSrc, type EventDetails } from '../events'
 import type { ReservationDraft } from '../orders'
 
 type DetailState = { id: string } & (
@@ -52,29 +52,37 @@ export default function EventPage() {
     <AppLayout>
       <main className="catalog">
         <header className="event-detail-hero">
-          <p>
-            <Link to="/" className="back-link">
-              <ArrowLeftIcon />
-              Voltar aos eventos
-            </Link>
-          </p>
-          <span className="eyebrow">Detalhes do evento</span>
-          <h1 tabIndex={-1} ref={headingRef}>{event?.title ?? 'Detalhes do evento'}</h1>
           {event && (
-            <div className="event-hero-meta">
-              <p className="lead-text">{event.description}</p>
-              <div className="meta-pills">
-                <span className="meta-pill">
-                  <PinIcon className="meta-icon" />
-                  {event.location}
-                </span>
-                <span className="meta-pill">
-                  <CalendarIcon className="meta-icon" />
-                  <time dateTime={event.startsAt}>{formatDate.format(new Date(event.startsAt))}</time>
-                </span>
-              </div>
-            </div>
+            <>
+              <img src={resolveEventCoverSrc(event)} alt="" className="event-detail-bg-img" />
+              <div className="event-detail-scrim" aria-hidden="true" />
+            </>
           )}
+          <div className="event-detail-hero-inner">
+            <p>
+              <Link to="/" className="back-link">
+                <ArrowLeftIcon />
+                Voltar aos eventos
+              </Link>
+            </p>
+            <span className="eyebrow">Detalhes do evento</span>
+            <h1 tabIndex={-1} ref={headingRef}>{event?.title ?? 'Detalhes do evento'}</h1>
+            {event && (
+              <div className="event-hero-meta">
+                <p className="lead-text">{event.description}</p>
+                <div className="meta-pills">
+                  <span className="meta-pill">
+                    <PinIcon className="meta-icon" />
+                    {event.location}
+                  </span>
+                  <span className="meta-pill">
+                    <CalendarIcon className="meta-icon" />
+                    <time dateTime={event.startsAt}>{formatDate.format(new Date(event.startsAt))}</time>
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
         </header>
 
         {!current && <p className="state-banner" role="status">Carregando evento…</p>}

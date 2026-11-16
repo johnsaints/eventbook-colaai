@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import ribbonSymbol from '../assets/colaai-simbolo-matriz.png'
 import logoWordmark from '../assets/ColaAi_wordmark_aprovado_transparente.webp'
-import { formatDate, getEventCategoryVisual, type EventSummary } from '../events'
+import { formatDate, getEventCategoryVisual, resolveEventCoverSrc, type EventSummary } from '../events'
 import { ArrowLeftIcon, ArrowRightIcon, CalendarIcon, PinIcon, SparklesIcon, TicketIcon } from './Icons'
 
 const monthShort = new Intl.DateTimeFormat('pt-BR', { month: 'short' })
@@ -66,6 +66,7 @@ export default function SymplaHeroCarousel({ events }: SymplaHeroCarouselProps) 
         >
           {slides.map((ev, slideIdx) => {
             const cat = getEventCategoryVisual(ev)
+            const coverSrc = resolveEventCoverSrc(ev)
             const startsAt = new Date(ev.startsAt)
             const day = dayNum.format(startsAt)
             const month = monthShort.format(startsAt).replace('.', '').toUpperCase()
@@ -77,7 +78,8 @@ export default function SymplaHeroCarousel({ events }: SymplaHeroCarouselProps) 
                 aria-hidden={slideIdx !== activeIndex}
               >
                 <div className={`sympla-slide-visual ${cat.tone}`}>
-                  <div className="sympla-visual-beams" aria-hidden="true" />
+                  <img src={coverSrc} alt="" className="sympla-slide-bg-img" />
+                  <div className="sympla-slide-scrim" aria-hidden="true" />
                   <div className="sympla-visual-top">
                     <span className="sympla-featured-badge">
                       <SparklesIcon width={14} height={14} />
@@ -89,11 +91,9 @@ export default function SymplaHeroCarousel({ events }: SymplaHeroCarouselProps) 
                     </div>
                   </div>
 
-                  <div className="sympla-visual-center" aria-hidden="true">
-                    <div className="sympla-visual-halo">
-                      <img src={ribbonSymbol} alt="" className="sympla-visual-ribbon" />
-                      <img src={logoWordmark} alt="" className="sympla-visual-wordmark" />
-                    </div>
+                  <div className="sympla-visual-seal" aria-hidden="true">
+                    <img src={ribbonSymbol} alt="" className="sympla-visual-seal-ribbon" />
+                    <img src={logoWordmark} alt="" className="sympla-visual-seal-wordmark" />
                   </div>
                 </div>
 

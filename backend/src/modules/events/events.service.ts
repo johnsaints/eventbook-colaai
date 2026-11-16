@@ -127,6 +127,7 @@ export class EventsService {
         startsAt: data.startsAt,
         endsAt: data.endsAt,
         capacity: data.capacity,
+        coverImage: data.coverImage ?? null,
         status: EventStatus.DRAFT,
         organizerId,
       },

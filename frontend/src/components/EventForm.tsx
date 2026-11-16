@@ -1,5 +1,15 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { createEvent, toLocalInput, updateEvent, type CreateEventInput, type EditableEvent, type OrganizerEvent } from '../events'
+import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react'
+import {
+  createEvent,
+  getEventCategoryVisual,
+  prepareCoverUpload,
+  toLocalInput,
+  updateEvent,
+  type CreateEventInput,
+  type EditableEvent,
+  type OrganizerEvent,
+} from '../events'
+import { CloseIcon, ImageIcon, UploadIcon } from './Icons'
 
 type Props = {
   token: string
@@ -14,15 +24,50 @@ type Submission =
 
 export default function EventForm({ token, initialEvent, onSaved, onSessionExpired }: Props) {
   const [submission, setSubmission] = useState<Submission>({ status: 'idle' })
+  const [titlePreview, setTitlePreview] = useState(() => initialEvent?.title ?? '')
+  const [descPreview, setDescPreview] = useState(() => initialEvent?.description ?? '')
+  const [coverImage, setCoverImage] = useState<string | null>(() => initialEvent?.coverImage ?? null)
+  const [coverError, setCoverError] = useState('')
+  const [processingCover, setProcessingCover] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const requestRef = useRef<AbortController | null>(null)
   const initialStart = initialEvent ? toLocalInput(initialEvent.startsAt) : ''
   const initialEnd = initialEvent ? toLocalInput(initialEvent.endsAt) : ''
 
   useEffect(() => () => requestRef.current?.abort(), [])
 
+  const categoryPreview = getEventCategoryVisual({
+    title: titlePreview,
+    description: descPreview,
+  })
+  const previewSrc = coverImage || categoryPreview.coverSrc
+
+  async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.currentTarget.files?.[0]
+    event.currentTarget.value = ''
+    if (!file) return
+
+    setCoverError('')
+    setProcessingCover(true)
+    try {
+      const encoded = await prepareCoverUpload(file)
+      setCoverImage(encoded)
+    } catch (error) {
+      setCoverError(error instanceof Error ? error.message : 'Não foi possível carregar a imagem.')
+    } finally {
+      setProcessingCover(false)
+    }
+  }
+
+  function handleClearCover() {
+    setCoverImage(null)
+    setCoverError('')
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (requestRef.current) return
+    if (requestRef.current || processingCover) return
 
     const form = event.currentTarget
     const fields = new FormData(form)
@@ -47,6 +92,7 @@ export default function EventForm({ token, initialEvent, onSaved, onSessionExpir
       capacity,
       startsAt: startsAt.toISOString(),
       endsAt: endsAt.toISOString(),
+      coverImage,
     }
 
     const changes: Partial<CreateEventInput> = {}
@@ -57,6 +103,7 @@ export default function EventForm({ token, initialEvent, onSaved, onSessionExpir
       if (capacity !== initialEvent.capacity) changes.capacity = capacity
       if (startValue !== initialStart) changes.startsAt = input.startsAt
       if (endValue !== initialEnd) changes.endsAt = input.endsAt
+      if (coverImage !== (initialEvent.coverImage ?? null)) changes.coverImage = coverImage
 
       if (Object.keys(changes).length === 0) {
         setSubmission({ status: 'saved', message: 'Nenhuma alteração para salvar.' })
@@ -82,6 +129,10 @@ export default function EventForm({ token, initialEvent, onSaved, onSessionExpir
       onSaved(saved)
       if (!initialEvent) {
         form.reset()
+        setTitlePreview('')
+        setDescPreview('')
+        setCoverImage(null)
+        setCoverError('')
         setSubmission({ status: 'saved', message: 'Evento criado como rascunho.' })
       }
     } catch (error) {
@@ -100,12 +151,64 @@ export default function EventForm({ token, initialEvent, onSaved, onSessionExpir
     <form className="event-card auth-form" onSubmit={handleSubmit}>
       <label>
         Título
-        <input name="title" defaultValue={initialEvent?.title} minLength={3} maxLength={191} required />
+        <input
+          name="title"
+          defaultValue={initialEvent?.title}
+          onChange={(e) => setTitlePreview(e.target.value)}
+          minLength={3}
+          maxLength={191}
+          required
+        />
       </label>
       <label>
         Descrição
-        <textarea name="description" defaultValue={initialEvent?.description} minLength={10} rows={4} required />
+        <textarea
+          name="description"
+          defaultValue={initialEvent?.description}
+          onChange={(e) => setDescPreview(e.target.value)}
+          minLength={10}
+          rows={4}
+          required
+        />
       </label>
+
+      <div className="cover-upload-field">
+        <span className="cover-field-title">Imagem de fundo na homepage (16:9)</span>
+        <div className="cover-preview-box">
+          <img src={previewSrc} alt="Prévia da capa do evento" className="cover-preview-img" />
+          <div className="cover-preview-overlay">
+            <span className="category-badge">
+              <ImageIcon width={13} height={13} />
+              {coverImage ? 'Imagem personalizada' : `Padrão · ${categoryPreview.label}`}
+            </span>
+          </div>
+        </div>
+        <div className="cover-upload-actions">
+          <label className="btn btn-secondary btn-sm cover-upload-trigger">
+            <UploadIcon width={16} height={16} />
+            {processingCover ? 'Processando imagem…' : coverImage ? 'Trocar imagem' : 'Enviar imagem personalizada'}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              onChange={(e) => void handleFileChange(e)}
+              disabled={processingCover}
+              className="sr-only-input"
+            />
+          </label>
+          {coverImage && (
+            <button type="button" className="btn btn-ghost btn-sm" onClick={handleClearCover}>
+              <CloseIcon width={15} height={15} />
+              Usar padrão
+            </button>
+          )}
+        </div>
+        <p className="event-meta cover-upload-hint">
+          Opcional (PNG, JPEG ou WebP). Se não enviar, o ColaAí usa o fundo padrão da categoria.
+        </p>
+        {coverError && <p role="alert" className="form-alert">{coverError}</p>}
+      </div>
+
       <label>
         Local
         <input name="location" defaultValue={initialEvent?.location} minLength={3} maxLength={191} required />
@@ -125,7 +228,7 @@ export default function EventForm({ token, initialEvent, onSaved, onSessionExpir
       </label>
       {submission.status === 'error' && <p role="alert">{submission.message}</p>}
       {submission.status === 'saved' && <p role="status">{submission.message}</p>}
-      <button type="submit" disabled={submission.status === 'submitting'}>
+      <button type="submit" disabled={submission.status === 'submitting' || processingCover}>
         {submission.status === 'submitting' ? 'Salvando…' : initialEvent ? 'Salvar alterações' : 'Criar evento'}
       </button>
     </form>

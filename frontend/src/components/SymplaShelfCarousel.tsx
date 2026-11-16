@@ -1,6 +1,6 @@
 import { useRef } from 'react'
 import { Link } from 'react-router'
-import { formatDate, getEventCategoryVisual, type EventSummary } from '../events'
+import { formatDate, getEventCategoryVisual, resolveEventCoverSrc, type EventSummary } from '../events'
 import { ArrowLeftIcon, ArrowRightIcon, CalendarIcon, PinIcon, TicketIcon } from './Icons'
 
 type SymplaShelfCarouselProps = {
@@ -54,6 +54,7 @@ export default function SymplaShelfCarousel({ events }: SymplaShelfCarouselProps
       <ul className="sympla-shelf-track" ref={trackRef}>
         {events.map((ev) => {
           const cat = getEventCategoryVisual(ev)
+          const coverSrc = resolveEventCoverSrc(ev)
           const startsAt = new Date(ev.startsAt)
           const day = dayNum.format(startsAt)
           const month = monthShort.format(startsAt).replace('.', '').toUpperCase()
@@ -62,6 +63,7 @@ export default function SymplaShelfCarousel({ events }: SymplaShelfCarouselProps
             <li key={ev.id} className="sympla-shelf-item">
               <article className="event-card catalog-card">
                 <div className={`card-cover ${cat.tone}`}>
+                  <img src={coverSrc} alt="" className="card-cover-img" loading="lazy" />
                   <span className="category-badge">{cat.label}</span>
                   <div className="date-badge" aria-hidden="true">
                     <span className="date-day">{day}</span>

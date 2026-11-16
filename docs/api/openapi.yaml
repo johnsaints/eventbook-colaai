@@ -1201,6 +1201,12 @@ components:
         capacity:
           type: integer
           minimum: 1
+        coverImage:
+          type:
+            - string
+            - 'null'
+          maxLength: 1400000
+          description: Imagem de capa personalizada opcional em Data URL (PNG, JPEG ou WebP de até 1 MB).
       description: O término deve ser posterior ao início.
     EventUpdateInput:
       type: object
@@ -1223,6 +1229,12 @@ components:
         capacity:
           type: integer
           minimum: 1
+        coverImage:
+          type:
+            - string
+            - 'null'
+          maxLength: 1400000
+          description: Imagem de capa personalizada opcional em Data URL (PNG, JPEG ou WebP de até 1 MB). Informe null para voltar ao padrão da categoria.
       description: Informe os campos a alterar. O término resultante deve ser posterior ao início.
     Event:
       type: object
@@ -1260,6 +1272,11 @@ components:
         capacity:
           type: integer
           minimum: 1
+        coverImage:
+          type:
+            - string
+            - 'null'
+          description: Imagem de capa personalizada do evento em Data URL, ou null quando usa o padrão da categoria.
         organizerId:
           type: string
           format: uuid
