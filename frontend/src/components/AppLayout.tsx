@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { Link, NavLink, useNavigate } from 'react-router'
 import logoWordmark from '../assets/ColaAi_wordmark_aprovado_transparente.webp'
 import { canAccessPanel, getCurrentUser, sessionTokenKey, type AuthUser } from '../api'
+import { BrandGridIcon, ChartIcon, LogoutIcon, QrCodeIcon, TicketIcon } from './Icons'
 
 export default function AppLayout({ children }: { children: ReactNode }) {
   const navigate = useNavigate()
@@ -44,23 +45,48 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         <div className="navbar-inner">
           <Link to="/" className="brand-link" aria-label="ColaAí — Página inicial">
             <img src={logoWordmark} alt="ColaAí" className="brand-wordmark" />
+            <span className="brand-subline">
+              <span className="brand-subline-rule" aria-hidden="true" />
+              <span className="brand-subtext">Eventos</span>
+              <span className="brand-subline-rule" aria-hidden="true" />
+            </span>
           </Link>
 
           <nav className="nav-links" aria-label="Navegação principal">
             <NavLink to="/" end className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>
-              Eventos
+              {({ isActive }) => (
+                <>
+                  <BrandGridIcon width={15} height={15} variant={isActive ? 'gradient' : 'current'} className="nav-link-icon" />
+                  <span>Eventos</span>
+                </>
+              )}
             </NavLink>
             <NavLink to="/meus-ingressos" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>
-              Meus Ingressos
+              {({ isActive }) => (
+                <>
+                  <TicketIcon width={15} height={15} variant={isActive ? 'gradient' : 'current'} className="nav-link-icon" />
+                  <span>Meus Ingressos</span>
+                </>
+              )}
             </NavLink>
             {(!user || canAccessPanel(user.role)) && (
               <NavLink to="/painel" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>
-                Painel
+                {({ isActive }) => (
+                  <>
+                    <ChartIcon width={15} height={15} variant={isActive ? 'gradient' : 'current'} className="nav-link-icon" />
+                    <span>Painel</span>
+                  </>
+                )}
               </NavLink>
             )}
             {(!user || user.role === 'STAFF') && (
               <NavLink to="/check-in" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>
-                Check-in
+                {({ isActive }) => (
+                  <>
+                    <QrCodeIcon width={15} height={15} variant={isActive ? 'gradient' : 'current'} className="nav-link-icon" />
+                    <span>Check-in</span>
+                  </>
+                )}
               </NavLink>
             )}
           </nav>
@@ -68,22 +94,32 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           <div className="nav-auth">
             {user ? (
               <>
-                <span className="user-pill">
-                  <span className="user-name">{user.name}</span>
-                  <span className="role-badge">{user.role}</span>
-                </span>
-                <button type="button" className="btn btn-ghost btn-sm" onClick={handleLogout}>
-                  Sair
+                <div className="user-pill">
+                  <span className="user-avatar" aria-hidden="true">
+                    {user.name.trim().charAt(0).toUpperCase() || 'C'}
+                  </span>
+                  <span className="user-meta">
+                    <span className="user-name">{user.name}</span>
+                    <span className="role-badge">
+                      <span className="role-badge-dot" aria-hidden="true" />
+                      {user.role}
+                    </span>
+                  </span>
+                </div>
+                <button type="button" className="btn nav-logout-btn" onClick={handleLogout}>
+                  <LogoutIcon width={15} height={15} />
+                  <span>Sair</span>
                 </button>
               </>
             ) : hasToken ? (
-              <button type="button" className="btn btn-ghost btn-sm" onClick={handleLogout}>
-                Sair
+              <button type="button" className="btn nav-logout-btn" onClick={handleLogout}>
+                <LogoutIcon width={15} height={15} />
+                <span>Sair</span>
               </button>
             ) : (
               <>
-                <Link to="/login" className="btn btn-ghost btn-sm">Entrar</Link>
-                <Link to="/register" className="btn btn-primary btn-sm">Criar conta</Link>
+                <Link to="/login" className="btn nav-login-btn">Entrar</Link>
+                <Link to="/register" className="btn btn-primary nav-register-btn">Criar conta</Link>
               </>
             )}
           </div>

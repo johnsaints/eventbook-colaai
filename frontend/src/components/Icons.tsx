@@ -331,3 +331,16 @@ export function ImageIcon(props: CaIconProps) {
     </CaSvg>
   )
 }
+
+export function LogoutIcon(props: CaIconProps) {
+  return (
+    <CaSvg {...props}>
+      {(fill) => (
+        <>
+          <path d="M10 4.5H6.8A2.3 2.3 0 0 0 4.5 6.8v10.4a2.3 2.3 0 0 0 2.3 2.3H10" fill={fill} fillOpacity="0.08" />
+          <path d="m16.2 8.2 3.8 3.8-3.8 3.8M19.5 12H10" />
+        </>
+      )}
+    </CaSvg>
+  )
+}
