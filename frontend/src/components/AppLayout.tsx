@@ -98,13 +98,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
                   <span className="user-avatar" aria-hidden="true">
                     {user.name.trim().charAt(0).toUpperCase() || 'C'}
                   </span>
-                  <span className="user-meta">
-                    <span className="user-name">{user.name}</span>
-                    <span className="role-badge">
-                      <span className="role-badge-dot" aria-hidden="true" />
-                      {user.role}
-                    </span>
-                  </span>
+                  <span className="user-name">{user.name}</span>
                 </div>
                 <button type="button" className="btn nav-logout-btn" onClick={handleLogout}>
                   <LogoutIcon width={15} height={15} />

@@ -4,8 +4,8 @@
 
 .ticket-list-stack {
   display: grid;
-  gap: 1.2rem;
-  max-width: 41rem;
+  gap: 1.25rem;
+  max-width: 42rem;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -24,72 +24,180 @@
 .colaai-ticket {
   position: relative;
   width: 100%;
-  aspect-ratio: 836 / 275;
+  min-height: 13.75rem;
+  display: grid;
+  grid-template-columns: 44% 56%;
+  border-radius: 0.95rem;
+  overflow: hidden;
+  background: linear-gradient(110deg, #0099ff 0%, #0b36b8 18%, #091b5c 36%, #3f1fb2 52%, #9a24f5 76%, #ff26d8 100%);
+  /* True circular die-cut side punch-outs, small side teeth & stub seam notches independent of height */
+  -webkit-mask-image:
+    radial-gradient(circle 12px at 0% 50%, transparent 11.5px, #000 12px),
+    radial-gradient(circle 4.5px at 0% 19%, transparent 4px, #000 4.5px),
+    radial-gradient(circle 4.5px at 0% 32%, transparent 4px, #000 4.5px),
+    radial-gradient(circle 4.5px at 0% 68%, transparent 4px, #000 4.5px),
+    radial-gradient(circle 4.5px at 0% 81%, transparent 4px, #000 4.5px),
+    radial-gradient(circle 12px at 100% 50%, transparent 11.5px, #000 12px),
+    radial-gradient(circle 4.5px at 100% 19%, transparent 4px, #000 4.5px),
+    radial-gradient(circle 4.5px at 100% 32%, transparent 4px, #000 4.5px),
+    radial-gradient(circle 4.5px at 100% 68%, transparent 4px, #000 4.5px),
+    radial-gradient(circle 4.5px at 100% 81%, transparent 4px, #000 4.5px),
+    radial-gradient(circle 7.5px at 78.72% 0%, transparent 7px, #000 7.5px),
+    radial-gradient(circle 7.5px at 78.72% 100%, transparent 7px, #000 7.5px);
+  -webkit-mask-composite: source-in;
+  mask-image:
+    radial-gradient(circle 12px at 0% 50%, transparent 11.5px, #000 12px),
+    radial-gradient(circle 4.5px at 0% 19%, transparent 4px, #000 4.5px),
+    radial-gradient(circle 4.5px at 0% 32%, transparent 4px, #000 4.5px),
+    radial-gradient(circle 4.5px at 0% 68%, transparent 4px, #000 4.5px),
+    radial-gradient(circle 4.5px at 0% 81%, transparent 4px, #000 4.5px),
+    radial-gradient(circle 12px at 100% 50%, transparent 11.5px, #000 12px),
+    radial-gradient(circle 4.5px at 100% 19%, transparent 4px, #000 4.5px),
+    radial-gradient(circle 4.5px at 100% 32%, transparent 4px, #000 4.5px),
+    radial-gradient(circle 4.5px at 100% 68%, transparent 4px, #000 4.5px),
+    radial-gradient(circle 4.5px at 100% 81%, transparent 4px, #000 4.5px),
+    radial-gradient(circle 7.5px at 78.72% 0%, transparent 7px, #000 7.5px),
+    radial-gradient(circle 7.5px at 78.72% 100%, transparent 7px, #000 7.5px);
+  mask-composite: intersect;
 }
 
-.colaai-ticket-bg {
+.colaai-ticket-brand {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.05rem 1rem 1.35rem 1.25rem;
+  background:
+    radial-gradient(circle at 12% 96%, rgba(255, 42, 224, 0.85), rgba(124, 34, 255, 0.4) 42%, transparent 66%),
+    radial-gradient(circle at 10% 12%, rgba(76, 245, 255, 0.82), rgba(0, 175, 255, 0.35) 45%, transparent 72%),
+    linear-gradient(128deg, #00a8ff 0%, #0932a8 30%, #08184e 62%, #3a1994 100%);
+}
+
+.colaai-ticket-brand::before {
+  content: '';
   position: absolute;
   inset: 0;
+  background:
+    linear-gradient(132deg, rgba(84, 246, 255, 0.45) 0%, rgba(0, 178, 255, 0.16) 24%, transparent 48%),
+    linear-gradient(136deg, transparent 14%, rgba(0, 212, 255, 0.2) 32%, transparent 56%);
+  pointer-events: none;
+}
+
+.colaai-ticket-stage-svg {
+  position: absolute;
+  top: 0;
+  right: 0;
   width: 100%;
   height: 100%;
-  object-fit: fill;
-  display: block;
+  pointer-events: none;
+}
+
+.colaai-ticket-crowd {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: auto;
+  max-height: 44%;
+  object-fit: cover;
+  object-position: bottom center;
   pointer-events: none;
   user-select: none;
 }
 
-.colaai-ticket-mobile-brand {
-  display: none;
+.colaai-ticket-brand-lockup {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.15rem;
+  user-select: none;
+}
+
+.colaai-ticket-symbol {
+  width: 7.4rem;
+  height: auto;
+  display: block;
+  filter: drop-shadow(0 6px 14px rgba(4, 10, 42, 0.55));
+}
+
+.colaai-ticket-wordmark {
+  width: 8.6rem;
+  height: auto;
+  display: block;
+  margin-top: -0.1rem;
+  filter: drop-shadow(0 4px 12px rgba(4, 9, 44, 0.65));
+}
+
+.colaai-ticket-label {
+  font-family: var(--ca-font-display);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.34em;
+  text-indent: 0.34em;
+  color: #ffffff;
+  margin-top: 0.18rem;
+  text-shadow: 0 2px 8px rgba(4, 9, 44, 0.85);
+}
+
+.colaai-ticket-panel-wrap {
+  display: flex;
+  padding: 1.05rem 0;
+  min-width: 0;
 }
 
 .colaai-ticket-overlay {
-  position: absolute;
-  left: 48.48%;
-  top: 11.15%;
-  right: 0;
-  bottom: 11.15%;
+  width: 100%;
   display: grid;
   grid-template-columns: minmax(0, 62%) minmax(0, 38%);
+  background: linear-gradient(135deg, #f7faff 0%, #ffffff 60%, #fdf8ff 100%);
+  border-radius: 0.88rem 0 0 0.88rem;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
 }
 
 .colaai-ticket-main {
-  padding: 0.5rem 0.58rem 0.46rem 0.72rem;
+  padding: 0.82rem 0.72rem 0.82rem 0.92rem;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 0.28rem;
+  gap: 0.45rem;
   min-width: 0;
   color: #0b1f3c;
 }
 
 .colaai-ticket-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 0.3rem 0.4rem;
-  padding-bottom: 0.26rem;
+  display: grid;
+  gap: 0.32rem;
+  padding-bottom: 0.4rem;
   border-bottom: 1px solid #d5e0f0;
+}
+
+.colaai-ticket-status-row {
+  display: flex;
+  align-items: center;
 }
 
 .colaai-ticket-head h3 {
   margin: 0;
-  font-size: clamp(0.76rem, 1.04vw, 0.88rem);
+  font-size: 0.92rem;
   font-weight: 800;
-  line-height: 1.18;
+  line-height: 1.24;
   color: #0b1f3c;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+  white-space: normal;
+  overflow-wrap: break-word;
 }
 
 .ca-ticket-status {
   display: inline-flex;
   align-items: center;
-  gap: 0.24rem;
-  padding: 0.13rem 0.38rem 0.13rem 0.28rem;
-  border-radius: 0.34rem;
-  font-size: 0.63rem;
+  gap: 0.26rem;
+  padding: 0.14rem 0.44rem 0.14rem 0.32rem;
+  border-radius: 0.36rem;
+  font-size: 0.66rem;
   font-weight: 700;
   border: 1px solid transparent;
   white-space: nowrap;
@@ -98,7 +206,7 @@
 
 .ca-ticket-status-bar {
   width: 2.5px;
-  height: 0.72rem;
+  height: 0.7rem;
   border-radius: 999px;
   flex-shrink: 0;
 }
@@ -138,29 +246,31 @@
   margin: 0;
   padding: 0;
   display: grid;
-  gap: 0.19rem;
+  gap: 0.28rem;
 }
 
 .colaai-ticket-details li {
   display: flex;
-  align-items: center;
-  gap: 0.34rem;
-  font-size: clamp(0.67rem, 0.86vw, 0.74rem);
+  align-items: flex-start;
+  gap: 0.38rem;
+  font-size: 0.76rem;
   font-weight: 600;
+  line-height: 1.3;
   color: #16294a;
   min-width: 0;
 }
 
 .colaai-ticket-details li > span,
 .colaai-ticket-details li > time {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
+  overflow-wrap: break-word;
+  min-width: 0;
 }
 
 .ticket-detail-icon {
-  width: 13px;
-  height: 13px;
+  width: 14px;
+  height: 14px;
+  margin-top: 0.1rem;
   flex-shrink: 0;
   color: #0b1f3c;
 }
@@ -171,19 +281,19 @@
 }
 
 .colaai-ticket-stub {
-  padding: 0.45rem 0.9rem 0.45rem 0.45rem;
-  border-left: 2px dashed rgba(15, 23, 42, 0.55);
+  padding: 0.7rem 1.05rem 0.7rem 0.6rem;
+  border-left: 2px dashed rgba(15, 23, 42, 0.5);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.28rem;
+  gap: 0.35rem;
   min-width: 0;
 }
 
 .colaai-ticket-qr {
-  width: clamp(3.6rem, 6.2vw, 4.65rem);
-  height: clamp(3.6rem, 6.2vw, 4.65rem);
+  width: 5.2rem;
+  height: 5.2rem;
   display: block;
 }
 
@@ -195,9 +305,9 @@
   background: transparent;
   color: #0b1f3c;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: clamp(0.52rem, 0.68vw, 0.63rem);
+  font-size: 0.62rem;
   font-weight: 700;
-  line-height: 1.22;
+  line-height: 1.24;
   text-align: center;
   letter-spacing: 0.01em;
   overflow-wrap: anywhere;
@@ -209,6 +319,10 @@
 }
 
 .order-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.45rem 0.65rem;
   padding-bottom: 0.55rem;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
@@ -290,71 +404,51 @@
 
 @media (max-width: 720px) {
   .colaai-ticket {
-    aspect-ratio: auto;
+    grid-template-columns: 1fr;
+    min-height: auto;
     border-radius: 1rem;
-    overflow: hidden;
-    background: linear-gradient(125deg, #00d4ff 0%, #0b7bff 30%, #7a3dff 68%, #ff2e9e 100%);
-    padding: 0.75rem;
-    display: grid;
-    gap: 0.75rem;
+    -webkit-mask-image: none;
+    mask-image: none;
   }
 
-  .colaai-ticket-bg {
-    display: none;
+  .colaai-ticket-brand {
+    padding: 1.1rem 1rem 1.7rem;
   }
 
-  .colaai-ticket-mobile-brand {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 0.75rem 1rem 0.35rem;
-    gap: 0.1rem;
+  .colaai-ticket-symbol {
+    width: 5.5rem;
   }
 
-  .colaai-ticket-mobile-symbol {
-    width: 5rem;
-    height: auto;
+  .colaai-ticket-wordmark {
+    width: 8rem;
   }
 
-  .colaai-ticket-mobile-wordmark {
-    width: 8.5rem;
-    height: auto;
-    margin-top: -0.2rem;
-  }
-
-  .colaai-ticket-mobile-label {
-    font-family: var(--ca-font-display);
-    font-size: 0.7rem;
-    font-weight: 700;
-    letter-spacing: 0.28em;
-    color: #ffffff;
+  .colaai-ticket-panel-wrap {
+    padding: 0 0.75rem 0.75rem;
   }
 
   .colaai-ticket-overlay {
-    position: static;
     grid-template-columns: 1fr;
-    background: #ffffff;
-    border-radius: 0.8rem;
+    border-radius: 0.85rem;
   }
 
   .colaai-ticket-main {
-    padding: 1.1rem 1.15rem;
+    padding: 1.05rem 1.1rem;
+  }
+
+  .colaai-ticket-head h3 {
+    font-size: 1.05rem;
   }
 
   .colaai-ticket-details li {
-    font-size: 0.9rem;
-    gap: 0.48rem;
-  }
-
-  .colaai-ticket-details li > span,
-  .colaai-ticket-details li > time {
-    white-space: normal;
+    font-size: 0.88rem;
+    gap: 0.45rem;
   }
 
   .colaai-ticket-stub {
     border-left: none;
     border-top: 2px dashed rgba(15, 23, 42, 0.45);
-    padding: 1.1rem;
+    padding: 1.05rem;
   }
 
   .colaai-ticket-qr {
@@ -363,6 +457,6 @@
   }
 
   .colaai-ticket-code {
-    font-size: 0.76rem;
+    font-size: 0.74rem;
   }
 }

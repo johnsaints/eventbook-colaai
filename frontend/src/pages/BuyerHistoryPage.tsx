@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { Link } from 'react-router'
 import ribbonSymbol from '../assets/colaai-simbolo-matriz.png'
 import logoWordmark from '../assets/ColaAi_wordmark_aprovado_transparente.webp'
-import ticketTemplateBg from '../assets/colaai-ticket-base.webp'
+import ticketCrowdBg from '../assets/colaai-ticket-crowd.webp'
 import { sessionTokenKey } from '../api'
 import AppLayout from '../components/AppLayout'
 import CancelOrderAction from '../components/CancelOrderAction'
@@ -47,52 +47,108 @@ function dateLabel(iso: string) {
   return <time dateTime={iso}>{formatDate.format(new Date(iso))}</time>
 }
 
+function TicketStageArtwork() {
+  const uid = useId().replace(/[^a-zA-Z0-9_-]/g, '')
+  const beamBlurId = `ca-beam-${uid}`
+  const beamCyanId = `ca-cyan-${uid}`
+  const beamPinkId = `ca-pink-${uid}`
+  const lampCyanId = `ca-lamp-c-${uid}`
+  const lampPinkId = `ca-lamp-p-${uid}`
+
+  return (
+    <svg className="colaai-ticket-stage-svg" viewBox="0 0 380 280" preserveAspectRatio="xMaxYMin slice" aria-hidden="true">
+      <defs>
+        <filter id={beamBlurId} x="-30%" y="-30%" width="160%" height="160%">
+          <feGaussianBlur stdDeviation="8" />
+        </filter>
+        <linearGradient id={beamCyanId} x1="100%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor="#9cfbff" stopOpacity="0.88" />
+          <stop offset="40%" stopColor="#00c8ff" stopOpacity="0.34" />
+          <stop offset="100%" stopColor="#0b46ff" stopOpacity="0" />
+        </linearGradient>
+        <linearGradient id={beamPinkId} x1="100%" y1="0%" x2="10%" y2="100%">
+          <stop offset="0%" stopColor="#ffa8f8" stopOpacity="0.86" />
+          <stop offset="42%" stopColor="#eb2cff" stopOpacity="0.38" />
+          <stop offset="100%" stopColor="#6b1eff" stopOpacity="0" />
+        </linearGradient>
+        <radialGradient id={lampCyanId} cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stopColor="#ffffff" stopOpacity="1" />
+          <stop offset="30%" stopColor="#6af4ff" stopOpacity="0.88" />
+          <stop offset="100%" stopColor="#008cff" stopOpacity="0" />
+        </radialGradient>
+        <radialGradient id={lampPinkId} cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stopColor="#ffffff" stopOpacity="1" />
+          <stop offset="30%" stopColor="#ff85f9" stopOpacity="0.88" />
+          <stop offset="100%" stopColor="#b41eff" stopOpacity="0" />
+        </radialGradient>
+      </defs>
+
+      <g filter={`url(#${beamBlurId})`}>
+        <polygon points="312,16 196,178 282,194" fill={`url(#${beamCyanId})`} />
+        <polygon points="326,11 245,188 315,198" fill={`url(#${beamCyanId})`} opacity="0.8" />
+        <polygon points="348,22 280,192 346,200" fill={`url(#${beamCyanId})`} opacity="0.65" />
+        <polygon points="368,14 294,190 374,198" fill={`url(#${beamPinkId})`} />
+      </g>
+      <circle cx="312" cy="18" r="15" fill={`url(#${lampCyanId})`} />
+      <circle cx="326" cy="12" r="9" fill={`url(#${lampCyanId})`} />
+      <circle cx="348" cy="24" r="9" fill={`url(#${lampCyanId})`} />
+      <circle cx="368" cy="15" r="18" fill={`url(#${lampPinkId})`} />
+    </svg>
+  )
+}
+
 function renderTicket(ticket: HistoryTicket) {
   const startsAt = new Date(ticket.event.startsAt)
 
   return (
     <div className="colaai-ticket">
-      <img src={ticketTemplateBg} alt="" className="colaai-ticket-bg" />
-
-      <div className="colaai-ticket-mobile-brand" aria-hidden="true">
-        <img src={ribbonSymbol} alt="" className="colaai-ticket-mobile-symbol" />
-        <img src={logoWordmark} alt="" className="colaai-ticket-mobile-wordmark" />
-        <span className="colaai-ticket-mobile-label">INGRESSO</span>
+      <div className="colaai-ticket-brand">
+        <TicketStageArtwork />
+        <img src={ticketCrowdBg} alt="" className="colaai-ticket-crowd" />
+        <div className="colaai-ticket-brand-lockup" aria-hidden="true">
+          <img src={ribbonSymbol} alt="" className="colaai-ticket-symbol" />
+          <img src={logoWordmark} alt="ColaAí" className="colaai-ticket-wordmark" />
+          <span className="colaai-ticket-label">INGRESSO</span>
+        </div>
       </div>
 
-      <div className="colaai-ticket-overlay">
-        <div className="colaai-ticket-main">
-          <div className="colaai-ticket-head">
-            <h3>{ticket.event.title}</h3>
-            <span className={ticketStatusClass[ticket.status]}>
-              <span className="ca-ticket-status-bar" aria-hidden="true" />
-              <strong>{ticketStatuses[ticket.status]}</strong>
-            </span>
+      <div className="colaai-ticket-panel-wrap">
+        <div className="colaai-ticket-overlay">
+          <div className="colaai-ticket-main">
+            <div className="colaai-ticket-head">
+              <div className="colaai-ticket-status-row">
+                <span className={ticketStatusClass[ticket.status]}>
+                  <span className="ca-ticket-status-bar" aria-hidden="true" />
+                  <strong>{ticketStatuses[ticket.status]}</strong>
+                </span>
+              </div>
+              <h3>{ticket.event.title}</h3>
+            </div>
+
+            <ul className="colaai-ticket-details">
+              <li>
+                <CalendarIcon width={14} height={14} className="ticket-detail-icon" />
+                <time dateTime={ticket.event.startsAt}>{formatTicketDate.format(startsAt)}</time>
+              </li>
+              <li>
+                <ClockIcon width={14} height={14} className="ticket-detail-icon" />
+                <span>{formatTicketTime.format(startsAt)}</span>
+              </li>
+              <li>
+                <PinIcon width={14} height={14} className="ticket-detail-icon" />
+                <span>{ticket.event.location}</span>
+              </li>
+              <li className="ticket-detail-lot">
+                <TicketIcon width={14} height={14} variant="gradient" className="ticket-detail-icon" />
+                <span>{ticket.lot.name}</span>
+              </li>
+            </ul>
           </div>
 
-          <ul className="colaai-ticket-details">
-            <li>
-              <CalendarIcon width={16} height={16} className="ticket-detail-icon" />
-              <time dateTime={ticket.event.startsAt}>{formatTicketDate.format(startsAt)}</time>
-            </li>
-            <li>
-              <ClockIcon width={16} height={16} className="ticket-detail-icon" />
-              <span>{formatTicketTime.format(startsAt)}</span>
-            </li>
-            <li>
-              <PinIcon width={16} height={16} className="ticket-detail-icon" />
-              <span>{ticket.event.location}</span>
-            </li>
-            <li className="ticket-detail-lot">
-              <TicketIcon width={16} height={16} variant="gradient" className="ticket-detail-icon" />
-              <span>{ticket.lot.name}</span>
-            </li>
-          </ul>
-        </div>
-
-        <div className="colaai-ticket-stub">
-          <TicketQrCode value={ticket.code} className="colaai-ticket-qr" />
-          <code className="colaai-ticket-code">{ticket.code}</code>
+          <div className="colaai-ticket-stub">
+            <TicketQrCode value={ticket.code} className="colaai-ticket-qr" />
+            <code className="colaai-ticket-code">{ticket.code}</code>
+          </div>
         </div>
       </div>
     </div>
