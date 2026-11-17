@@ -344,3 +344,43 @@ export function LogoutIcon(props: CaIconProps) {
     </CaSvg>
   )
 }
+
+export function MailIcon(props: CaIconProps) {
+  return (
+    <CaSvg {...props}>
+      {(fill) => (
+        <>
+          <rect x="3" y="5" width="18" height="14" rx="2.6" fill={fill} fillOpacity="0.12" />
+          <path d="m4.2 7.2 7.8 5.4 7.8-5.4" />
+        </>
+      )}
+    </CaSvg>
+  )
+}
+
+export function LockIcon(props: CaIconProps) {
+  return (
+    <CaSvg {...props}>
+      {(fill) => (
+        <>
+          <rect x="4.5" y="10.5" width="15" height="10" rx="2.4" fill={fill} fillOpacity="0.14" />
+          <path d="M8 10.5V7.8a4 4 0 0 1 8 0v2.7" />
+          <circle cx="12" cy="15.5" r="1.2" fill={fill} />
+        </>
+      )}
+    </CaSvg>
+  )
+}
+
+export function UserIcon(props: CaIconProps) {
+  return (
+    <CaSvg {...props}>
+      {(fill) => (
+        <>
+          <circle cx="12" cy="8" r="3.8" fill={fill} fillOpacity="0.16" />
+          <path d="M5 20a7 7 0 0 1 14 0" fill={fill} fillOpacity="0.1" />
+        </>
+      )}
+    </CaSvg>
+  )
+}

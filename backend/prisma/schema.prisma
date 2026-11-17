@@ -34,20 +34,40 @@ enum TicketStatus {
 }
 
 model User {
-  id        String   @id @default(uuid())
-  name      String
-  email     String   @unique
-  password  String
-  role      Role     @default(BUYER)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          String   @id @default(uuid())
+  name        String
+  email       String   @unique
+  password    String
+  role        Role     @default(BUYER)
+  phone       String?
+  city        String?
+  bio         String?  @db.VarChar(280)
+  avatarImage String?  @db.MediumText
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  organizedEvents  Event[]      @relation("OrganizerEvents")
+  organizedEvents  Event[]          @relation("OrganizerEvents")
   orders           Order[]
   staffAssignments EventStaff[]
   checkIns         CheckIn[]
+  magicLinkTokens  MagicLinkToken[]
 
   @@map("users")
+}
+
+model MagicLinkToken {
+  id        String    @id @default(uuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("magic_link_tokens")
 }
 
 model Event {

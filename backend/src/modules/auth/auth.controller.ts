@@ -1,5 +1,12 @@
 import { NextFunction, Request, Response } from 'express';
-import { loginSchema, registerSchema } from './auth.schema.js';
+import {
+  changePasswordSchema,
+  loginSchema,
+  registerSchema,
+  requestMagicLinkSchema,
+  updateProfileSchema,
+  verifyMagicLinkSchema,
+} from './auth.schema.js';
 import { AuthService } from './auth.service.js';
 
 const authService = new AuthService();
@@ -29,6 +36,46 @@ export class AuthController {
     try {
       const user = await authService.getProfile(req.user!.id);
       res.status(200).json(user);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async updateMe(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const payload = updateProfileSchema.parse(req.body);
+      const user = await authService.updateProfile(req.user!.id, payload);
+      res.status(200).json(user);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async changePassword(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const payload = changePasswordSchema.parse(req.body);
+      const result = await authService.changePassword(req.user!.id, payload);
+      res.status(200).json(result);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async requestMagicLink(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const payload = requestMagicLinkSchema.parse(req.body);
+      const result = await authService.requestMagicLink(payload.email);
+      res.status(200).json(result);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async verifyMagicLink(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const payload = verifyMagicLinkSchema.parse(req.body);
+      const session = await authService.verifyMagicLink(payload.token);
+      res.status(200).json(session);
     } catch (error) {
       next(error);
     }

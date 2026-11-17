@@ -126,6 +126,63 @@ paths:
           $ref: '#/components/responses/TooManyRequests'
         '500':
           $ref: '#/components/responses/InternalError'
+  /auth/magic-link:
+    post:
+      tags:
+        - Autenticação
+      operationId: requestMagicLink
+      summary: Solicitar login sem senha via link mágico
+      description: Gera token único válido por 15 minutos e envia por provedor de e-mail configurado (ou prévia em desenvolvimento/testes). Responde de forma genérica para evitar enumeração de contas.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MagicLinkRequestInput'
+      responses:
+        '200':
+          description: Solicitação processada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MagicLinkRequestResponse'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '429':
+          description: Limite de tentativas atingido. Código `RATE_LIMIT_EXCEEDED`.
+        '503':
+          description: Envio de e-mail não configurado em produção. Código `MAGIC_LINK_UNAVAILABLE`.
+  /auth/magic-link/verify:
+    post:
+      tags:
+        - Autenticação
+      operationId: verifyMagicLink
+      summary: Validar token de link mágico e iniciar sessão
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MagicLinkVerifyInput'
+      responses:
+        '200':
+          description: Sessão iniciada com sucesso.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginSession'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          description: Link inválido, expirado ou já utilizado. Código `INVALID_MAGIC_LINK`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '429':
+          description: Limite de tentativas atingido. Código `RATE_LIMIT_EXCEEDED`.
   /me:
     get:
       tags:
@@ -143,6 +200,61 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '404':
           description: Usuário não encontrado. Código `USER_NOT_FOUND`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    patch:
+      tags:
+        - Autenticação
+      operationId: updateProfile
+      summary: Editar dados cadastrais e foto do perfil autenticado
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProfileInput'
+      responses:
+        '200':
+          description: Perfil atualizado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          description: E-mail já está em uso por outra conta. Código `EMAIL_ALREADY_EXISTS`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /me/password:
+    put:
+      tags:
+        - Autenticação
+      operationId: changePassword
+      summary: Alterar a senha do usuário autenticado
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangePasswordInput'
+      responses:
+        '200':
+          description: Senha alterada com sucesso.
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          description: Token ausente/inválido ou senha atual incorreta.
           content:
             application/json:
               schema:
@@ -1066,6 +1178,10 @@ components:
           format: email
         role:
           $ref: '#/components/schemas/Role'
+        avatarImage:
+          type:
+            - string
+            - 'null'
     UserProfile:
       allOf:
         - $ref: '#/components/schemas/User'
@@ -1073,9 +1189,94 @@ components:
           required:
             - createdAt
           properties:
+            phone:
+              type:
+                - string
+                - 'null'
+            city:
+              type:
+                - string
+                - 'null'
+            bio:
+              type:
+                - string
+                - 'null'
             createdAt:
               type: string
               format: date-time
+            updatedAt:
+              type: string
+              format: date-time
+    UpdateProfileInput:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 100
+        email:
+          type: string
+          format: email
+        phone:
+          type:
+            - string
+            - 'null'
+          maxLength: 30
+        city:
+          type:
+            - string
+            - 'null'
+          maxLength: 100
+        bio:
+          type:
+            - string
+            - 'null'
+          maxLength: 280
+        avatarImage:
+          type:
+            - string
+            - 'null'
+          maxLength: 750000
+    ChangePasswordInput:
+      type: object
+      required:
+        - currentPassword
+        - newPassword
+      properties:
+        currentPassword:
+          type: string
+          minLength: 1
+          format: password
+        newPassword:
+          type: string
+          minLength: 6
+          format: password
+    MagicLinkRequestInput:
+      type: object
+      required:
+        - email
+      properties:
+        email:
+          type: string
+          format: email
+    MagicLinkRequestResponse:
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          type: string
+        previewUrl:
+          type: string
+          description: Disponível somente fora de produção quando não há provedor de e-mail configurado.
+    MagicLinkVerifyInput:
+      type: object
+      required:
+        - token
+      properties:
+        token:
+          type: string
+          minLength: 32
     RegisterInput:
       type: object
       required:

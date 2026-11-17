@@ -1,13 +1,30 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { Link, NavLink, useNavigate } from 'react-router'
 import logoWordmark from '../assets/ColaAi_wordmark_aprovado_transparente.webp'
-import { canAccessPanel, getCurrentUser, sessionTokenKey, type AuthUser } from '../api'
+import {
+  canAccessPanel,
+  getCurrentUser,
+  sessionTokenKey,
+  userUpdatedEventName,
+  type AuthUser,
+} from '../api'
 import { BrandGridIcon, ChartIcon, LogoutIcon, QrCodeIcon, TicketIcon } from './Icons'
 
 export default function AppLayout({ children }: { children: ReactNode }) {
   const navigate = useNavigate()
   const [user, setUser] = useState<AuthUser | null>(null)
   const [hasToken, setHasToken] = useState(() => Boolean(sessionStorage.getItem(sessionTokenKey)))
+
+  useEffect(() => {
+    function handleUserUpdated(event: Event) {
+      const updated = (event as CustomEvent<AuthUser | null>).detail
+      setUser(updated)
+      setHasToken(Boolean(sessionStorage.getItem(sessionTokenKey)))
+    }
+
+    window.addEventListener(userUpdatedEventName, handleUserUpdated)
+    return () => window.removeEventListener(userUpdatedEventName, handleUserUpdated)
+  }, [])
 
   useEffect(() => {
     const token = sessionStorage.getItem(sessionTokenKey)
@@ -94,22 +111,42 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           <div className="nav-auth">
             {user ? (
               <>
-                <div className="user-pill">
+                <NavLink
+                  to="/perfil"
+                  className={({ isActive }) =>
+                    isActive ? 'user-pill user-pill-link active' : 'user-pill user-pill-link'
+                  }
+                  title="Meu perfil"
+                >
                   <span className="user-avatar" aria-hidden="true">
-                    {user.name.trim().charAt(0).toUpperCase() || 'C'}
+                    {user.avatarImage ? (
+                      <img src={user.avatarImage} alt="" className="user-avatar-img" />
+                    ) : (
+                      user.name.trim().charAt(0).toUpperCase() || 'C'
+                    )}
                   </span>
                   <span className="user-name">{user.name}</span>
-                </div>
+                </NavLink>
                 <button type="button" className="btn nav-logout-btn" onClick={handleLogout}>
                   <LogoutIcon width={15} height={15} />
                   <span>Sair</span>
                 </button>
               </>
             ) : hasToken ? (
-              <button type="button" className="btn nav-logout-btn" onClick={handleLogout}>
-                <LogoutIcon width={15} height={15} />
-                <span>Sair</span>
-              </button>
+              <>
+                <NavLink
+                  to="/perfil"
+                  className={({ isActive }) =>
+                    isActive ? 'user-pill user-pill-link active' : 'user-pill user-pill-link'
+                  }
+                >
+                  <span className="user-name">Meu Perfil</span>
+                </NavLink>
+                <button type="button" className="btn nav-logout-btn" onClick={handleLogout}>
+                  <LogoutIcon width={15} height={15} />
+                  <span>Sair</span>
+                </button>
+              </>
             ) : (
               <>
                 <Link to="/login" className="btn nav-login-btn">Entrar</Link>

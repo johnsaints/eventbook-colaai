@@ -25,6 +25,16 @@ const authRateLimit = rateLimit({
   },
 });
 
+const magicLinkRateLimit = rateLimit({
+  windowMs: 15 * 60_000,
+  limit: 10,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  handler: (_req, _res, next) => {
+    next(new AppError('RATE_LIMIT_EXCEEDED', 'Muitas tentativas de link mágico. Aguarde alguns minutos.', 429));
+  },
+});
+
 app.use((req, res, next) => {
   const requestId = randomUUID();
   const startedAt = performance.now();
@@ -49,6 +59,7 @@ app.use((req, res, next) => {
 app.use(helmet());
 app.use(cors({ origin: env.CORS_ORIGINS, exposedHeaders: ['Retry-After', 'X-Request-Id'] }));
 app.post(['/login', '/register'], authRateLimit);
+app.post(['/auth/magic-link', '/auth/magic-link/verify'], magicLinkRateLimit);
 app.use(express.json({ limit: '2mb' }));
 
 // Rota pública de Healthcheck (M01)

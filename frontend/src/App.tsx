@@ -26,7 +26,9 @@ import BuyerHistoryPage from './pages/BuyerHistoryPage'
 import CheckinPage from './pages/CheckinPage'
 import EventPage from './pages/EventPage'
 import LoginPage from './pages/LoginPage'
+import MagicLinkVerifyPage from './pages/MagicLinkVerifyPage'
 import OrganizerPage from './pages/OrganizerPage'
+import ProfilePage from './pages/ProfilePage'
 import RegisterPage from './pages/RegisterPage'
 
 type CatalogMeta = {
@@ -373,7 +375,9 @@ export default function App() {
       <Routes>
         <Route path="/" element={<CatalogPage />} />
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/magic-link" element={<MagicLinkVerifyPage />} />
         <Route path="/register" element={<RegisterPage />} />
+        <Route path="/perfil" element={<ProfilePage />} />
         <Route path="/check-in" element={<CheckinPage />} />
         <Route path="/painel" element={<OrganizerPage />} />
         <Route path="/meus-ingressos" element={<BuyerHistoryPage />} />

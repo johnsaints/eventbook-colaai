@@ -1,4 +1,5 @@
 import { apiUrl } from './api'
+import { prepareImageUpload } from './imageUpload'
 import coverDefault from './assets/covers/cover-default.jpg'
 import coverFestival from './assets/covers/cover-festival.jpg'
 import coverFood from './assets/covers/cover-food.jpg'
@@ -61,65 +62,17 @@ export function resolveEventCoverSrc(
   return event.coverImage || getEventCategoryVisual(event).coverSrc
 }
 
-const ALLOWED_COVER_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp'])
 const MAX_COVER_WIDTH = 1280
 const MAX_COVER_HEIGHT = 720
 const MAX_COVER_DATA_URL_LENGTH = 1_350_000
 
 /** Redimensiona e otimiza a imagem escolhida no navegador para caber em 16:9 sem pesar na API. */
-export async function prepareCoverUpload(file: File): Promise<string> {
-  if (!ALLOWED_COVER_TYPES.has(file.type)) {
-    throw new Error('Escolha uma imagem PNG, JPEG ou WebP.')
-  }
-  if (file.size > 12 * 1024 * 1024) {
-    throw new Error('A imagem selecionada excede 12 MB.')
-  }
-
-  const objectUrl = URL.createObjectURL(file)
-  try {
-    const img = new Image()
-    img.src = objectUrl
-    await img.decode()
-
-    if (!img.naturalWidth || !img.naturalHeight) {
-      throw new Error('Não foi possível ler as dimensões da imagem.')
-    }
-
-    const scale = Math.min(1, MAX_COVER_WIDTH / img.naturalWidth, MAX_COVER_HEIGHT / img.naturalHeight)
-    const width = Math.max(1, Math.round(img.naturalWidth * scale))
-    const height = Math.max(1, Math.round(img.naturalHeight * scale))
-
-    const canvas = document.createElement('canvas')
-    canvas.width = width
-    canvas.height = height
-    const ctx = canvas.getContext('2d')
-    if (!ctx) throw new Error('Navegador sem suporte para processar imagem.')
-
-    ctx.imageSmoothingEnabled = true
-    ctx.imageSmoothingQuality = 'high'
-    ctx.drawImage(img, 0, 0, width, height)
-
-    const outputType = file.type === 'image/png' ? 'image/webp' : 'image/jpeg'
-    const encoded = canvas.toDataURL(outputType, 0.86)
-    const finalUrl = encoded.startsWith('data:image/webp') || outputType === 'image/jpeg'
-      ? encoded
-      : canvas.toDataURL('image/jpeg', 0.86)
-
-    if (finalUrl.length > MAX_COVER_DATA_URL_LENGTH) {
-      const compact = canvas.toDataURL('image/jpeg', 0.72)
-      if (compact.length > MAX_COVER_DATA_URL_LENGTH) {
-        throw new Error('A imagem ficou grande demais mesmo após compressão. Tente outra foto.')
-      }
-      return compact
-    }
-
-    return finalUrl
-  } catch (error) {
-    if (error instanceof Error) throw error
-    throw new Error('Não foi possível processar a imagem selecionada.')
-  } finally {
-    URL.revokeObjectURL(objectUrl)
-  }
+export function prepareCoverUpload(file: File): Promise<string> {
+  return prepareImageUpload(file, {
+    maxWidth: MAX_COVER_WIDTH,
+    maxHeight: MAX_COVER_HEIGHT,
+    maxDataUrlLength: MAX_COVER_DATA_URL_LENGTH,
+  })
 }
 
 export async function getEvent(eventId: string, signal: AbortSignal) {

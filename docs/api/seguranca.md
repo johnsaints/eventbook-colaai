@@ -16,6 +16,6 @@ CORS_ORIGINS="https://app.eventbook.example,https://painel.eventbook.example"
 
 ## Limite de tentativas
 
-`POST /login` e `POST /register` compartilham um limite de **10 requisições a cada 15 minutos por IP**. Requisições bem-sucedidas e recusadas consomem a cota. A partir da 11ª, a API responde com HTTP `429`, o código `RATE_LIMIT_EXCEEDED` e o cabeçalho `Retry-After` em segundos.
+`POST /login` e `POST /register` compartilham um limite de **10 requisições a cada 15 minutos por IP**. As rotas de Link Mágico (`POST /auth/magic-link` e `POST /auth/magic-link/verify`) também possuem seu próprio limite de **10 requisições a cada 15 minutos por IP**. Requisições bem-sucedidas e recusadas consomem a cota. A partir da 11ª, a API responde com HTTP `429`, o código `RATE_LIMIT_EXCEEDED` e o cabeçalho `Retry-After` em segundos.
 
 O contador fica em memória por processo. Em uma implantação com múltiplas instâncias, é necessário um armazenamento compartilhado para aplicar uma cota única. Atrás de um proxy reverso, configure a confiança de acordo com a topologia para identificar o IP do cliente. [Configuração do express-rate-limit](https://express-rate-limit.mintlify.app/reference/configuration)
