@@ -15,6 +15,10 @@ import { staffRoutes } from './modules/staff/staff.routes.js';
 
 export const app = express();
 
+if (env.NODE_ENV === 'production') {
+  app.set('trust proxy', 1);
+}
+
 const authRateLimit = rateLimit({
   windowMs: 15 * 60_000,
   limit: 10,

@@ -19,7 +19,8 @@ const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   DATABASE_URL: z.string().min(1),
   JWT_SECRET: z.string().min(8),
-  SEED_PASSWORD: z.string().optional(),
+  SEED_PASSWORD: optionalString,
+  SEED_ON_EMPTY: z.string().optional().transform((value) => value === 'true'),
   CORS_ORIGINS: z.string()
     .transform(value => value.split(',').map(origin => origin.trim()))
     .pipe(z.array(originSchema))

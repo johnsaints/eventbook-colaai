@@ -15,6 +15,10 @@ services:
         sync: false
       - key: JWT_SECRET
         generateValue: true
+      - key: SEED_ON_EMPTY
+        value: 'true'
+      - key: SEED_PASSWORD
+        sync: false
       - key: APP_URL
         sync: false
       - key: RESEND_API_KEY
