@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: eventbook-fullcycle-api
+    name: colaai-eventos-api
     runtime: docker
     plan: free
     branch: main
@@ -37,7 +37,7 @@ services:
         sync: false
 
   - type: web
-    name: eventbook-fullcycle-web
+    name: colaai-eventos
     runtime: static
     branch: main
     rootDir: frontend
