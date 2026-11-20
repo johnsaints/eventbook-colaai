@@ -33,6 +33,11 @@
   box-sizing: border-box;
 }
 
+html,
+body {
+  overflow-x: clip;
+}
+
 body {
   margin: 0;
   min-height: 100vh;
@@ -62,12 +67,16 @@ a:hover {
 
 /* App Shell */
 .app-shell {
+  width: 100%;
+  min-width: 0;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
 }
 
 .app-content {
+  width: 100%;
+  min-width: 0;
   flex: 1;
 }
 
@@ -441,6 +450,7 @@ a:hover {
   .navbar-inner {
     padding: 0.78rem 1rem;
     gap: 0.75rem;
+    flex-wrap: nowrap;
   }
 
   .nav-links,
@@ -455,7 +465,16 @@ a:hover {
 
 @media (max-width: 540px) {
   .brand-wordmark {
-    height: 2rem;
+    height: 1.9rem;
+  }
+
+  .brand-subtext {
+    font-size: 0.72rem;
+    letter-spacing: 0.16em;
+  }
+
+  .brand-subline-rule {
+    width: 0.75rem;
   }
 
   .user-avatar {
@@ -490,6 +509,7 @@ a:hover {
 
 /* Main Container */
 .catalog {
+  width: 100%;
   max-width: 72rem;
   margin: 0 auto;
   padding: 2rem 1.25rem;
@@ -527,6 +547,8 @@ a:hover {
 }
 
 .meta-pill {
+  max-width: 100%;
+  overflow-wrap: anywhere;
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;
@@ -708,6 +730,7 @@ a:hover {
 
 .search-input-wrap {
   flex: 1 1 16rem;
+  min-width: 0;
   position: relative;
   display: flex;
   align-items: center;
@@ -997,8 +1020,13 @@ a:hover {
   list-style: none;
 }
 
+.event-list > li {
+  min-width: 0;
+}
+
 /* Cards */
 .event-card {
+  min-width: 0;
   height: 100%;
   padding: 1.25rem;
   border: 1px solid var(--ca-border);
@@ -1487,7 +1515,67 @@ a:hover {
   width: auto;
 }
 
+.lots-table-region {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-radius: 0.85rem;
+  border: 1px solid var(--ca-border);
+  background: rgba(7, 21, 43, 0.58);
+}
+
+.lots-table {
+  width: 100%;
+  min-width: 28rem;
+  border-collapse: collapse;
+  font-size: 0.86rem;
+  text-align: left;
+}
+
+.lots-table th,
+.lots-table td {
+  padding: 0.65rem 0.8rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  vertical-align: middle;
+}
+
+.lots-table thead th {
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #8fa6c9;
+  background: rgba(6, 15, 36, 0.72);
+}
+
+.lots-table tbody tr:last-child :is(th, td) {
+  border-bottom: none;
+}
+
 @media (max-width: 640px) {
+  .catalog {
+    padding: 1.25rem 0.9rem 2rem;
+  }
+
+  .page-header {
+    margin-bottom: 1.25rem;
+  }
+
+  .page-header h1 {
+    font-size: clamp(1.45rem, 6vw, 1.95rem);
+  }
+
+  .auth-page {
+    padding-top: 1.25rem;
+  }
+
+  .auth-form input,
+  .auth-form textarea,
+  .auth-form select,
+  .search-bar input {
+    font-size: 1rem;
+  }
+
   .hero-banner {
     padding: 1.75rem 1.25rem;
   }
@@ -1502,11 +1590,19 @@ a:hover {
    ========================================================= */
 .home-sympla {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 2.25rem;
+}
+
+.home-sympla > * {
+  min-width: 0;
+  max-width: 100%;
 }
 
 .sympla-top-bar {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
   gap: 1.1rem;
   padding: 1.5rem 1.75rem;
   border-radius: 1.25rem;
@@ -1522,6 +1618,7 @@ a:hover {
   font-size: clamp(1.55rem, 3.2vw, 2.25rem);
   font-weight: 800;
   margin-bottom: 0;
+  overflow-wrap: break-word;
   background: linear-gradient(90deg, #ffffff 30%, #00d4ff 75%, #ff8ad4 100%);
   -webkit-background-clip: text;
   background-clip: text;
@@ -1562,11 +1659,16 @@ a:hover {
 /* Sympla Animated Hero Carousel */
 .sympla-hero {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
   gap: 0.85rem;
 }
 
 .sympla-hero-viewport {
   position: relative;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   overflow: hidden;
   border-radius: 1.25rem;
   border: 1px solid var(--ca-border-strong);
@@ -1582,13 +1684,16 @@ a:hover {
 
 .sympla-hero-slide {
   flex: 0 0 100%;
-  min-width: 100%;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
   display: grid;
   grid-template-columns: minmax(0, 1.08fr) minmax(0, 1fr);
 }
 
 .sympla-slide-visual {
   position: relative;
+  min-width: 0;
   min-height: 20rem;
   padding: 1.25rem 1.35rem;
   display: flex;
@@ -1656,6 +1761,7 @@ a:hover {
 }
 
 .sympla-slide-content {
+  min-width: 0;
   padding: 2rem 3.35rem 2rem 2rem;
   display: flex;
   flex-direction: column;
@@ -1688,6 +1794,7 @@ a:hover {
   margin: 0;
   font-size: clamp(1.35rem, 2.4vw, 1.85rem);
   font-weight: 800;
+  overflow-wrap: break-word;
 }
 
 .sympla-slide-content h2 a {
@@ -1818,6 +1925,11 @@ a:hover {
 }
 
 /* Sympla Category Icon Tiles */
+.sympla-categories {
+  min-width: 0;
+  max-width: 100%;
+}
+
 .sympla-cat-strip {
   display: flex;
   flex-wrap: wrap;
@@ -1935,7 +2047,7 @@ a:hover {
 
 @media (max-width: 860px) {
   .sympla-hero-slide {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .sympla-slide-visual {
@@ -1953,14 +2065,193 @@ a:hover {
 
 @media (max-width: 640px) {
   .sympla-top-bar {
-    padding: 1.25rem;
+    padding: 1.15rem 1rem;
+    border-radius: 1rem;
+    gap: 0.9rem;
+  }
+
+  .sympla-top-intro h1 {
+    font-size: clamp(1.3rem, 5.8vw, 1.75rem);
+    line-height: 1.22;
+  }
+
+  .sympla-search-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.6rem;
+  }
+
+  .sympla-search-bar .search-input-wrap {
+    flex: 1 1 auto;
+    width: 100%;
+  }
+
+  .sympla-search-bar .btn {
+    width: 100%;
+  }
+
+  .sympla-hero-viewport {
+    border-radius: 1rem;
+  }
+
+  .sympla-slide-visual {
+    min-height: 11.5rem;
+    padding: 0.9rem;
+  }
+
+  .sympla-visual-date {
+    min-width: 3rem;
+    padding: 0.4rem 0.5rem 0.35rem;
+  }
+
+  .sympla-visual-seal {
+    padding: 0.28rem 0.52rem;
+    gap: 0.35rem;
+  }
+
+  .sympla-visual-seal-ribbon {
+    width: 1.2rem;
+  }
+
+  .sympla-visual-seal-wordmark {
+    width: 2.75rem;
+  }
+
+  .sympla-nav-btn {
+    top: 5.75rem;
+    width: 2.2rem;
+    height: 2.2rem;
+  }
+
+  .sympla-nav-prev {
+    left: 0.5rem;
+  }
+
+  .sympla-nav-next {
+    right: 0.5rem;
+  }
+
+  .sympla-slide-content {
+    padding: 1.15rem 1rem 1.25rem;
+    gap: 0.65rem;
+  }
+
+  .sympla-slide-content h2 {
+    font-size: 1.25rem;
+  }
+
+  .sympla-slide-desc {
+    font-size: 0.88rem;
+  }
+
+  .sympla-slide-meta {
+    font-size: 0.84rem;
+  }
+
+  .sympla-slide-cta .btn {
+    width: 100%;
   }
 
   .sympla-cat-strip {
+    width: 100%;
+    max-width: 100%;
     justify-content: flex-start;
     flex-wrap: nowrap;
     overflow-x: auto;
-    padding-bottom: 0.35rem;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    gap: 0.7rem;
+    padding: 0.1rem 0.1rem 0.35rem;
+  }
+
+  .sympla-cat-strip::-webkit-scrollbar {
+    display: none;
+  }
+
+  .sympla-cat-btn {
+    flex: 0 0 auto;
+  }
+
+  .ca-cat-squircle {
+    width: 3.35rem;
+    height: 3.35rem;
+    border-radius: 0.92rem;
+  }
+
+  .sympla-cat-label {
+    font-size: 0.78rem;
+  }
+
+  .card-body {
+    padding: 1rem;
+  }
+
+  .sympla-producer-banner {
+    padding: 1.25rem 1rem;
+    border-radius: 1rem;
+  }
+
+  .sympla-producer-banner .btn {
+    width: 100%;
+  }
+
+  .event-detail-hero {
+    padding: 1.25rem 1rem;
+    margin-bottom: 1.25rem;
+    border-radius: 1rem;
+  }
+
+  .event-detail-hero h1 {
+    font-size: clamp(1.35rem, 6vw, 1.9rem);
+  }
+
+  .event-detail-hero .lead-text {
+    font-size: 0.94rem;
+  }
+
+  .meta-pill {
+    font-size: 0.82rem;
+    padding: 0.36rem 0.68rem;
+  }
+
+  .dashboard-header > .btn {
+    width: 100%;
+  }
+
+  .dashboard-profile {
+    padding: 1rem;
+  }
+
+  .dashboard-kpis {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    width: 100%;
+    gap: 0.55rem;
+  }
+
+  .kpi-box {
+    min-width: 0;
+    padding: 0.55rem 0.65rem;
+    text-align: center;
+  }
+
+  .kpi-box dt {
+    font-size: 0.68rem;
+  }
+
+  .kpi-box dd {
+    font-size: 1.2rem;
+  }
+
+  .app-footer {
+    margin-top: 2.5rem;
+  }
+
+  .app-footer-inner {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 1.1rem 0.9rem;
   }
 }
 

@@ -151,3 +151,103 @@ test('navegação contextual por perfil (ORGANIZER, STAFF, ADMIN) e gestão de c
     await prisma.$disconnect()
   }
 })
+
+test('layout mobile (360x800) sem overflow horizontal e menu no Drawer', async ({ page }) => {
+  const prisma = new PrismaClient({ datasourceUrl: getE2EDatabaseUrl() })
+  const tag = randomUUID()
+  const email = `e2e-mobile-${tag}@eventbook.test`
+
+  try {
+    const passwordHash = await bcrypt.hash('EventBook-Mobile-123!', 10)
+    const now = Date.now()
+    const organizer = await prisma.user.create({
+      data: { name: 'Produtor Mobile', email, password: passwordHash, role: 'ORGANIZER' },
+    })
+
+    const createdEvents = await Promise.all(
+      [1, 2].map((index) =>
+        prisma.event.create({
+          data: {
+            organizerId: organizer.id,
+            title: `Clássico das Multidões — Campeonato Estadual ${index} ${tag.slice(0, 6)}`,
+            description: 'Evento de demonstração com título longo para validar o layout responsivo em telas pequenas.',
+            location: 'Estádio Plácido Castelo · Fortaleza, CE',
+            capacity: 50,
+            status: 'PUBLISHED',
+            startsAt: new Date(now + (index + 1) * 3_600_000),
+            endsAt: new Date(now + (index + 4) * 3_600_000),
+            lots: {
+              create: {
+                name: 'Arquibancada Central Inteira',
+                price: '80.00',
+                totalQuantity: 50,
+                salesStartsAt: new Date(now - 3_600_000),
+                salesEndsAt: new Date(now + (index + 1) * 3_600_000),
+              },
+            },
+          },
+          select: { id: true },
+        }),
+      ),
+    )
+
+    const firstEventId = createdEvents[0].id
+    await page.setViewportSize({ width: 360, height: 800 })
+
+    async function assertBoxFitsViewport(selector) {
+      const box = await page.locator(selector).first().boundingBox()
+      expect(box).not.toBeNull()
+      expect(box.x).toBeGreaterThanOrEqual(0)
+      expect(box.x + box.width).toBeLessThanOrEqual(360.5)
+    }
+
+    await page.goto('/')
+    await expect(page.locator('.sympla-hero-viewport')).toBeVisible()
+    await expect(page.locator('.sympla-cat-strip')).toBeVisible()
+    await assertBoxFitsViewport('.sympla-top-bar')
+    await assertBoxFitsViewport('.sympla-hero-viewport')
+    await assertBoxFitsViewport('.sympla-cat-strip')
+    await assertBoxFitsViewport('.event-list')
+
+    let overflow = await page.evaluate(() => ({
+      scrollWidth: document.documentElement.scrollWidth,
+      innerWidth: window.innerWidth,
+    }))
+    expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.innerWidth)
+
+    await page.goto(`/events/${firstEventId}`)
+    await expect(page.getByRole('heading', { name: 'Lotes à venda' })).toBeVisible()
+    await assertBoxFitsViewport('.event-detail-hero')
+    await assertBoxFitsViewport('.lot-row-card')
+    overflow = await page.evaluate(() => ({
+      scrollWidth: document.documentElement.scrollWidth,
+      innerWidth: window.innerWidth,
+    }))
+    expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.innerWidth)
+
+    await page.goto('/login')
+    await expect(page.getByRole('heading', { name: 'Entrar no ColaAí' })).toBeVisible()
+    await assertBoxFitsViewport('.auth-card')
+    overflow = await page.evaluate(() => ({
+      scrollWidth: document.documentElement.scrollWidth,
+      innerWidth: window.innerWidth,
+    }))
+    expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.innerWidth)
+
+    await page.goto('/')
+    await expect(page.locator('.navbar .nav-links')).not.toBeVisible()
+    const menuTrigger = page.getByRole('button', { name: 'Abrir menu de navegação' })
+    await expect(menuTrigger).toBeVisible()
+    await menuTrigger.click()
+
+    const mobileDrawer = page.getByRole('dialog')
+    await expect(mobileDrawer).toBeVisible()
+    await expect(mobileDrawer.getByRole('heading', { name: 'Menu' })).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(mobileDrawer).toHaveCount(0)
+  } finally {
+    await prisma.event.deleteMany({ where: { organizer: { email } } })
+    await prisma.user.deleteMany({ where: { email } })
+    await prisma.$disconnect()
+  }
+})

@@ -236,6 +236,10 @@
 }
 
 @media (max-width: 640px) {
+  .ca-drawer-left.ca-drawer-sm {
+    width: min(20rem, 86vw);
+  }
+
   .ca-drawer-right.ca-drawer-sm,
   .ca-drawer-right.ca-drawer-md,
   .ca-drawer-right.ca-drawer-lg,
@@ -249,6 +253,26 @@
   .ca-drawer-footer {
     padding-left: 1rem;
     padding-right: 1rem;
+  }
+
+  .ca-drawer-bottom .ca-drawer-body {
+    padding-bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  .drawer-tabs {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .drawer-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .drawer-tab {
+    flex: 0 0 auto;
+    white-space: nowrap;
   }
 }
 

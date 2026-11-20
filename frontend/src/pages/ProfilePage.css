@@ -13,6 +13,7 @@
 }
 
 .profile-card {
+  min-width: 0;
   padding: 1.65rem;
   border-radius: 1.15rem;
   border: 1px solid var(--ca-border);
@@ -136,6 +137,7 @@
 }
 
 .profile-forms-stack {
+  min-width: 0;
   display: grid;
   gap: 1.5rem;
 }
@@ -250,7 +252,8 @@
 .admin-user-info {
   display: grid;
   gap: 0.2rem;
-  min-width: 12rem;
+  min-width: 0;
+  flex: 1 1 12rem;
 }
 
 .admin-user-info strong {
@@ -309,7 +312,7 @@
 
 @media (max-width: 860px) {
   .profile-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
@@ -318,9 +321,14 @@
     padding: 1.25rem;
   }
 
+  .profile-avatar-ring {
+    width: 6.25rem;
+    height: 6.25rem;
+  }
+
   .profile-form-row,
   .admin-users-filters {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .admin-user-controls {
@@ -328,6 +336,12 @@
   }
 
   .admin-user-controls select {
+    min-width: 0;
+    width: 100%;
     flex: 1 1 100%;
+  }
+
+  .admin-user-controls .btn {
+    width: 100%;
   }
 }

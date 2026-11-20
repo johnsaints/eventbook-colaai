@@ -404,7 +404,7 @@
 
 @media (max-width: 720px) {
   .colaai-ticket {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     min-height: auto;
     border-radius: 1rem;
     -webkit-mask-image: none;
@@ -428,7 +428,7 @@
   }
 
   .colaai-ticket-overlay {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     border-radius: 0.85rem;
   }
 
@@ -551,4 +551,20 @@
   font-size: 0.94rem;
   color: #ffffff;
   overflow-wrap: anywhere;
+}
+
+@media (max-width: 540px) {
+  .ticket-drawer-qr {
+    width: 11.5rem;
+    height: 11.5rem;
+  }
+
+  .ticket-drawer-code-row {
+    justify-content: center;
+    text-align: center;
+  }
+
+  .ticket-drawer-code-row .btn {
+    width: 100%;
+  }
 }
