@@ -18,6 +18,7 @@ import {
   type UserRole,
 } from '../api'
 import AppLayout from '../components/AppLayout'
+import Drawer from '../components/Drawer'
 import {
   ArrowLeftIcon,
   CloseIcon,
@@ -51,10 +52,12 @@ function AdminUsersSection({
   token,
   currentUserId,
   onSessionExpired,
+  embedded = false,
 }: {
   token: string
   currentUserId: string
   onSessionExpired: () => void
+  embedded?: boolean
 }) {
   const [searchInput, setSearchInput] = useState('')
   const [appliedQuery, setAppliedQuery] = useState('')
@@ -172,14 +175,20 @@ function AdminUsersSection({
   }
 
   return (
-    <section className="profile-card" aria-labelledby="admin-users-heading">
-      <div className="profile-card-header">
-        <h2 id="admin-users-heading">
-          <UsersIcon width={18} height={18} variant="gradient" />
-          Gestão de Contas e Permissões
-        </h2>
-        <span className="role-badge">Somente Admin</span>
-      </div>
+    <section
+      className={embedded ? 'admin-drawer-section' : 'profile-card'}
+      aria-labelledby={embedded ? undefined : 'admin-users-heading'}
+      aria-label={embedded ? 'Gestão de Contas e Permissões' : undefined}
+    >
+      {!embedded && (
+        <div className="profile-card-header">
+          <h2 id="admin-users-heading">
+            <UsersIcon width={18} height={18} variant="gradient" />
+            Gestão de Contas e Permissões
+          </h2>
+          <span className="role-badge">Somente Admin</span>
+        </div>
+      )}
 
       <p className="profile-magic-note">
         <ShieldCheckIcon width={16} height={16} variant="gradient" />
@@ -320,6 +329,7 @@ export default function ProfilePage() {
   const [savingPassword, setSavingPassword] = useState(false)
   const [passwordStatus, setPasswordStatus] = useState('')
   const [passwordError, setPasswordError] = useState('')
+  const [adminDrawerOpen, setAdminDrawerOpen] = useState(false)
 
   const avatarInputRef = useRef<HTMLInputElement>(null)
   const profileReqRef = useRef<AbortController | null>(null)
@@ -494,6 +504,7 @@ export default function ProfilePage() {
   const monogram = (name || profile?.name || 'C').trim().charAt(0).toUpperCase() || 'C'
 
   const expireSession = useCallback(() => {
+    setAdminDrawerOpen(false)
     sessionStorage.removeItem(sessionTokenKey)
     setToken(null)
     setProfile(null)
@@ -612,6 +623,16 @@ export default function ProfilePage() {
               </p>
 
               <div className="profile-shortcuts">
+                {isAdminRole(profile.role) && (
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm btn-full"
+                    onClick={() => setAdminDrawerOpen(true)}
+                  >
+                    <UsersIcon width={15} height={15} />
+                    Gerenciar contas
+                  </button>
+                )}
                 {canAccessBuyerTickets(profile.role) && (
                   <Link to="/meus-ingressos" className="btn btn-ghost btn-sm btn-full">Meus Ingressos</Link>
                 )}
@@ -778,16 +799,54 @@ export default function ProfilePage() {
               </section>
 
               {isAdminRole(profile.role) && token && (
-                <AdminUsersSection
-                  token={token}
-                  currentUserId={profile.id}
-                  onSessionExpired={expireSession}
-                />
+                <section className="profile-card admin-summary-card" aria-labelledby="admin-card-heading">
+                  <div className="profile-card-header">
+                    <h2 id="admin-card-heading">
+                      <UsersIcon width={18} height={18} variant="gradient" />
+                      Administração de Contas
+                    </h2>
+                    <span className="role-badge">Somente Admin</span>
+                  </div>
+                  <p className="event-meta">
+                    Consulte usuários cadastrados, filtre por perfil e promova contas para{' '}
+                    <strong>Organizador</strong>, <strong>Equipe de Check-in</strong> ou{' '}
+                    <strong>Administrador</strong> sem sair do seu perfil.
+                  </p>
+                  <div className="admin-summary-actions">
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      onClick={() => setAdminDrawerOpen(true)}
+                    >
+                      <UsersIcon width={16} height={16} />
+                      Gerenciar contas e permissões
+                    </button>
+                  </div>
+                </section>
               )}
             </div>
           </div>
         )}
       </main>
+
+      {profile && isAdminRole(profile.role) && token && (
+        <Drawer
+          open={adminDrawerOpen}
+          onClose={() => setAdminDrawerOpen(false)}
+          side="right"
+          size="lg"
+          eyebrow="Administração · Somente Admin"
+          title="Gestão de Contas e Permissões"
+          subtitle="Pesquise usuários cadastrados e gerencie os perfis de acesso."
+        >
+          <AdminUsersSection
+            token={token}
+            currentUserId={profile.id}
+            onSessionExpired={expireSession}
+            embedded
+          />
+        </Drawer>
+      )}
     </AppLayout>
   )
 }

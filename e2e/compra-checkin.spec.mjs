@@ -105,7 +105,16 @@ test('cadastro, compra e check-in do mesmo ingresso', async ({ browser, page, re
     await expect(ticket.getByText('Válido', { exact: true })).toBeVisible()
     const codeField = ticket.locator('code')
     await expect(codeField).toHaveText(/\S+/)
-    return codeField.innerText()
+    const codeValue = await codeField.innerText()
+
+    await ticket.getByRole('button', { name: /Apresentar QR/ }).click()
+    const qrDrawer = page.getByRole('dialog')
+    await expect(qrDrawer).toBeVisible()
+    await expect(qrDrawer).toContainText(codeValue)
+    await page.keyboard.press('Escape')
+    await expect(qrDrawer).toHaveCount(0)
+
+    return codeValue
   })
 
   await test.step('Fazer o check-in com a conta STAFF e bloquear duplicidade', async () => {

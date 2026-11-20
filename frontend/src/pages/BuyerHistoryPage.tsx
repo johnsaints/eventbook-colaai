@@ -15,7 +15,18 @@ import {
 } from '../api'
 import AppLayout from '../components/AppLayout'
 import CancelOrderAction from '../components/CancelOrderAction'
-import { ArrowLeftIcon, ArrowRightIcon, CalendarIcon, ClockIcon, PinIcon, TicketIcon } from '../components/Icons'
+import Drawer from '../components/Drawer'
+import {
+  ArrowLeftIcon,
+  ArrowRightIcon,
+  CalendarIcon,
+  CheckIcon,
+  ClockIcon,
+  CopyIcon,
+  PinIcon,
+  QrCodeIcon,
+  TicketIcon,
+} from '../components/Icons'
 import TicketQrCode from '../components/TicketQrCode'
 import { formatDate } from '../events'
 import { cancelMyOrder, listMyOrders, listMyTickets, type CancelOrderResult, type HistoryAccess, type HistoryOrder, type HistoryPage, type HistoryResult, type HistoryTicket } from '../history'
@@ -106,7 +117,7 @@ function TicketStageArtwork() {
   )
 }
 
-function renderTicket(ticket: HistoryTicket) {
+function renderTicket(ticket: HistoryTicket, onExpand: (ticket: HistoryTicket) => void) {
   const startsAt = new Date(ticket.event.startsAt)
 
   return (
@@ -157,6 +168,15 @@ function renderTicket(ticket: HistoryTicket) {
           <div className="colaai-ticket-stub">
             <TicketQrCode value={ticket.code} className="colaai-ticket-qr" />
             <code className="colaai-ticket-code">{ticket.code}</code>
+            <button
+              type="button"
+              className="colaai-ticket-expand-btn"
+              onClick={() => onExpand(ticket)}
+              aria-label={`Apresentar QR de ${ticket.event.title}`}
+            >
+              <QrCodeIcon width={12} height={12} />
+              Apresentar QR
+            </button>
           </div>
         </div>
       </div>
@@ -299,7 +319,18 @@ export default function BuyerHistoryPage() {
   const [revision, setRevision] = useState(0)
   const [notice, setNotice] = useState('')
   const [cancellingId, setCancellingId] = useState<string | null>(null)
+  const [selectedTicket, setSelectedTicket] = useState<HistoryTicket | null>(null)
+  const [copiedCode, setCopiedCode] = useState(false)
   const requestRef = useRef<AbortController | null>(null)
+
+  async function copyTicketCode(code: string) {
+    try {
+      await navigator.clipboard.writeText(code)
+      setCopiedCode(true)
+    } catch {
+      setCopiedCode(false)
+    }
+  }
 
   useEffect(() => () => requestRef.current?.abort(), [])
 
@@ -372,7 +403,10 @@ export default function BuyerHistoryPage() {
             revision={revision}
             load={listMyTickets}
             onAccess={handleAccess}
-            renderItem={renderTicket}
+            renderItem={(ticket) => renderTicket(ticket, (selected) => {
+              setCopiedCode(false)
+              setSelectedTicket(selected)
+            })}
           />
           <HistorySection
             id="my-orders-title"
@@ -421,6 +455,62 @@ export default function BuyerHistoryPage() {
         </div>
       )}
       </main>
+
+      <Drawer
+        open={Boolean(selectedTicket)}
+        onClose={() => setSelectedTicket(null)}
+        side="right"
+        size="md"
+        eyebrow="Ingresso Digital · Portaria"
+        title={selectedTicket?.event.title ?? ''}
+        subtitle={selectedTicket?.lot.name}
+      >
+        {selectedTicket && (
+          <div className="ticket-drawer-content">
+            <div className="ticket-drawer-status">
+              <span className={ticketStatusClass[selectedTicket.status]}>
+                <span className="ca-ticket-status-bar" aria-hidden="true" />
+                <strong>{ticketStatuses[selectedTicket.status]}</strong>
+              </span>
+            </div>
+
+            <div className="ticket-drawer-qr-box">
+              <TicketQrCode value={selectedTicket.code} className="ticket-drawer-qr" />
+            </div>
+
+            <div className="ticket-drawer-code-row">
+              <code className="history-code">{selectedTicket.code}</code>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={() => void copyTicketCode(selectedTicket.code)}
+              >
+                {copiedCode ? <CheckIcon width={15} height={15} /> : <CopyIcon width={15} height={15} />}
+                {copiedCode ? 'Código copiado' : 'Copiar código'}
+              </button>
+            </div>
+
+            <dl className="ticket-drawer-meta">
+              <div>
+                <dt>Data e horário</dt>
+                <dd>{dateLabel(selectedTicket.event.startsAt)}</dd>
+              </div>
+              <div>
+                <dt>Local</dt>
+                <dd>{selectedTicket.event.location}</dd>
+              </div>
+              <div>
+                <dt>Setor / Lote</dt>
+                <dd>{selectedTicket.lot.name}</dd>
+              </div>
+              <div>
+                <dt>Pedido</dt>
+                <dd><code className="history-code">{selectedTicket.orderId}</code></dd>
+              </div>
+            </dl>
+          </div>
+        )}
+      </Drawer>
     </AppLayout>
   )
 }

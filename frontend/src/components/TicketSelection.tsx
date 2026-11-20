@@ -11,6 +11,8 @@ import {
 } from '../api'
 import { getEvent, type EventDetails } from '../events'
 import { formatPrice, priceInCents, reserveTickets, type Reservation, type ReservationDraft, type ReservationItem } from '../orders'
+import Drawer from './Drawer'
+import { TicketIcon } from './Icons'
 import ReservationConfirmation from './ReservationConfirmation'
 import './TicketSelection.css'
 
@@ -32,6 +34,7 @@ export default function TicketSelection({ event, initialItems }: {
   const [sessionUser, setSessionUser] = useState<AuthUser | null>(() => getStoredSessionUser())
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [mobileCartOpen, setMobileCartOpen] = useState(false)
   const [reservation, setReservation] = useState<{ order: Reservation; lotNames: Record<string, string> } | null>(null)
   const requestRef = useRef<AbortController | null>(null)
 
@@ -56,6 +59,7 @@ export default function TicketSelection({ event, initialItems }: {
   const selected = selection
     .filter(({ quantity }) => quantity > 0)
     .map(({ lot, quantity }) => ({ lot, quantity, subtotal: priceInCents(lot.price) * BigInt(quantity) }))
+  const totalQuantity = selected.reduce((sum, item) => sum + item.quantity, 0)
   const total = selected.reduce((sum, item) => sum + item.subtotal, 0n)
   const draft: ReservationDraft = {
     eventId: event.id,
@@ -89,6 +93,7 @@ export default function TicketSelection({ event, initialItems }: {
       if (controller.signal.aborted) return
       if (result.kind === 'reserved') {
         const lotNames = Object.fromEntries(selected.map(({ lot }) => [lot.id, lot.name]))
+        setMobileCartOpen(false)
         setReservation({ order: result.order, lotNames })
       } else if (result.kind === 'login') {
         if (sessionStorage.getItem(sessionTokenKey) === token) {
@@ -127,6 +132,57 @@ export default function TicketSelection({ event, initialItems }: {
   }
 
   if (reservation) return <ReservationConfirmation order={reservation.order} lotNames={reservation.lotNames} />
+
+  const cartSummaryBody = (
+    <>
+      {selected.length === 0 ? (
+        <p className="event-meta">Selecione ingressos para montar sua reserva.</p>
+      ) : (
+        <>
+          <ul className="ticket-cart-items">
+            {selected.map(({ lot, quantity, subtotal }) => (
+              <li key={lot.id}>
+                <span>{quantity} × {lot.name}</span>
+                <span>{formatPrice(subtotal)}</span>
+              </li>
+            ))}
+          </ul>
+          <p className="ticket-selection-total">
+            Total estimado <strong>{formatPrice(total)}</strong>
+          </p>
+        </>
+      )}
+      {error && <p className="form-alert" role="alert">{error}</p>}
+      {selected.length > 0 && (
+        !hasSession ? (
+          <Link
+            to="/login"
+            state={{ reservationDraft: draft }}
+            className="btn btn-primary btn-full"
+          >
+            Entrar para reservar
+          </Link>
+        ) : sessionUser && !canAccessBuyerTickets(sessionUser.role) ? (
+          <>
+            <p className="form-alert" role="alert">
+              Sua conta está no perfil {ROLE_LABELS[sessionUser.role]}. A reserva e compra de ingressos está disponível apenas para contas de Comprador (ou Admin).
+            </p>
+            <Link
+              to="/login"
+              state={{ reservationDraft: draft }}
+              className="btn btn-secondary btn-full"
+            >
+              Trocar para conta de comprador
+            </Link>
+          </>
+        ) : (
+          <button className="ticket-cart-action btn-full" type="button" disabled={busy} onClick={() => void submit()}>
+            {busy ? 'Confirmando reserva…' : 'Reservar ingressos'}
+          </button>
+        )
+      )}
+    </>
+  )
 
   return (
     <section aria-labelledby="lots-title" className="ticket-checkout-layout">
@@ -183,54 +239,38 @@ export default function TicketSelection({ event, initialItems }: {
       <aside className="ticket-cart-column">
         <section className="event-card ticket-cart ticket-cart-sticky" aria-labelledby="cart-title">
           <h2 id="cart-title">Resumo do carrinho</h2>
-          {selected.length === 0 ? (
-            <p className="event-meta">Selecione ingressos para montar sua reserva.</p>
-          ) : (
-            <>
-              <ul className="ticket-cart-items">
-                {selected.map(({ lot, quantity, subtotal }) => (
-                  <li key={lot.id}>
-                    <span>{quantity} × {lot.name}</span>
-                    <span>{formatPrice(subtotal)}</span>
-                  </li>
-                ))}
-              </ul>
-              <p className="ticket-selection-total">
-                Total estimado <strong>{formatPrice(total)}</strong>
-              </p>
-            </>
-          )}
-          {error && <p className="form-alert" role="alert">{error}</p>}
-          {selected.length > 0 && (
-            !hasSession ? (
-              <Link
-                to="/login"
-                state={{ reservationDraft: draft }}
-                className="btn btn-primary btn-full"
-              >
-                Entrar para reservar
-              </Link>
-            ) : sessionUser && !canAccessBuyerTickets(sessionUser.role) ? (
-              <>
-                <p className="form-alert" role="alert">
-                  Sua conta está no perfil {ROLE_LABELS[sessionUser.role]}. A reserva e compra de ingressos está disponível apenas para contas de Comprador (ou Admin).
-                </p>
-                <Link
-                  to="/login"
-                  state={{ reservationDraft: draft }}
-                  className="btn btn-secondary btn-full"
-                >
-                  Trocar para conta de comprador
-                </Link>
-              </>
-            ) : (
-              <button className="ticket-cart-action btn-full" type="button" disabled={busy} onClick={() => void submit()}>
-                {busy ? 'Confirmando reserva…' : 'Reservar ingressos'}
-              </button>
-            )
-          )}
+          {cartSummaryBody}
         </section>
       </aside>
+
+      {selected.length > 0 && (
+        <div className="mobile-cart-bar">
+          <div className="mobile-cart-bar-info">
+            <span>{totalQuantity} {totalQuantity === 1 ? 'ingresso' : 'ingressos'}</span>
+            <strong>{formatPrice(total)}</strong>
+          </div>
+          <button
+            type="button"
+            className="btn btn-primary btn-sm"
+            onClick={() => setMobileCartOpen(true)}
+          >
+            <TicketIcon width={15} height={15} />
+            Ver reserva
+          </button>
+        </div>
+      )}
+
+      <Drawer
+        open={mobileCartOpen}
+        onClose={() => setMobileCartOpen(false)}
+        side="bottom"
+        size="md"
+        eyebrow="Carrinho ColaAí"
+        title="Resumo da sua reserva"
+        subtitle={event.title}
+      >
+        {cartSummaryBody}
+      </Drawer>
     </section>
   )
 }

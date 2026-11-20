@@ -8,6 +8,7 @@ type Props = {
   token: string
   onClose: () => void
   onSessionExpired: () => void
+  embedded?: boolean
 }
 
 type LotsState =
@@ -27,7 +28,7 @@ function lotStatus(lot: ManagedLot) {
   return 'Ativo'
 }
 
-export default function EventLotsPanel({ eventId, eventTitle, token, onClose, onSessionExpired }: Props) {
+export default function EventLotsPanel({ eventId, eventTitle, token, onClose, onSessionExpired, embedded = false }: Props) {
   const [state, setState] = useState<LotsState>({ status: 'loading' })
   const [form, setForm] = useState<FormMode | null>(null)
   const [notice, setNotice] = useState('')
@@ -83,13 +84,22 @@ export default function EventLotsPanel({ eventId, eventTitle, token, onClose, on
   }
 
   return (
-    <section aria-labelledby="lots-panel-title" className="panel-events">
-      <h2 id="lots-panel-title" tabIndex={-1} ref={headingRef}>Lotes de {eventTitle}</h2>
+    <section
+      aria-labelledby={embedded ? undefined : 'lots-panel-title'}
+      aria-label={embedded ? `Lotes de ${eventTitle}` : undefined}
+      className={embedded ? 'drawer-embedded-panel' : 'panel-events'}
+    >
+      {!embedded && (
+        <h2 id="lots-panel-title" tabIndex={-1} ref={headingRef}>Lotes de {eventTitle}</h2>
+      )}
       <div className="event-actions">
-        <button type="button" onClick={onClose}>Fechar lotes</button>
+        {!embedded && (
+          <button type="button" className="btn btn-ghost btn-sm" onClick={onClose}>Fechar lotes</button>
+        )}
         <button
           ref={newLotButton}
           type="button"
+          className="btn btn-primary btn-sm"
           disabled={form !== null || state.status !== 'ready'}
           onClick={() => openForm({ kind: 'create' })}
         >

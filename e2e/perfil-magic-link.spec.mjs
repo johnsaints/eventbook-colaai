@@ -98,12 +98,19 @@ test('navegação contextual por perfil (ORGANIZER, STAFF, ADMIN) e gestão de c
       await expect(page.getByRole('status')).toContainText('Sessão iniciada como')
     }
 
-    // ORGANIZER vê Eventos e Painel; não vê Meus Ingressos nem Check-in
+    // ORGANIZER vê Eventos e Painel; abre Novo evento no Drawer e fecha com Escape
     await signIn(emails.organizer)
     await expect(nav.getByRole('link', { name: 'Eventos', exact: true })).toBeVisible()
     await expect(nav.getByRole('link', { name: 'Painel', exact: true })).toBeVisible()
     await expect(nav.getByRole('link', { name: 'Meus Ingressos', exact: true })).toHaveCount(0)
     await expect(nav.getByRole('link', { name: 'Check-in', exact: true })).toHaveCount(0)
+    await nav.getByRole('link', { name: 'Painel', exact: true }).click()
+    await page.getByRole('button', { name: 'Novo evento' }).click()
+    const organizerDrawer = page.getByRole('dialog')
+    await expect(organizerDrawer).toBeVisible()
+    await expect(organizerDrawer.getByRole('heading', { name: 'Novo evento' })).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(organizerDrawer).toHaveCount(0)
     await page.locator('.navbar').getByRole('button', { name: 'Sair' }).click()
 
     // STAFF vê Eventos e Check-in; não vê Meus Ingressos nem Painel
@@ -122,16 +129,21 @@ test('navegação contextual por perfil (ORGANIZER, STAFF, ADMIN) e gestão de c
     await expect(nav.getByRole('link', { name: 'Check-in', exact: true })).toBeVisible()
 
     await page.getByRole('link', { name: 'Meu Perfil' }).first().click()
-    await expect(page.getByRole('heading', { name: 'Gestão de Contas e Permissões' })).toBeVisible()
-    await page.getByLabel('Buscar por nome ou e-mail').fill(emails.target)
-    await page.getByRole('button', { name: 'Buscar', exact: true }).click()
+    await page.getByRole('button', { name: 'Gerenciar contas e permissões' }).click()
+    const adminDrawer = page.getByRole('dialog')
+    await expect(adminDrawer).toBeVisible()
+    await expect(adminDrawer.getByRole('heading', { name: 'Gestão de Contas e Permissões' })).toBeVisible()
+    await adminDrawer.getByLabel('Buscar por nome ou e-mail').fill(emails.target)
+    await adminDrawer.getByRole('button', { name: 'Buscar', exact: true }).click()
 
-    const roleSelect = page.getByLabel(`Perfil de ${emails.target}`)
+    const roleSelect = adminDrawer.getByLabel(`Perfil de ${emails.target}`)
     await expect(roleSelect).toHaveValue('BUYER')
     await roleSelect.selectOption('ORGANIZER')
-    await page.getByRole('button', { name: 'Salvar perfil', exact: true }).click()
+    await adminDrawer.getByRole('button', { name: 'Salvar perfil', exact: true }).click()
 
-    await expect(page.getByRole('status')).toContainText('Perfil de Alvo RBAC atualizado para Organizador.')
+    await expect(adminDrawer.getByRole('status')).toContainText('Perfil de Alvo RBAC atualizado para Organizador.')
+    await page.keyboard.press('Escape')
+    await expect(adminDrawer).toHaveCount(0)
     const updatedTarget = await prisma.user.findUniqueOrThrow({ where: { email: emails.target } })
     expect(updatedTarget.role).toBe('ORGANIZER')
   } finally {

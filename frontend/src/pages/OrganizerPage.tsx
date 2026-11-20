@@ -11,6 +11,7 @@ import {
   type AuthUser,
 } from '../api'
 import AppLayout from '../components/AppLayout'
+import Drawer from '../components/Drawer'
 import { ArrowLeftIcon, CalendarIcon, ChartIcon, PinIcon, PlusIcon, TicketIcon, UsersIcon } from '../components/Icons'
 import { formatDate, getEventForEdit, getMyEvents, type EditableEvent, type OrganizerEvent } from '../events'
 import EventForm from '../components/EventForm'
@@ -28,6 +29,11 @@ type EditState =
   | { status: 'error'; message: string }
   | { status: 'ready'; event: EditableEvent }
 
+type OrganizerDrawerTab = 'edit' | 'lots' | 'staff' | 'occupancy'
+type OrganizerDrawerState =
+  | { kind: 'create' }
+  | { kind: 'event'; eventId: string; tab: OrganizerDrawerTab }
+
 const statusLabel: Record<OrganizerEvent['status'], string> = {
   DRAFT: 'Rascunho',
   PUBLISHED: 'Publicado',
@@ -40,10 +46,7 @@ export default function OrganizerPage() {
   const [panelAttempt, setPanelAttempt] = useState(0)
   const panelHeadingRef = useRef<HTMLHeadingElement>(null)
 
-  const [lotsEventId, setLotsEventId] = useState<string | null>(null)
-  const [staffEventId, setStaffEventId] = useState<string | null>(null)
-  const [occupancyEventId, setOccupancyEventId] = useState<string | null>(null)
-  const [showCreateForm, setShowCreateForm] = useState(false)
+  const [drawer, setDrawer] = useState<OrganizerDrawerState | null>(null)
   const [editing, setEditing] = useState<EditState | null>(null)
   const [editNotice, setEditNotice] = useState('')
   const editRequest = useRef<AbortController | null>(null)
@@ -99,7 +102,6 @@ export default function OrganizerPage() {
     editRequest.current = controller
     setEditNotice('')
     setEditing({ status: 'loading' })
-    requestAnimationFrame(() => document.getElementById('event-form-title')?.focus())
 
     try {
       const event = await getEventForEdit(eventId, token, controller.signal)
@@ -119,12 +121,42 @@ export default function OrganizerPage() {
     }
   }
 
-  function cancelEdit() {
+  function closeDrawer() {
     editRequest.current?.abort()
     setEditing(null)
+    setDrawer(null)
+  }
+
+  function openCreateDrawer() {
+    editRequest.current?.abort()
+    setEditing(null)
+    setEditNotice('')
+    setDrawer({ kind: 'create' })
+  }
+
+  function openEventDrawer(eventId: string, tab: OrganizerDrawerTab) {
+    setEditNotice('')
+    setDrawer({ kind: 'event', eventId, tab })
+    if (tab === 'edit') {
+      void openEditor(eventId)
+    } else {
+      editRequest.current?.abort()
+      setEditing(null)
+    }
+  }
+
+  function switchDrawerTab(tab: OrganizerDrawerTab) {
+    if (drawer?.kind !== 'event') return
+    setDrawer({ kind: 'event', eventId: drawer.eventId, tab })
+    if (tab === 'edit') {
+      if (editing?.status !== 'ready' || editing.event.id !== drawer.eventId) {
+        void openEditor(drawer.eventId)
+      }
+    }
   }
 
   function savePanelEvent(event: OrganizerEvent) {
+    const wasEdit = drawer?.kind === 'event' && drawer.tab === 'edit'
     setPanel((current) => {
       if (current.status !== 'ready') return current
 
@@ -135,9 +167,9 @@ export default function OrganizerPage() {
       return { ...current, events }
     })
 
-    setEditNotice(editing ? 'Evento atualizado.' : 'Evento criado.')
+    setEditNotice(wasEdit ? 'Evento atualizado.' : 'Evento criado.')
     setEditing(null)
-    setShowCreateForm(false)
+    setDrawer(null)
   }
 
   function markPublished(eventId: string) {
@@ -159,10 +191,12 @@ export default function OrganizerPage() {
     ? panel.events
     : null
 
-  const lotsEvent = myEvents?.find((event) => event.id === lotsEventId) ?? null
   const isOrganizer = panel.status === 'ready' && panel.user.role === 'ORGANIZER'
-  const staffEvent = isOrganizer ? myEvents?.find((event) => event.id === staffEventId) : null
-  const occupancyEvent = isOrganizer ? myEvents?.find((event) => event.id === occupancyEventId) : null
+  const drawerEvent = drawer?.kind === 'event'
+    ? myEvents?.find((event) => event.id === drawer.eventId) ?? null
+    : null
+  const isCreateDrawer = drawer?.kind === 'create'
+  const drawerOpen = Boolean(myEvents && (isCreateDrawer || drawerEvent))
 
   const statusPillClass: Record<OrganizerEvent['status'], string> = {
     DRAFT: 'status-pill status-neutral',
@@ -186,13 +220,10 @@ export default function OrganizerPage() {
             <button
               type="button"
               className="btn btn-primary"
-              onClick={() => {
-                if (editing) cancelEdit()
-                setShowCreateForm((prev) => !prev)
-              }}
+              onClick={openCreateDrawer}
             >
               <PlusIcon />
-              {showCreateForm && !editing ? 'Fechar formulário' : 'Novo evento'}
+              Novo evento
             </button>
           )}
         </header>
@@ -259,30 +290,6 @@ export default function OrganizerPage() {
 
         {editNotice && <p className="form-status" role="status">{editNotice}</p>}
 
-        {myEvents && (showCreateForm || editing) && (
-          <section aria-labelledby="event-form-title" className="panel-events event-card">
-            <div className="lot-management-header">
-              <h2 id="event-form-title" tabIndex={-1}>{editing ? 'Editar evento' : 'Novo evento'}</h2>
-              {editing ? (
-                <button type="button" className="btn btn-ghost btn-sm" onClick={cancelEdit}>Cancelar edição</button>
-              ) : (
-                <button type="button" className="btn btn-ghost btn-sm" onClick={() => setShowCreateForm(false)}>Fechar</button>
-              )}
-            </div>
-            {editing?.status === 'loading' && <p role="status">Carregando evento…</p>}
-            {editing?.status === 'error' && <p className="form-alert" role="alert">{editing.message}</p>}
-            {(!editing || editing.status === 'ready') && (
-              <EventForm
-                key={editing?.event.id ?? 'new'}
-                token={token}
-                initialEvent={editing?.event}
-                onSaved={savePanelEvent}
-                onSessionExpired={logout}
-              />
-            )}
-          </section>
-        )}
-
         {myEvents && (
           <section aria-labelledby="my-events-title" className="panel-events">
             <h2 id="my-events-title">Meus eventos</h2>
@@ -314,7 +321,13 @@ export default function OrganizerPage() {
                         </p>
                       </div>
                       <div className="event-actions">
-                        <button type="button" className="btn btn-ghost btn-sm" aria-label={`Editar ${event.title}`} onClick={() => void openEditor(event.id)}>
+                        <button
+                          type="button"
+                          className="btn btn-ghost btn-sm"
+                          aria-label={`Editar ${event.title}`}
+                          aria-expanded={drawer?.kind === 'event' && drawer.eventId === event.id && drawer.tab === 'edit'}
+                          onClick={() => openEventDrawer(event.id, 'edit')}
+                        >
                           Editar
                         </button>
                         <button
@@ -322,8 +335,8 @@ export default function OrganizerPage() {
                           type="button"
                           className="btn btn-secondary btn-sm"
                           aria-label={`Ver lotes de ${event.title}`}
-                          aria-expanded={lotsEventId === event.id}
-                          onClick={() => setLotsEventId((current) => current === event.id ? null : event.id)}
+                          aria-expanded={drawer?.kind === 'event' && drawer.eventId === event.id && drawer.tab === 'lots'}
+                          onClick={() => openEventDrawer(event.id, 'lots')}
                         >
                           <TicketIcon />
                           Ver lotes
@@ -334,8 +347,8 @@ export default function OrganizerPage() {
                             type="button"
                             className="btn btn-ghost btn-sm"
                             aria-label={`Gerenciar equipe de ${event.title}`}
-                            aria-expanded={staffEventId === event.id}
-                            onClick={() => setStaffEventId(current => current === event.id ? null : event.id)}
+                            aria-expanded={drawer?.kind === 'event' && drawer.eventId === event.id && drawer.tab === 'staff'}
+                            onClick={() => openEventDrawer(event.id, 'staff')}
                           >
                             <UsersIcon />
                             Gerenciar equipe
@@ -347,8 +360,8 @@ export default function OrganizerPage() {
                             type="button"
                             className="btn btn-ghost btn-sm"
                             aria-label={`Ver ocupação de ${event.title}`}
-                            aria-expanded={occupancyEventId === event.id}
-                            onClick={() => setOccupancyEventId(current => current === event.id ? null : event.id)}
+                            aria-expanded={drawer?.kind === 'event' && drawer.eventId === event.id && drawer.tab === 'occupancy'}
+                            onClick={() => openEventDrawer(event.id, 'occupancy')}
                           >
                             <ChartIcon />
                             Ver ocupação
@@ -369,46 +382,125 @@ export default function OrganizerPage() {
           </section>
         )}
 
-      {lotsEvent && (
-        <EventLotsPanel
-          key={'lots-' + lotsEvent.id}
-          eventId={lotsEvent.id}
-          eventTitle={lotsEvent.title}
-          token={token}
-          onClose={() => {
-            setLotsEventId(null)
-            document.getElementById(`lots-trigger-${lotsEvent.id}`)?.focus()
-          }}
-          onSessionExpired={logout}
-        />
-      )}
+        <Drawer
+          open={drawerOpen}
+          onClose={closeDrawer}
+          side="right"
+          size="lg"
+          eyebrow={isCreateDrawer ? 'Cadastro de evento' : 'Gestão do evento'}
+          title={isCreateDrawer ? 'Novo evento' : (drawerEvent?.title ?? 'Evento')}
+          subtitle={drawerEvent ? `${drawerEvent.location} · ${formatDate.format(new Date(drawerEvent.startsAt))}` : undefined}
+          headerExtra={drawerEvent && drawer?.kind === 'event' ? (
+            <div className="drawer-tabs" role="tablist" aria-label="Seções do evento">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={drawer.tab === 'edit'}
+                className={drawer.tab === 'edit' ? 'drawer-tab active' : 'drawer-tab'}
+                onClick={() => switchDrawerTab('edit')}
+              >
+                Dados do evento
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={drawer.tab === 'lots'}
+                className={drawer.tab === 'lots' ? 'drawer-tab active' : 'drawer-tab'}
+                onClick={() => switchDrawerTab('lots')}
+              >
+                <TicketIcon width={14} height={14} />
+                Lotes
+              </button>
+              {isOrganizer && (
+                <>
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={drawer.tab === 'staff'}
+                    className={drawer.tab === 'staff' ? 'drawer-tab active' : 'drawer-tab'}
+                    onClick={() => switchDrawerTab('staff')}
+                  >
+                    <UsersIcon width={14} height={14} />
+                    Equipe
+                  </button>
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={drawer.tab === 'occupancy'}
+                    className={drawer.tab === 'occupancy' ? 'drawer-tab active' : 'drawer-tab'}
+                    onClick={() => switchDrawerTab('occupancy')}
+                  >
+                    <ChartIcon width={14} height={14} />
+                    Ocupação
+                  </button>
+                </>
+              )}
+            </div>
+          ) : undefined}
+        >
+          {isCreateDrawer ? (
+            <EventForm
+              key="new"
+              token={token}
+              onSaved={savePanelEvent}
+              onSessionExpired={logout}
+            />
+          ) : drawerEvent && drawer?.kind === 'event' && (
+            <>
+              {drawer.tab === 'edit' && (
+                <>
+                  {editing?.status === 'loading' && <p role="status">Carregando evento…</p>}
+                  {editing?.status === 'error' && <p className="form-alert" role="alert">{editing.message}</p>}
+                  {editing?.status === 'ready' && (
+                    <EventForm
+                      key={editing.event.id}
+                      token={token}
+                      initialEvent={editing.event}
+                      onSaved={savePanelEvent}
+                      onSessionExpired={logout}
+                    />
+                  )}
+                </>
+              )}
 
-      {staffEvent && (
-        <EventStaffPanel
-          key={'staff-' + staffEvent.id}
-          eventId={staffEvent.id}
-          eventTitle={staffEvent.title}
-          token={token}
-          onClose={() => {
-            setStaffEventId(null)
-            document.getElementById(`staff-trigger-${staffEvent.id}`)?.focus()
-          }}
-          onSessionExpired={logout}
-        />
-      )}
-      {occupancyEvent && (
-        <EventOccupancyPanel
-          key={'occupancy-' + occupancyEvent.id}
-          eventId={occupancyEvent.id}
-          eventTitle={occupancyEvent.title}
-          token={token}
-          onClose={() => {
-            setOccupancyEventId(null)
-            document.getElementById(`occupancy-trigger-${occupancyEvent.id}`)?.focus()
-          }}
-          onSessionExpired={logout}
-        />
-      )}
+              {drawer.tab === 'lots' && (
+                <EventLotsPanel
+                  key={`lots-${drawerEvent.id}`}
+                  eventId={drawerEvent.id}
+                  eventTitle={drawerEvent.title}
+                  token={token}
+                  onClose={closeDrawer}
+                  onSessionExpired={logout}
+                  embedded
+                />
+              )}
+
+              {drawer.tab === 'staff' && isOrganizer && (
+                <EventStaffPanel
+                  key={`staff-${drawerEvent.id}`}
+                  eventId={drawerEvent.id}
+                  eventTitle={drawerEvent.title}
+                  token={token}
+                  onClose={closeDrawer}
+                  onSessionExpired={logout}
+                  embedded
+                />
+              )}
+
+              {drawer.tab === 'occupancy' && isOrganizer && (
+                <EventOccupancyPanel
+                  key={`occupancy-${drawerEvent.id}`}
+                  eventId={drawerEvent.id}
+                  eventTitle={drawerEvent.title}
+                  token={token}
+                  onClose={closeDrawer}
+                  onSessionExpired={logout}
+                  embedded
+                />
+              )}
+            </>
+          )}
+        </Drawer>
       </main>
     </AppLayout>
   )

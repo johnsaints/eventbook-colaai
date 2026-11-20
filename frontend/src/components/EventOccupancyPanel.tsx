@@ -8,6 +8,7 @@ type Props = {
   token: string
   onClose: () => void
   onSessionExpired: () => void
+  embedded?: boolean
 }
 
 type OccupancyState =
@@ -41,7 +42,7 @@ function OccupancySummary({ totals }: { totals: OccupancyMetrics }) {
   )
 }
 
-export default function EventOccupancyPanel({ eventId, eventTitle, token, onClose, onSessionExpired }: Props) {
+export default function EventOccupancyPanel({ eventId, eventTitle, token, onClose, onSessionExpired, embedded = false }: Props) {
   const [state, setState] = useState<OccupancyState>({ status: 'loading' })
   const [revision, setRevision] = useState(0)
   const headingRef = useRef<HTMLHeadingElement>(null)
@@ -85,12 +86,20 @@ export default function EventOccupancyPanel({ eventId, eventTitle, token, onClos
   }
 
   return (
-    <section className="panel-events occupancy-panel" aria-labelledby="occupancy-panel-title">
-      <h2 id="occupancy-panel-title" tabIndex={-1} ref={headingRef}>Ocupação de {eventTitle}</h2>
+    <section
+      className={embedded ? 'drawer-embedded-panel occupancy-panel' : 'panel-events occupancy-panel'}
+      aria-labelledby={embedded ? undefined : 'occupancy-panel-title'}
+      aria-label={embedded ? `Ocupação de ${eventTitle}` : undefined}
+    >
+      {!embedded && (
+        <h2 id="occupancy-panel-title" tabIndex={-1} ref={headingRef}>Ocupação de {eventTitle}</h2>
+      )}
       <p className="event-meta">A taxa compara os check-ins com o estoque cadastrado nos lotes.</p>
       <div className="event-actions occupancy-actions">
-        <button type="button" onClick={onClose}>Fechar ocupação</button>
-        <button type="button" onClick={reload} aria-disabled={state.status === 'loading'}>
+        {!embedded && (
+          <button type="button" className="btn btn-ghost btn-sm" onClick={onClose}>Fechar ocupação</button>
+        )}
+        <button type="button" className="btn btn-secondary btn-sm" onClick={reload} aria-disabled={state.status === 'loading'}>
           {state.status === 'error' ? 'Tentar novamente' : 'Atualizar dados'}
         </button>
       </div>

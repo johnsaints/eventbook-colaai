@@ -7,6 +7,7 @@ type Props = {
   token: string
   onClose: () => void
   onSessionExpired: () => void
+  embedded?: boolean
 }
 
 type TeamState =
@@ -16,7 +17,7 @@ type TeamState =
 
 type Mutation = { kind: 'add' } | { kind: 'remove'; userId: string }
 
-export default function EventStaffPanel({ eventId, eventTitle, token, onClose, onSessionExpired }: Props) {
+export default function EventStaffPanel({ eventId, eventTitle, token, onClose, onSessionExpired, embedded = false }: Props) {
   const [team, setTeam] = useState<TeamState>({ status: 'loading' })
   const [revision, setRevision] = useState(0)
   const [email, setEmail] = useState('')
@@ -126,9 +127,17 @@ export default function EventStaffPanel({ eventId, eventTitle, token, onClose, o
   }
 
   return (
-    <section aria-labelledby="staff-panel-title" className="panel-events">
-      <h2 id="staff-panel-title" tabIndex={-1} ref={headingRef}>Equipe de {eventTitle}</h2>
-      <button type="button" onClick={onClose}>Fechar equipe</button>
+    <section
+      aria-labelledby={embedded ? undefined : 'staff-panel-title'}
+      aria-label={embedded ? `Equipe de ${eventTitle}` : undefined}
+      className={embedded ? 'drawer-embedded-panel' : 'panel-events'}
+    >
+      {!embedded && (
+        <>
+          <h2 id="staff-panel-title" tabIndex={-1} ref={headingRef}>Equipe de {eventTitle}</h2>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={onClose}>Fechar equipe</button>
+        </>
+      )}
       {team.status === 'loading' && <p role="status">Carregando equipe…</p>}
       {team.status === 'error' && (
         <>

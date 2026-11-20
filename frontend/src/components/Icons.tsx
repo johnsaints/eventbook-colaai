@@ -384,3 +384,36 @@ export function UserIcon(props: CaIconProps) {
     </CaSvg>
   )
 }
+
+export function MenuIcon(props: CaIconProps) {
+  return (
+    <CaSvg {...props}>
+      {() => (
+        <>
+          <path d="M4 6.5h16M4 12h16M4 17.5h16" />
+        </>
+      )}
+    </CaSvg>
+  )
+}
+
+export function CopyIcon(props: CaIconProps) {
+  return (
+    <CaSvg {...props}>
+      {(fill) => (
+        <>
+          <rect x="9" y="9" width="11" height="11" rx="2" fill={fill} fillOpacity="0.14" />
+          <path d="M6.5 15H5.8A1.8 1.8 0 0 1 4 13.2V5.8A1.8 1.8 0 0 1 5.8 4h7.4A1.8 1.8 0 0 1 15 5.8v.7" />
+        </>
+      )}
+    </CaSvg>
+  )
+}
+
+export function CheckIcon(props: CaIconProps) {
+  return (
+    <CaSvg {...props}>
+      {() => <path d="m5 12.5 4.5 4.5L19 7.5" />}
+    </CaSvg>
+  )
+}
