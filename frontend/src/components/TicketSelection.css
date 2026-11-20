@@ -135,6 +135,50 @@
   font-variant-numeric: tabular-nums;
 }
 
+.timer-badge.is-urgent {
+  border-color: rgba(255, 46, 158, 0.8);
+  background: rgba(255, 46, 158, 0.22);
+}
+
+.reservation-timer-bar {
+  height: 0.38rem;
+  width: 100%;
+  margin-bottom: 1rem;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.reservation-timer-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--ca-gradient);
+  transition: width 0.6s linear;
+}
+
+.reservation-timer-fill.is-urgent {
+  background: linear-gradient(90deg, #ff2e9e, #fb7185);
+}
+
+@keyframes cartValuePop {
+  0% {
+    transform: scale(1);
+  }
+  45% {
+    transform: scale(1.08);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .cart-value-pop {
+    display: inline-block;
+    animation: cartValuePop 0.26s ease-out;
+  }
+}
+
 .reservation-status {
   padding: 0.65rem 0.9rem;
   border-radius: 0.65rem;

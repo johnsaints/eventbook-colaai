@@ -15,7 +15,14 @@ export type EventSummary = {
   location: string
   startsAt: string
   coverImage?: string | null
+  capacity?: number
+  featured?: boolean
+  soldTickets?: number
+  availableTickets?: number
+  highlightTag?: string
 }
+
+export type EventSort = 'soonest' | 'popular' | 'largest'
 
 type TicketLot = {
   id: string
@@ -89,6 +96,36 @@ export async function getEvent(eventId: string, signal: AbortSignal) {
 
 export type OrganizerEvent = Pick<EventSummary, 'id' | 'title' | 'location' | 'startsAt'> & {
   status: 'DRAFT' | 'PUBLISHED' | 'CANCELLED'
+  featured?: boolean
+  capacity?: number
+}
+
+export async function getEventHighlights(signal: AbortSignal, limit = 5): Promise<EventSummary[]> {
+  try {
+    const response = await fetch(`${apiUrl}/events/highlights?limit=${encodeURIComponent(String(limit))}`, {
+      signal,
+    })
+    if (!response.ok) return []
+    const body = (await response.json()) as { data?: EventSummary[] }
+    return Array.isArray(body?.data) ? body.data : []
+  } catch {
+    return []
+  }
+}
+
+export async function setEventFeatured(
+  eventId: string,
+  featured: boolean,
+  token: string,
+  signal: AbortSignal,
+) {
+  return saveEvent(
+    `${apiUrl}/events/${encodeURIComponent(eventId)}/featured`,
+    'PATCH',
+    { featured },
+    token,
+    signal,
+  )
 }
 
 export async function getMyEvents(token: string, signal: AbortSignal) {
@@ -129,7 +166,7 @@ export async function getEventForEdit(eventId: string, token: string, signal: Ab
 async function saveEvent(
   url: string,
   method: 'POST' | 'PATCH',
-  input: Partial<CreateEventInput>,
+  input: Record<string, unknown>,
   token: string,
   signal: AbortSignal,
   messages?: Record<string, string>,

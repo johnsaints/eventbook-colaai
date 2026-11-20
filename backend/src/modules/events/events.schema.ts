@@ -10,6 +10,11 @@ export const listEventsQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(50).default(10),
   q: z.string().trim().max(100).optional(),
+  sort: z.enum(['soonest', 'popular', 'largest']).default('soonest'),
+});
+
+export const highlightsQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(10).default(5),
 });
 
 export const createEventSchema = z.object({
@@ -24,6 +29,12 @@ export const createEventSchema = z.object({
 
 export const updateEventSchema = createEventSchema.partial();
 
+export const setFeaturedSchema = z.object({
+  featured: z.boolean(),
+}).strict();
+
 export type ListEventsQuery = z.infer<typeof listEventsQuerySchema>;
+export type HighlightsQuery = z.infer<typeof highlightsQuerySchema>;
 export type CreateEventInput = z.infer<typeof createEventSchema>;
 export type UpdateEventInput = z.infer<typeof updateEventSchema>;
+export type SetFeaturedInput = z.infer<typeof setFeaturedSchema>;

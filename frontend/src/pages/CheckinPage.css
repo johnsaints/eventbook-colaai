@@ -53,6 +53,60 @@
   border-color: var(--ca-success-border);
 }
 
+.checkin-approved-head {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+}
+
+.checkin-tear-visual {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  width: 2.8rem;
+  height: 1.85rem;
+}
+
+.checkin-tear-main {
+  width: 1.85rem;
+  height: 1.75rem;
+  border-radius: 0.35rem 0 0 0.35rem;
+  background: linear-gradient(135deg, #10b981, #00d4ff);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.35);
+}
+
+.checkin-tear-stub {
+  width: 0.85rem;
+  height: 1.75rem;
+  border-radius: 0 0.35rem 0.35rem 0;
+  border-left: 2px dashed rgba(6, 17, 38, 0.65);
+  background: rgba(255, 255, 255, 0.9);
+  animation: checkinStubTear 0.9s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes checkinStubTear {
+  0% {
+    transform: translate(0, 0) rotate(0deg);
+    opacity: 1;
+  }
+  35% {
+    transform: translate(4px, -2px) rotate(6deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(12px, 14px) rotate(18deg);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .checkin-tear-stub {
+    animation: none;
+    opacity: 0.25;
+  }
+}
+
 .checkin-rejected {
   color: var(--ca-danger-text);
   background: var(--ca-danger-bg);

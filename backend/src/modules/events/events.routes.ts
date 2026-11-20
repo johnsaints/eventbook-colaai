@@ -14,6 +14,10 @@ eventsRoutes.get('/events', (req, res, next) =>
   eventsController.list(req, res, next)
 );
 
+eventsRoutes.get('/events/highlights', (req, res, next) =>
+  eventsController.highlights(req, res, next)
+);
+
 eventsRoutes.get(
   '/events/mine',
   authenticate,
@@ -51,4 +55,11 @@ eventsRoutes.post(
   authenticate,
   authorize(Role.ORGANIZER, Role.ADMIN),
   (req, res, next) => eventsController.publish(req, res, next)
+);
+
+eventsRoutes.patch(
+  '/events/:id/featured',
+  authenticate,
+  authorize(Role.ADMIN),
+  (req, res, next) => eventsController.setFeatured(req, res, next)
 );

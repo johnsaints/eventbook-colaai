@@ -2,7 +2,9 @@ import { NextFunction, Request, Response } from 'express';
 import { z } from 'zod';
 import {
   createEventSchema,
+  highlightsQuerySchema,
   listEventsQuerySchema,
+  setFeaturedSchema,
   updateEventSchema,
 } from './events.schema.js';
 import { getEventOccupancy } from './events.occupancy.js';
@@ -17,6 +19,16 @@ export class EventsController {
       const query = listEventsQuerySchema.parse(req.query);
       const result = await eventsService.listPublished(query);
       res.status(200).json(result);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async highlights(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { limit } = highlightsQuerySchema.parse(req.query);
+      const data = await eventsService.listHighlights(limit);
+      res.status(200).json({ data });
     } catch (error) {
       next(error);
     }
@@ -73,6 +85,16 @@ export class EventsController {
   async publish(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const event = await eventsService.publish(String(req.params.id), req.user!);
+      res.status(200).json(event);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async setFeatured(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { featured } = setFeaturedSchema.parse(req.body);
+      const event = await eventsService.setFeatured(String(req.params.id), req.user!, featured);
       res.status(200).json(event);
     } catch (error) {
       next(error);

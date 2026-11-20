@@ -12,6 +12,7 @@ export type HistoryTicket = {
   code: string
   orderId: string
   status: 'VALID' | 'USED' | 'CANCELLED'
+  usedAt?: string | null
   event: HistoryEvent
   lot: { id: string; name: string }
 }

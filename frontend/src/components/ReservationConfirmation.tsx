@@ -94,6 +94,8 @@ export default function ReservationConfirmation({
 
   const minutes = String(Math.floor(seconds / 60)).padStart(2, '0')
   const remainder = String(seconds % 60).padStart(2, '0')
+  const timerPercent = Math.max(0, Math.min(100, (seconds / 900) * 100))
+  const timerUrgent = seconds > 0 && seconds <= 180
 
   return (
     <section className="event-card ticket-cart reservation-panel" aria-labelledby="reservation-title">
@@ -105,12 +107,21 @@ export default function ReservationConfirmation({
           </h2>
         </div>
         {showAction && seconds > 0 && (
-          <div className="timer-badge">
+          <div className={timerUrgent ? 'timer-badge is-urgent' : 'timer-badge'}>
             <span>Tempo restante</span>{' '}
             <strong role="timer" aria-label="Tempo restante para a reserva">{minutes}:{remainder}</strong>
           </div>
         )}
       </div>
+
+      {showAction && (
+        <div className="reservation-timer-bar" aria-hidden="true">
+          <div
+            className={timerUrgent ? 'reservation-timer-fill is-urgent' : 'reservation-timer-fill'}
+            style={{ width: `${timerPercent}%` }}
+          />
+        </div>
+      )}
 
       <p className={paid ? 'form-status' : 'reservation-status'} role="status">{paymentMessages[status]}</p>
       <p className="event-meta">Pedido <strong className="mono-id">{order.id}</strong></p>

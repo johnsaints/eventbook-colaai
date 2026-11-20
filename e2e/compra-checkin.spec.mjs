@@ -156,5 +156,8 @@ test('cadastro, compra e check-in do mesmo ingresso', async ({ browser, page, re
     await page.reload()
     await expect(ticket.locator('code')).toHaveText(code)
     await expect(ticket.getByText('Utilizado', { exact: true })).toBeVisible()
+    await expect(ticket.getByText('Check-in realizado')).toBeVisible()
+    await expect(ticket.locator('.colaai-ticket-qr')).toHaveCount(0)
+    await expect(ticket.getByRole('button', { name: /Apresentar QR/ })).toHaveCount(0)
   })
 })

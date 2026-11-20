@@ -148,7 +148,7 @@ export default function TicketSelection({ event, initialItems }: {
             ))}
           </ul>
           <p className="ticket-selection-total">
-            Total estimado <strong>{formatPrice(total)}</strong>
+            Total estimado <strong key={totalQuantity} className="cart-value-pop">{formatPrice(total)}</strong>
           </p>
         </>
       )}
@@ -247,7 +247,7 @@ export default function TicketSelection({ event, initialItems }: {
         <div className="mobile-cart-bar">
           <div className="mobile-cart-bar-info">
             <span>{totalQuantity} {totalQuantity === 1 ? 'ingresso' : 'ingressos'}</span>
-            <strong>{formatPrice(total)}</strong>
+            <strong key={totalQuantity} className="cart-value-pop">{formatPrice(total)}</strong>
           </div>
           <button
             type="button"

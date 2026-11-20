@@ -56,6 +56,143 @@ it('RN-01 bloqueia a edição de um evento que já começou', async () => {
   }
 });
 
+it('prioriza eventos em destaque e demanda real em GET /events/highlights, ordena em GET /events e restringe PATCH /events/:id/featured ao ADMIN', async () => {
+  const [admin, organizer, buyer] = await prisma.$transaction([
+    prisma.user.create({
+      data: {
+        name: 'Admin Destaques',
+        email: `admin-${randomUUID()}@eventbook.test`,
+        password: 'fixture-sem-login',
+        role: 'ADMIN',
+      },
+    }),
+    prisma.user.create({
+      data: {
+        name: 'Organizador Destaques',
+        email: `org-${randomUUID()}@eventbook.test`,
+        password: 'fixture-sem-login',
+        role: 'ORGANIZER',
+      },
+    }),
+    prisma.user.create({
+      data: {
+        name: 'Comprador Destaques',
+        email: `buyer-${randomUUID()}@eventbook.test`,
+        password: 'fixture-sem-login',
+        role: 'BUYER',
+      },
+    }),
+  ]);
+
+  const adminToken = jwt.sign({ role: admin.role }, env.JWT_SECRET, { subject: admin.id });
+  const orgToken = jwt.sign({ role: organizer.role }, env.JWT_SECRET, { subject: organizer.id });
+  const buyerToken = jwt.sign({ role: buyer.role }, env.JWT_SECRET, { subject: buyer.id });
+
+  const now = Date.now();
+  const marker = randomUUID().slice(0, 8);
+  const window = {
+    salesStartsAt: new Date(now - 3_600_000),
+    salesEndsAt: new Date(now + 14 * 86_400_000),
+  };
+
+  try {
+    const [smallSoonest, bigPopular, curatedLater] = await prisma.$transaction([
+      prisma.event.create({
+        data: {
+          title: `Evento Pequeno Próximo ${marker}`,
+          description: 'Evento pequeno acontecendo logo em seguida.',
+          location: 'Fortaleza, CE',
+          startsAt: new Date(now + 2 * 86_400_000),
+          endsAt: new Date(now + 2 * 86_400_000 + 7_200_000),
+          capacity: 60,
+          status: 'PUBLISHED',
+          featured: false,
+          organizerId: organizer.id,
+          lots: { create: { ...window, name: 'Lote Único', price: 30, totalQuantity: 60, soldQuantity: 5 } },
+        },
+      }),
+      prisma.event.create({
+        data: {
+          title: `Festival Grande Popular ${marker}`,
+          description: 'Festival grande com alta demanda e grande público.',
+          location: 'Fortaleza, CE',
+          startsAt: new Date(now + 6 * 86_400_000),
+          endsAt: new Date(now + 6 * 86_400_000 + 14_400_000),
+          capacity: 1500,
+          status: 'PUBLISHED',
+          featured: false,
+          organizerId: organizer.id,
+          lots: { create: { ...window, name: 'Arena', price: 120, totalQuantity: 1500, soldQuantity: 600 } },
+        },
+      }),
+      prisma.event.create({
+        data: {
+          title: `Show Curado Oficial ${marker}`,
+          description: 'Evento marcado como destaque oficial pelo Admin.',
+          location: 'Fortaleza, CE',
+          startsAt: new Date(now + 10 * 86_400_000),
+          endsAt: new Date(now + 10 * 86_400_000 + 10_800_000),
+          capacity: 800,
+          status: 'PUBLISHED',
+          featured: true,
+          organizerId: organizer.id,
+          lots: { create: { ...window, name: 'Pista', price: 90, totalQuantity: 800, soldQuantity: 150 } },
+        },
+      }),
+    ]);
+
+    const highlightsRes = await request(app).get('/events/highlights?limit=10');
+    expect(highlightsRes.status).toBe(200);
+    const highlightIds = (highlightsRes.body.data as Array<{ id: string }>).map(e => e.id);
+    const idxCurated = highlightIds.indexOf(curatedLater.id);
+    const idxBigPopular = highlightIds.indexOf(bigPopular.id);
+    const idxSmallSoonest = highlightIds.indexOf(smallSoonest.id);
+    expect(idxCurated).toBeGreaterThanOrEqual(0);
+    expect(idxBigPopular).toBeGreaterThan(idxCurated);
+    expect(idxSmallSoonest).toBeGreaterThan(idxBigPopular);
+
+    const largestRes = await request(app).get(`/events?sort=largest&q=${marker}`);
+    expect(largestRes.status).toBe(200);
+    expect((largestRes.body.data as Array<{ id: string }>).map(e => e.id)).toEqual([
+      bigPopular.id,
+      curatedLater.id,
+      smallSoonest.id,
+    ]);
+
+    const popularRes = await request(app).get(`/events?sort=popular&q=${marker}`);
+    expect(popularRes.status).toBe(200);
+    expect((popularRes.body.data as Array<{ id: string }>).map(e => e.id)).toEqual([
+      bigPopular.id,
+      curatedLater.id,
+      smallSoonest.id,
+    ]);
+
+    const orgToggle = await request(app)
+      .patch(`/events/${smallSoonest.id}/featured`)
+      .set('Authorization', `Bearer ${orgToken}`)
+      .send({ featured: true });
+    expect(orgToggle.status).toBe(403);
+
+    const buyerToggle = await request(app)
+      .patch(`/events/${smallSoonest.id}/featured`)
+      .set('Authorization', `Bearer ${buyerToken}`)
+      .send({ featured: true });
+    expect(buyerToggle.status).toBe(403);
+
+    const adminToggle = await request(app)
+      .patch(`/events/${smallSoonest.id}/featured`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ featured: true });
+    expect(adminToggle.status).toBe(200);
+    expect(adminToggle.body.featured).toBe(true);
+  } finally {
+    await prisma.$transaction([
+      prisma.event.deleteMany({ where: { organizerId: organizer.id } }),
+      prisma.user.deleteMany({ where: { id: { in: [admin.id, organizer.id, buyer.id] } } }),
+    ]);
+  }
+});
+
 it('permite upload válido de capa PNG/JPEG/WebP e bloqueia formato inválido ou SVG', async () => {
   const organizer = await prisma.user.create({
     data: {

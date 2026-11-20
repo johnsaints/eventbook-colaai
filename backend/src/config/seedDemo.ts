@@ -162,6 +162,7 @@ export async function seedDatabase(prisma: PrismaClient, seedPassword: string): 
       offsetDays: 21,
       durationHours: 10,
       capacity: 1200,
+      featured: true,
       lots: [
         { name: 'Passaporte Arena', price: 140, totalQuantity: 800, soldQuantity: 210 },
         { name: 'VIP Open Vibe', price: 290, totalQuantity: 400, soldQuantity: 90 },
@@ -188,6 +189,7 @@ export async function seedDatabase(prisma: PrismaClient, seedPassword: string): 
       offsetDays: 5,
       durationHours: 3,
       capacity: 800,
+      featured: true,
       lots: [
         { name: 'Arquibancada Sul', price: 45, totalQuantity: 500, soldQuantity: 310 },
         { name: 'Cadeira Especial', price: 110, totalQuantity: 300, soldQuantity: 140 },
@@ -226,6 +228,7 @@ export async function seedDatabase(prisma: PrismaClient, seedPassword: string): 
       offsetDays: 25,
       durationHours: 7,
       capacity: 900,
+      featured: true,
       lots: [
         { name: 'Pista Sunset', price: 110, totalQuantity: 600, soldQuantity: 240 },
         { name: 'Backstage Lounge', price: 240, totalQuantity: 300, soldQuantity: 95 },
@@ -265,6 +268,7 @@ export async function seedDatabase(prisma: PrismaClient, seedPassword: string): 
         endsAt: new Date(eventStarts.getTime() + item.durationHours * 3_600_000),
         capacity: item.capacity,
         status: 'PUBLISHED',
+        featured: Boolean(item.featured),
         lots: {
           create: item.lots.map(lot => ({
             ...eventWindow,
@@ -276,6 +280,17 @@ export async function seedDatabase(prisma: PrismaClient, seedPassword: string): 
         },
       },
     });
+  }
+
+  const featuredCount = await prisma.event.count({ where: { featured: true } });
+  if (featuredCount === 0) {
+    const curatedIds = extraEvents.filter(item => item.featured).map(item => item.id);
+    if (curatedIds.length > 0) {
+      await prisma.event.updateMany({
+        where: { id: { in: curatedIds } },
+        data: { featured: true },
+      });
+    }
   }
 
   const demoEventIds = [demoEventId, ...extraEvents.map(item => item.id)];

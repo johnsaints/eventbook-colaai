@@ -11,8 +11,15 @@ import {
 } from '../api'
 import AppLayout from '../components/AppLayout'
 import Drawer from '../components/Drawer'
-import { CalendarIcon, ChartIcon, PinIcon, PlusIcon, TicketIcon, UsersIcon } from '../components/Icons'
-import { formatDate, getEventForEdit, getMyEvents, type EditableEvent, type OrganizerEvent } from '../events'
+import { CalendarIcon, ChartIcon, PinIcon, PlusIcon, StarIcon, TicketIcon, UsersIcon } from '../components/Icons'
+import {
+  formatDate,
+  getEventForEdit,
+  getMyEvents,
+  setEventFeatured,
+  type EditableEvent,
+  type OrganizerEvent,
+} from '../events'
 import EventForm from '../components/EventForm'
 import EventLotsPanel from '../components/EventLotsPanel'
 import EventStaffPanel from '../components/EventStaffPanel'
@@ -48,9 +55,14 @@ export default function OrganizerPage() {
   const [drawer, setDrawer] = useState<OrganizerDrawerState | null>(null)
   const [editing, setEditing] = useState<EditState | null>(null)
   const [editNotice, setEditNotice] = useState('')
+  const [togglingFeaturedId, setTogglingFeaturedId] = useState<string | null>(null)
   const editRequest = useRef<AbortController | null>(null)
+  const featureRequest = useRef<AbortController | null>(null)
 
-  useEffect(() => () => editRequest.current?.abort(), [])
+  useEffect(() => () => {
+    editRequest.current?.abort()
+    featureRequest.current?.abort()
+  }, [])
 
   useEffect(() => {
     if (!token) return
@@ -182,6 +194,45 @@ export default function OrganizerPage() {
     })
   }
 
+  async function toggleFeatured(event: OrganizerEvent) {
+    if (!token || featureRequest.current) return
+    const nextFeatured = !event.featured
+    const controller = new AbortController()
+    featureRequest.current = controller
+    setTogglingFeaturedId(event.id)
+    setEditNotice('')
+
+    try {
+      const updated = await setEventFeatured(event.id, nextFeatured, token, controller.signal)
+      if (controller.signal.aborted) return
+      if (!updated) {
+        logout()
+        return
+      }
+      setPanel((current) => {
+        if (current.status !== 'ready') return current
+        return {
+          ...current,
+          events: current.events.map((item) =>
+            item.id === event.id ? { ...item, featured: updated.featured } : item
+          ),
+        }
+      })
+      setEditNotice(
+        updated.featured
+          ? `“${event.title}” adicionado aos Destaques da vitrine.`
+          : `“${event.title}” removido dos Destaques da vitrine.`
+      )
+    } catch (error) {
+      if (!controller.signal.aborted) {
+        setEditNotice(error instanceof Error ? error.message : 'Não foi possível atualizar o destaque.')
+      }
+    } finally {
+      featureRequest.current = null
+      if (!controller.signal.aborted) setTogglingFeaturedId(null)
+    }
+  }
+
   if (!token || panel.status === 'signed-out') {
     return <Navigate to="/login" replace />
   }
@@ -297,9 +348,17 @@ export default function OrganizerPage() {
                     <article className="event-card organizer-event-card">
                       <div className="organizer-card-head">
                         <h3>{event.title}</h3>
-                        <span className={statusPillClass[event.status]}>
-                          {statusLabel[event.status]}
-                        </span>
+                        <div className="organizer-head-pills">
+                          {event.featured && (
+                            <span className="ca-featured-pill">
+                              <StarIcon width={12} height={12} />
+                              Destaque
+                            </span>
+                          )}
+                          <span className={statusPillClass[event.status]}>
+                            {statusLabel[event.status]}
+                          </span>
+                        </div>
                       </div>
                       <div className="card-meta-list">
                         <p className="event-meta meta-row">
@@ -358,6 +417,19 @@ export default function OrganizerPage() {
                           >
                             <ChartIcon />
                             Ocupação
+                          </button>
+                        )}
+                        {panel.status === 'ready' && panel.user.role === 'ADMIN' && event.status === 'PUBLISHED' && (
+                          <button
+                            type="button"
+                            className="btn btn-ghost btn-sm"
+                            aria-label={event.featured ? `Remover destaque de ${event.title}` : `Destacar ${event.title}`}
+                            aria-pressed={Boolean(event.featured)}
+                            disabled={togglingFeaturedId === event.id}
+                            onClick={() => void toggleFeatured(event)}
+                          >
+                            <StarIcon width={14} height={14} variant={event.featured ? 'gradient' : 'current'} />
+                            {event.featured ? 'Em destaque' : 'Destacar'}
                           </button>
                         )}
                         <PublishEventAction

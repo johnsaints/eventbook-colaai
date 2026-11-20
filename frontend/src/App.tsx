@@ -7,6 +7,7 @@ import {
   type AuthUser,
 } from './api'
 import AppLayout from './components/AppLayout'
+import HeroAmbientBackdrop from './components/HeroAmbientBackdrop'
 import {
   ArrowLeftIcon,
   ArrowRightIcon,
@@ -18,14 +19,23 @@ import {
   PinIcon,
   SearchIcon,
   ShieldCheckIcon,
+  StarIcon,
   TheaterIcon,
   TicketIcon,
   TrophyIcon,
   UtensilsIcon,
   type CaIconProps,
 } from './components/Icons'
+import { CatalogSkeleton } from './components/Skeletons'
 import SymplaHeroCarousel from './components/SymplaHeroCarousel'
-import { formatDate, getEventCategoryVisual, resolveEventCoverSrc, type EventSummary } from './events'
+import {
+  formatDate,
+  getEventCategoryVisual,
+  getEventHighlights,
+  resolveEventCoverSrc,
+  type EventSort,
+  type EventSummary,
+} from './events'
 import BuyerHistoryPage from './pages/BuyerHistoryPage'
 import CheckinPage from './pages/CheckinPage'
 import EventPage from './pages/EventPage'
@@ -72,6 +82,7 @@ function CatalogPage() {
   const [highlights, setHighlights] = useState<EventSummary[]>([])
   const [attempt, setAttempt] = useState(0)
   const [page, setPage] = useState(1)
+  const [sort, setSort] = useState<EventSort>('soonest')
   const [searchInput, setSearchInput] = useState('')
   const [activeQuery, setActiveQuery] = useState('')
   const [activeCategory, setActiveCategory] = useState('all')
@@ -89,10 +100,18 @@ function CatalogPage() {
 
   useEffect(() => {
     const controller = new AbortController()
+    void getEventHighlights(controller.signal, 5).then((items) => {
+      if (!controller.signal.aborted) setHighlights(items)
+    })
+    return () => controller.abort()
+  }, [attempt])
+
+  useEffect(() => {
+    const controller = new AbortController()
 
     async function loadEvents() {
       try {
-        const params = new URLSearchParams({ page: String(page), limit: '9' })
+        const params = new URLSearchParams({ page: String(page), limit: '9', sort })
         if (activeQuery.trim()) params.set('q', activeQuery.trim())
 
         const response = await fetch(`${apiUrl}/events?${params.toString()}`, { signal: controller.signal })
@@ -110,9 +129,6 @@ function CatalogPage() {
 
         if (!controller.signal.aborted) {
           setCatalog({ status: 'ready', events: body.data, meta })
-          if (!activeQuery.trim() && page === 1) {
-            setHighlights(body.data.slice(0, 6))
-          }
         }
       } catch {
         if (!controller.signal.aborted) setCatalog({ status: 'error' })
@@ -121,7 +137,7 @@ function CatalogPage() {
 
     void loadEvents()
     return () => controller.abort()
-  }, [attempt, page, activeQuery])
+  }, [attempt, page, activeQuery, sort])
 
   function retry() {
     headingRef.current?.focus()
@@ -159,34 +175,37 @@ function CatalogPage() {
     <AppLayout>
       <main className="catalog home-sympla">
         <section className="sympla-top-bar" aria-label="Busca e boas-vindas ColaAí">
-          <div className="sympla-top-intro">
-            <span className="eyebrow">Ingressos e acessos digitais ColaAí</span>
-            <h1>Descubra e garanta seu lugar nos melhores eventos</h1>
-          </div>
-
-          <form className="search-bar sympla-search-bar" onSubmit={handleSearchSubmit} role="search" aria-label="Buscar eventos">
-            <div className="search-input-wrap">
-              <SearchIcon className="search-icon" />
-              <input
-                type="search"
-                value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
-                placeholder="Pesquisar eventos, shows, teatros, cidades…"
-                aria-label="Buscar por nome ou local do evento"
-              />
-              {searchInput && (
-                <button
-                  type="button"
-                  className="search-clear-btn"
-                  onClick={clearFilters}
-                  aria-label="Limpar campo de busca"
-                >
-                  <CloseIcon width={15} height={15} />
-                </button>
-              )}
+          <HeroAmbientBackdrop />
+          <div className="sympla-top-bar-content">
+            <div className="sympla-top-intro">
+              <span className="eyebrow">Ingressos e acessos digitais ColaAí</span>
+              <h1>Descubra e garanta seu lugar nos melhores eventos</h1>
             </div>
-            <button type="submit" className="btn btn-primary">Buscar</button>
-          </form>
+
+            <form className="search-bar sympla-search-bar" onSubmit={handleSearchSubmit} role="search" aria-label="Buscar eventos">
+              <div className="search-input-wrap">
+                <SearchIcon className="search-icon" />
+                <input
+                  type="search"
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
+                  placeholder="Pesquisar eventos, shows, teatros, cidades…"
+                  aria-label="Buscar por nome ou local do evento"
+                />
+                {searchInput && (
+                  <button
+                    type="button"
+                    className="search-clear-btn"
+                    onClick={clearFilters}
+                    aria-label="Limpar campo de busca"
+                  >
+                    <CloseIcon width={15} height={15} />
+                  </button>
+                )}
+              </div>
+              <button type="submit" className="btn btn-primary">Buscar</button>
+            </form>
+          </div>
         </section>
 
         {!isFiltered && highlights.length > 0 && (
@@ -230,16 +249,32 @@ function CatalogPage() {
                 </p>
               )}
             </div>
-            {isFiltered && (
-              <button type="button" className="btn btn-ghost btn-sm" onClick={clearFilters}>
-                Limpar filtros
-              </button>
-            )}
+            <div className="catalog-header-controls">
+              <label className="catalog-sort-control">
+                <span>Ordenar por</span>
+                <select
+                  aria-label="Ordenar eventos"
+                  value={sort}
+                  onChange={(e) => {
+                    setSort(e.currentTarget.value as EventSort)
+                    setPage(1)
+                    setCatalog({ status: 'loading' })
+                  }}
+                >
+                  <option value="soonest">Mais próximos</option>
+                  <option value="popular">Mais procurados</option>
+                  <option value="largest">Maior porte</option>
+                </select>
+              </label>
+              {isFiltered && (
+                <button type="button" className="btn btn-ghost btn-sm" onClick={clearFilters}>
+                  Limpar filtros
+                </button>
+              )}
+            </div>
           </div>
 
-          {catalog.status === 'loading' && (
-            <p className="state-banner" role="status">Carregando eventos…</p>
-          )}
+          {catalog.status === 'loading' && <CatalogSkeleton />}
 
           {catalog.status === 'error' && (
             <div className="state-banner state-error">
@@ -273,10 +308,18 @@ function CatalogPage() {
                         <article className="event-card catalog-card">
                           <div className={`card-cover ${cat.tone}`}>
                             <img src={coverSrc} alt="" className="card-cover-img" loading="lazy" />
-                            <span className="ca-badge">
-                              <span className="ca-badge-bar" aria-hidden="true" />
-                              <span>{cat.label}</span>
-                            </span>
+                            <div className="card-cover-tags">
+                              <span className="ca-badge">
+                                <span className="ca-badge-bar" aria-hidden="true" />
+                                <span>{cat.label}</span>
+                              </span>
+                              {event.featured && (
+                                <span className="ca-featured-pill">
+                                  <StarIcon width={12} height={12} />
+                                  <span>Destaque</span>
+                                </span>
+                              )}
+                            </div>
                             <div className="ca-date-stamp date-badge" aria-hidden="true">
                               <span className="date-day">{day}</span>
                               <span className="date-month">{month}</span>

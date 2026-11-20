@@ -20,6 +20,7 @@ import {
   ArrowLeftIcon,
   ArrowRightIcon,
   CalendarIcon,
+  CheckCircleIcon,
   CheckIcon,
   ClockIcon,
   CopyIcon,
@@ -27,6 +28,7 @@ import {
   QrCodeIcon,
   TicketIcon,
 } from '../components/Icons'
+import { TicketsSkeleton } from '../components/Skeletons'
 import TicketQrCode from '../components/TicketQrCode'
 import { formatDate } from '../events'
 import { cancelMyOrder, listMyOrders, listMyTickets, type CancelOrderResult, type HistoryAccess, type HistoryOrder, type HistoryPage, type HistoryResult, type HistoryTicket } from '../history'
@@ -117,11 +119,71 @@ function TicketStageArtwork() {
   )
 }
 
-function renderTicket(ticket: HistoryTicket, onExpand: (ticket: HistoryTicket) => void) {
+const tornTicketsStorageKey = 'colaai:torn-tickets'
+
+function readTornTicketIds(): Set<string> {
+  try {
+    const raw = localStorage.getItem(tornTicketsStorageKey)
+    if (!raw) return new Set()
+    const parsed = JSON.parse(raw)
+    return Array.isArray(parsed)
+      ? new Set(parsed.filter((item): item is string => typeof item === 'string'))
+      : new Set()
+  } catch {
+    return new Set()
+  }
+}
+
+function markTicketTorn(ticketId: string) {
+  try {
+    const ids = readTornTicketIds()
+    if (ids.has(ticketId)) return
+    ids.add(ticketId)
+    localStorage.setItem(tornTicketsStorageKey, JSON.stringify([...ids].slice(-100)))
+  } catch {
+    // Ignore storage quota restrictions
+  }
+}
+
+function TicketCard({
+  ticket,
+  onExpand,
+}: {
+  ticket: HistoryTicket
+  onExpand: (ticket: HistoryTicket) => void
+}) {
   const startsAt = new Date(ticket.event.startsAt)
+  const usedAtDate = ticket.usedAt ? new Date(ticket.usedAt) : null
+  const isValid = ticket.status === 'VALID'
+  const isUsed = ticket.status === 'USED'
+
+  const [tearing, setTearing] = useState(() => {
+    if (!isUsed) return false
+    const reduced =
+      typeof window !== 'undefined'
+      && typeof window.matchMedia === 'function'
+      && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    return !reduced && !readTornTicketIds().has(ticket.id)
+  })
+
+  useEffect(() => {
+    if (!isUsed) return
+    markTicketTorn(ticket.id)
+    if (!tearing) return
+    const timer = window.setTimeout(() => setTearing(false), 1450)
+    return () => window.clearTimeout(timer)
+  }, [isUsed, tearing, ticket.id])
+
+  const ticketClass = [
+    'colaai-ticket',
+    isUsed ? 'is-used' : ticket.status === 'CANCELLED' ? 'is-cancelled' : '',
+    tearing ? 'is-tearing' : '',
+  ]
+    .filter(Boolean)
+    .join(' ')
 
   return (
-    <div className="colaai-ticket">
+    <div className={ticketClass}>
       <div className="colaai-ticket-brand">
         <TicketStageArtwork />
         <img src={ticketCrowdBg} alt="" className="colaai-ticket-crowd" />
@@ -133,7 +195,7 @@ function renderTicket(ticket: HistoryTicket, onExpand: (ticket: HistoryTicket) =
       </div>
 
       <div className="colaai-ticket-panel-wrap">
-        <div className="colaai-ticket-overlay">
+        <div className={isValid ? 'colaai-ticket-overlay' : 'colaai-ticket-overlay is-detached'}>
           <div className="colaai-ticket-main">
             <div className="colaai-ticket-head">
               <div className="colaai-ticket-status-row">
@@ -165,23 +227,49 @@ function renderTicket(ticket: HistoryTicket, onExpand: (ticket: HistoryTicket) =
             </ul>
           </div>
 
-          <div className="colaai-ticket-stub">
-            <TicketQrCode value={ticket.code} className="colaai-ticket-qr" />
-            <code className="colaai-ticket-code">{ticket.code}</code>
-            <button
-              type="button"
-              className="colaai-ticket-expand-btn"
-              onClick={() => onExpand(ticket)}
-              aria-label={`Apresentar QR de ${ticket.event.title}`}
-            >
-              <QrCodeIcon width={13} height={13} />
-              <span>Apresentar QR</span>
-            </button>
-          </div>
+          {isValid ? (
+            <div className="colaai-ticket-stub">
+              <TicketQrCode value={ticket.code} className="colaai-ticket-qr" />
+              <code className="colaai-ticket-code">{ticket.code}</code>
+              <button
+                type="button"
+                className="colaai-ticket-expand-btn"
+                onClick={() => onExpand(ticket)}
+                aria-label={`Apresentar QR de ${ticket.event.title}`}
+              >
+                <QrCodeIcon width={13} height={13} />
+                <span>Apresentar QR</span>
+              </button>
+            </div>
+          ) : (
+            <div className={isUsed ? 'colaai-ticket-used-panel' : 'colaai-ticket-used-panel is-cancelled'}>
+              {isUsed && tearing && (
+                <div className="colaai-ticket-stub-ghost" aria-hidden="true">
+                  <span className="colaai-ticket-tear-laser" />
+                  <div className="colaai-ticket-ghost-qr" />
+                  <span className="colaai-ticket-ghost-tag">Canhoto destacado</span>
+                </div>
+              )}
+              <div className="colaai-ticket-receipt-stamp">
+                <CheckCircleIcon width={20} height={20} className="colaai-ticket-used-icon" />
+                <strong>{isUsed ? 'Check-in realizado' : 'Ingresso cancelado'}</strong>
+              </div>
+              {isUsed && usedAtDate && !Number.isNaN(usedAtDate.getTime()) && (
+                <time dateTime={ticket.usedAt ?? undefined} className="colaai-ticket-used-time">
+                  Validado em {formatTicketDate.format(usedAtDate)} às {formatTicketTime.format(usedAtDate)}
+                </time>
+              )}
+              <code className="colaai-ticket-used-code">{ticket.code}</code>
+            </div>
+          )}
         </div>
       </div>
     </div>
   )
+}
+
+function renderTicket(ticket: HistoryTicket, onExpand: (ticket: HistoryTicket) => void) {
+  return <TicketCard key={`${ticket.id}-${ticket.status}`} ticket={ticket} onExpand={onExpand} />
 }
 
 function renderOrder(order: HistoryOrder, action: ReactNode) {
@@ -262,7 +350,7 @@ function HistorySection<T extends { id: string }>({
     <section className="history-section ca-section-heading" aria-labelledby={id}>
       <h2 id={id}>{title}</h2>
       {notice && <p role="status">{notice}</p>}
-      {!current && <p role="status">Carregando…</p>}
+      {!current && (id === 'my-tickets-title' ? <TicketsSkeleton /> : <p role="status">Carregando…</p>)}
       {current?.data === null && (
         <>
           <p role="alert">Não foi possível carregar esta lista.</p>
@@ -455,7 +543,7 @@ export default function BuyerHistoryPage() {
       </main>
 
       <Drawer
-        open={Boolean(selectedTicket)}
+        open={selectedTicket?.status === 'VALID'}
         onClose={() => setSelectedTicket(null)}
         side="right"
         size="md"
@@ -463,7 +551,7 @@ export default function BuyerHistoryPage() {
         title={selectedTicket?.event.title ?? ''}
         subtitle={selectedTicket?.lot.name}
       >
-        {selectedTicket && (
+        {selectedTicket?.status === 'VALID' && (
           <div className="ticket-drawer-content">
             <div className="ticket-drawer-status">
               <span className={ticketStatusClass[selectedTicket.status]}>

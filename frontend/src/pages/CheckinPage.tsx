@@ -22,10 +22,18 @@ function CheckinFeedback({ result }: { result: CheckinResult }) {
   if (result.status === 'approved') {
     return (
       <div className="checkin-feedback checkin-approved" role="status">
-        <strong>Check-in aprovado</strong>
-        <p>Ingresso <code>{result.code}</code> utilizado em{' '}
-          <time dateTime={result.checkedInAt}>{formatDate.format(new Date(result.checkedInAt))}</time>.
-        </p>
+        <div className="checkin-approved-head">
+          <div className="checkin-tear-visual" aria-hidden="true">
+            <span className="checkin-tear-main" />
+            <span className="checkin-tear-stub" />
+          </div>
+          <div>
+            <strong>Check-in aprovado</strong>
+            <p>Ingresso <code>{result.code}</code> utilizado em{' '}
+              <time dateTime={result.checkedInAt}>{formatDate.format(new Date(result.checkedInAt))}</time>.
+            </p>
+          </div>
+        </div>
       </div>
     )
   }

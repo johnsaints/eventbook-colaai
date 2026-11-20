@@ -16,6 +16,7 @@ import {
 } from '../api'
 import AppLayout from '../components/AppLayout'
 import Drawer from '../components/Drawer'
+import { ProfileSkeleton } from '../components/Skeletons'
 import {
   CloseIcon,
   LockIcon,
@@ -526,9 +527,7 @@ export default function ProfilePage() {
             <Link to="/login" className="btn btn-primary">Entrar</Link>
           </div>
         ) : loading ? (
-          <div className="state-banner" role="status">
-            <p>Carregando dados do perfil…</p>
-          </div>
+          <ProfileSkeleton />
         ) : loadError ? (
           <div className="state-banner" role="alert">
             <p>{loadError}</p>

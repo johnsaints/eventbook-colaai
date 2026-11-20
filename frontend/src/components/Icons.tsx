@@ -417,3 +417,53 @@ export function CheckIcon(props: CaIconProps) {
     </CaSvg>
   )
 }
+
+export function CheckCircleIcon(props: CaIconProps) {
+  return (
+    <CaSvg {...props}>
+      {(fill) => (
+        <>
+          <circle cx="12" cy="12" r="9" fill={fill} fillOpacity="0.16" />
+          <path d="m8.2 12.3 2.7 2.7 5.2-5.4" />
+        </>
+      )}
+    </CaSvg>
+  )
+}
+
+export function StarIcon(props: CaIconProps) {
+  return (
+    <CaSvg {...props}>
+      {(fill) => (
+        <path
+          d="m12 3.2 2.65 5.4 5.95.86-4.3 4.18 1.02 5.92L12 16.76l-5.32 2.8 1.02-5.92-4.3-4.18 5.95-.86L12 3.2Z"
+          fill={fill}
+          fillOpacity="0.22"
+        />
+      )}
+    </CaSvg>
+  )
+}
+
+export function PlayIcon(props: CaIconProps) {
+  return (
+    <CaSvg {...props}>
+      {(fill) => (
+        <path d="M8 6.2v11.6l9.6-5.8L8 6.2Z" fill={fill} fillOpacity="0.26" />
+      )}
+    </CaSvg>
+  )
+}
+
+export function PauseIcon(props: CaIconProps) {
+  return (
+    <CaSvg {...props}>
+      {(fill) => (
+        <>
+          <rect x="6.5" y="5.5" width="3.8" height="13" rx="1.1" fill={fill} fillOpacity="0.2" />
+          <rect x="13.7" y="5.5" width="3.8" height="13" rx="1.1" fill={fill} fillOpacity="0.2" />
+        </>
+      )}
+    </CaSvg>
+  )
+}

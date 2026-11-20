@@ -13,10 +13,72 @@ import {
 } from './events.schema.js';
 import { lockEventForWrite } from './events.repository.js';
 
+type LotMetric = {
+  totalQuantity: number;
+  soldQuantity: number;
+  reservedQty: number;
+  active: boolean;
+  salesStartsAt: Date;
+  salesEndsAt: Date;
+};
+
+function summarizeEventLots(lots: LotMetric[], now: Date) {
+  let soldTickets = 0;
+  let demandTickets = 0;
+  let availableTickets = 0;
+
+  for (const lot of lots) {
+    soldTickets += lot.soldQuantity;
+    demandTickets += lot.soldQuantity + lot.reservedQty;
+    if (lot.active && lot.salesStartsAt <= now && lot.salesEndsAt >= now) {
+      availableTickets += Math.max(0, lot.totalQuantity - lot.soldQuantity - lot.reservedQty);
+    }
+  }
+
+  return { soldTickets, demandTickets, availableTickets };
+}
+
+function resolveHighlightTag({
+  featured,
+  capacity,
+  demandTickets,
+  availableTickets,
+}: {
+  featured: boolean;
+  capacity: number;
+  demandTickets: number;
+  availableTickets: number;
+}) {
+  if (availableTickets > 0 && capacity > 0 && demandTickets / capacity >= 0.75) {
+    return 'Últimos ingressos';
+  }
+  if (featured) return 'Destaque oficial';
+  if (demandTickets >= 200) return 'Mais procurado';
+  if (capacity >= 500) return 'Grande evento';
+  return 'Em destaque';
+}
+
+const publicEventInclude = {
+  organizer: {
+    select: { id: true, name: true },
+  },
+  lots: {
+    select: {
+      totalQuantity: true,
+      soldQuantity: true,
+      reservedQty: true,
+      active: true,
+      salesStartsAt: true,
+      salesEndsAt: true,
+    },
+  },
+} as const;
+
 export class EventsService {
   async listPublished(query: ListEventsQuery) {
-    const { page, limit, q } = query;
+    const { page, limit, q, sort } = query;
     const skip = (page - 1) * limit;
+    const now = new Date();
     const search = q && q.length > 0 ? q : undefined;
     const where = {
       status: EventStatus.PUBLISHED,
@@ -31,23 +93,69 @@ export class EventsService {
         : {}),
     };
 
-    const [items, total] = await Promise.all([
-      prisma.event.findMany({
-        where,
-        orderBy: { startsAt: 'asc' },
-        skip,
-        take: limit,
-        include: {
-          organizer: {
-            select: { id: true, name: true },
-          },
+    if (sort === 'soonest') {
+      const [items, total] = await Promise.all([
+        prisma.event.findMany({
+          where,
+          orderBy: [{ startsAt: 'asc' }, { id: 'asc' }],
+          skip,
+          take: limit,
+          include: publicEventInclude,
+        }),
+        prisma.event.count({ where }),
+      ]);
+
+      return {
+        data: items.map(({ lots, ...event }) => {
+          const { soldTickets, availableTickets } = summarizeEventLots(lots, now);
+          return { ...event, soldTickets, availableTickets };
+        }),
+        meta: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit),
         },
-      }),
-      prisma.event.count({ where }),
-    ]);
+      };
+    }
+
+    const allItems = await prisma.event.findMany({
+      where,
+      orderBy: [{ startsAt: 'asc' }, { id: 'asc' }],
+      include: publicEventInclude,
+    });
+
+    const enriched = allItems
+      .map(({ lots, ...event }) => {
+        const metrics = summarizeEventLots(lots, now);
+        return { event, metrics };
+      })
+      .sort((a, b) => {
+        if (sort === 'popular') {
+          return (
+            b.metrics.demandTickets - a.metrics.demandTickets ||
+            b.event.capacity - a.event.capacity ||
+            a.event.startsAt.getTime() - b.event.startsAt.getTime() ||
+            a.event.id.localeCompare(b.event.id)
+          );
+        }
+        return (
+          b.event.capacity - a.event.capacity ||
+          b.metrics.demandTickets - a.metrics.demandTickets ||
+          a.event.startsAt.getTime() - b.event.startsAt.getTime() ||
+          a.event.id.localeCompare(b.event.id)
+        );
+      });
+
+    const total = enriched.length;
+    const paged = enriched.slice(skip, skip + limit).map(({ event, metrics }) => ({
+      ...event,
+      soldTickets: metrics.soldTickets,
+      availableTickets: metrics.availableTickets,
+    }));
 
     return {
-      data: items,
+      data: paged,
       meta: {
         page,
         limit,
@@ -55,6 +163,49 @@ export class EventsService {
         totalPages: Math.ceil(total / limit),
       },
     };
+  }
+
+  async listHighlights(limit = 5) {
+    const now = new Date();
+    const candidates = await prisma.event.findMany({
+      where: {
+        status: EventStatus.PUBLISHED,
+        startsAt: { gt: now },
+      },
+      orderBy: [{ startsAt: 'asc' }, { id: 'asc' }],
+      include: publicEventInclude,
+    });
+
+    const mapped = candidates.map(({ lots, ...event }) => {
+      const metrics = summarizeEventLots(lots, now);
+      return {
+        ...event,
+        soldTickets: metrics.soldTickets,
+        availableTickets: metrics.availableTickets,
+        demandTickets: metrics.demandTickets,
+        highlightTag: resolveHighlightTag({
+          featured: event.featured,
+          capacity: event.capacity,
+          demandTickets: metrics.demandTickets,
+          availableTickets: metrics.availableTickets,
+        }),
+      };
+    });
+
+    const activePool = mapped.some((item) => item.availableTickets > 0)
+      ? mapped.filter((item) => item.availableTickets > 0)
+      : mapped;
+
+    return activePool
+      .sort((a, b) => (
+        Number(b.featured) - Number(a.featured) ||
+        b.demandTickets - a.demandTickets ||
+        b.capacity - a.capacity ||
+        a.startsAt.getTime() - b.startsAt.getTime() ||
+        a.id.localeCompare(b.id)
+      ))
+      .slice(0, limit)
+      .map(({ demandTickets: _demandTickets, ...publicEvent }) => publicEvent);
   }
 
   async listMine(requester: { id: string; role: Role } | string) {
@@ -73,6 +224,8 @@ export class EventsService {
         location: true,
         startsAt: true,
         status: true,
+        featured: true,
+        capacity: true,
       },
       orderBy: [{ startsAt: 'asc' }, { id: 'asc' }],
     });
@@ -208,6 +361,39 @@ export class EventsService {
     return prisma.event.update({
       where: { id: eventId },
       data: { status: EventStatus.PUBLISHED },
+    });
+  }
+
+  async setFeatured(
+    eventId: string,
+    requester: { id: string; role: Role },
+    featured: boolean
+  ) {
+    if (requester.role !== Role.ADMIN) {
+      throw new AppError('FORBIDDEN', 'Apenas administradores podem destacar eventos.', 403);
+    }
+
+    const existing = await prisma.event.findUnique({
+      where: { id: eventId },
+      select: { id: true },
+    });
+
+    if (!existing) {
+      throw new AppError('EVENT_NOT_FOUND', 'Evento não encontrado', 404);
+    }
+
+    return prisma.event.update({
+      where: { id: eventId },
+      data: { featured },
+      select: {
+        id: true,
+        title: true,
+        location: true,
+        startsAt: true,
+        status: true,
+        featured: true,
+        capacity: true,
+      },
     });
   }
 }

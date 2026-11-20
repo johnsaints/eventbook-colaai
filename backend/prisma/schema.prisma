@@ -80,6 +80,7 @@ model Event {
   capacity    Int
   coverImage  String?     @db.MediumText
   status      EventStatus @default(DRAFT)
+  featured    Boolean     @default(false)
   organizerId String
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
@@ -91,6 +92,7 @@ model Event {
   staff     EventStaff[]
 
   @@index([status, startsAt])
+  @@index([status, featured, startsAt])
   @@map("events")
 }
 

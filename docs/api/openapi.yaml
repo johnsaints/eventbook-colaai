@@ -362,6 +362,17 @@ paths:
           schema:
             type: string
             maxLength: 100
+        - name: sort
+          in: query
+          required: false
+          description: Critério de ordenação dos eventos publicados.
+          schema:
+            type: string
+            enum:
+              - soonest
+              - popular
+              - largest
+            default: soonest
       responses:
         '200':
           description: Página de eventos publicados, ordenada pelo início.
@@ -403,6 +414,35 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /events/highlights:
+    get:
+      tags:
+        - Eventos
+      operationId: listHighlightedEvents
+      summary: Listar eventos em destaque
+      description: Retorna os eventos futuros em cartaz ordenados por curadoria editorial (`featured`), demanda real de ingressos e capacidade.
+      security: []
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          description: Quantidade máxima de destaques a retornar.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 10
+            default: 5
+      responses:
+        '200':
+          description: Eventos em destaque ordenados por relevância.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HighlightEvents'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
         '500':
           $ref: '#/components/responses/InternalError'
   /events/mine:
@@ -520,6 +560,38 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /events/{id}/featured:
+    patch:
+      tags:
+        - Eventos
+      operationId: setEventFeatured
+      summary: Marcar ou remover evento dos destaques
+      description: Acesso exclusivo para ADMIN. Define curadoria editorial do evento na vitrine de destaques.
+      parameters:
+        - $ref: '#/components/parameters/EventId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EventFeaturedInput'
+      responses:
+        '200':
+          description: Status de destaque atualizado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ManagedEventSummary'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/EventNotFound'
         '500':
           $ref: '#/components/responses/InternalError'
   /events/{id}/lots:
@@ -1486,6 +1558,18 @@ components:
           properties:
             status:
               $ref: '#/components/schemas/EventStatus'
+            featured:
+              type: boolean
+            capacity:
+              type: integer
+              minimum: 1
+    EventFeaturedInput:
+      type: object
+      required:
+        - featured
+      properties:
+        featured:
+          type: boolean
     EventCreateInput:
       type: object
       required:
@@ -1595,6 +1679,8 @@ components:
           format: uuid
         status:
           $ref: '#/components/schemas/EventStatus'
+        featured:
+          type: boolean
         createdAt:
           type: string
           format: date-time
@@ -1619,6 +1705,23 @@ components:
                   format: uuid
                 name:
                   type: string
+            soldTickets:
+              type: integer
+              minimum: 0
+            availableTickets:
+              type: integer
+              minimum: 0
+            highlightTag:
+              type: string
+    HighlightEvents:
+      type: object
+      required:
+        - data
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/PublicEvent'
     EventDetails:
       allOf:
         - $ref: '#/components/schemas/PublicEvent'

@@ -3,10 +3,11 @@ import { Link } from 'react-router'
 import ribbonSymbol from '../assets/colaai-simbolo-matriz.png'
 import logoWordmark from '../assets/ColaAi_wordmark_aprovado_transparente.webp'
 import { formatDate, getEventCategoryVisual, resolveEventCoverSrc, type EventSummary } from '../events'
-import { ArrowLeftIcon, ArrowRightIcon, CalendarIcon, PinIcon, TicketIcon } from './Icons'
+import { ArrowLeftIcon, ArrowRightIcon, CalendarIcon, PinIcon, TicketIcon, UsersIcon } from './Icons'
 
 const monthShort = new Intl.DateTimeFormat('pt-BR', { month: 'short' })
 const dayNum = new Intl.DateTimeFormat('pt-BR', { day: '2-digit' })
+const countFormat = new Intl.NumberFormat('pt-BR')
 
 type SymplaHeroCarouselProps = {
   events: EventSummary[]
@@ -83,7 +84,7 @@ export default function SymplaHeroCarousel({ events }: SymplaHeroCarouselProps) 
                   <div className="sympla-visual-top">
                     <span className="ca-badge">
                       <span className="ca-badge-bar" aria-hidden="true" />
-                      <span>Destaque · {cat.label}</span>
+                      <span>{ev.highlightTag ?? 'Destaque'} · {cat.label}</span>
                     </span>
                     <div className="ca-date-stamp sympla-visual-date" aria-hidden="true">
                       <span className="date-day">{day}</span>
@@ -125,6 +126,12 @@ export default function SymplaHeroCarousel({ events }: SymplaHeroCarouselProps) 
                       <PinIcon variant="gradient" className="meta-icon" />
                       <span>{ev.location}</span>
                     </p>
+                    {typeof ev.capacity === 'number' && ev.capacity > 0 && (
+                      <p className="meta-row">
+                        <UsersIcon variant="gradient" className="meta-icon" />
+                        <span>Capacidade para {countFormat.format(ev.capacity)} pessoas</span>
+                      </p>
+                    )}
                   </div>
 
                   <div className="sympla-slide-cta">
