@@ -14,7 +14,7 @@ import {
   type AuthUser,
 } from '../api'
 import Drawer from './Drawer'
-import { BrandGridIcon, ChartIcon, LogoutIcon, MenuIcon, QrCodeIcon, TicketIcon } from './Icons'
+import { ArrowRightIcon, BrandGridIcon, ChartIcon, LogoutIcon, MenuIcon, QrCodeIcon, TicketIcon } from './Icons'
 
 export default function AppLayout({ children }: { children: ReactNode }) {
   const navigate = useNavigate()
@@ -171,7 +171,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
 
           <button
             type="button"
-            className="btn nav-menu-trigger"
+            className="nav-menu-trigger"
             aria-label="Abrir menu de navegação"
             aria-expanded={mobileMenuOpen}
             onClick={() => setMobileMenuOpen(true)}
@@ -187,8 +187,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         onClose={() => setMobileMenuOpen(false)}
         side="left"
         size="sm"
-        eyebrow="ColaAí Eventos"
-        title="Navegação"
+        title="Menu"
         footer={user || hasToken ? (
           <button type="button" className="btn btn-secondary btn-full" onClick={handleLogout}>
             <LogoutIcon width={15} height={15} />
@@ -206,10 +205,11 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         )}
       >
         {(user || hasToken) && (
-          <Link
+          <NavLink
             to="/perfil"
-            className="mobile-drawer-user"
+            className={({ isActive }) => isActive ? 'mobile-drawer-user active' : 'mobile-drawer-user'}
             onClick={() => setMobileMenuOpen(false)}
+            title="Meu perfil"
           >
             <span className="user-avatar" aria-hidden="true">
               {user?.avatarImage ? (
@@ -223,7 +223,8 @@ export default function AppLayout({ children }: { children: ReactNode }) {
               {user?.email && <span>{user.email}</span>}
               {user && <span className="role-badge">{ROLE_LABELS[user.role]}</span>}
             </div>
-          </Link>
+            <ArrowRightIcon width={15} height={15} className="mobile-drawer-user-arrow" />
+          </NavLink>
         )}
 
         <nav className="mobile-drawer-nav" aria-label="Menu móvel">
@@ -243,15 +244,6 @@ export default function AppLayout({ children }: { children: ReactNode }) {
               )}
             </NavLink>
           ))}
-          {(user || hasToken) && (
-            <NavLink
-              to="/perfil"
-              className={({ isActive }) => isActive ? 'mobile-drawer-link active' : 'mobile-drawer-link'}
-              onClick={() => setMobileMenuOpen(false)}
-            >
-              <span>Meu Perfil</span>
-            </NavLink>
-          )}
         </nav>
       </Drawer>
 

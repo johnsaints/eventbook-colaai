@@ -1,9 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react'
 import { Link } from 'react-router'
 import {
-  canAccessBuyerTickets,
-  canAccessCheckin,
-  canAccessPanel,
   changePassword,
   getCurrentUser,
   isAdminRole,
@@ -20,7 +17,6 @@ import {
 import AppLayout from '../components/AppLayout'
 import Drawer from '../components/Drawer'
 import {
-  ArrowLeftIcon,
   CloseIcon,
   LockIcon,
   MailIcon,
@@ -181,23 +177,25 @@ function AdminUsersSection({
       aria-label={embedded ? 'Gestão de Contas e Permissões' : undefined}
     >
       {!embedded && (
-        <div className="profile-card-header">
-          <h2 id="admin-users-heading">
-            <UsersIcon width={18} height={18} variant="gradient" />
-            Gestão de Contas e Permissões
-          </h2>
-          <span className="role-badge">Somente Admin</span>
-        </div>
-      )}
+        <>
+          <div className="profile-card-header">
+            <h2 id="admin-users-heading">
+              <UsersIcon width={18} height={18} variant="gradient" />
+              Gestão de Contas e Permissões
+            </h2>
+            <span className="role-badge">Somente Admin</span>
+          </div>
 
-      <p className="profile-magic-note">
-        <ShieldCheckIcon width={16} height={16} variant="gradient" />
-        <span>
-          Defina quem atua como <strong>Comprador</strong>, <strong>Organizador</strong>,{' '}
-          <strong>Equipe de Check-in (Staff)</strong> ou <strong>Administrador</strong>. Novos
-          cadastros públicos iniciam sempre como Comprador.
-        </span>
-      </p>
+          <p className="profile-magic-note">
+            <ShieldCheckIcon width={16} height={16} variant="gradient" />
+            <span>
+              Defina quem atua como <strong>Comprador</strong>, <strong>Organizador</strong>,{' '}
+              <strong>Equipe de Check-in (Staff)</strong> ou <strong>Administrador</strong>. Novos
+              cadastros públicos iniciam sempre como Comprador.
+            </span>
+          </p>
+        </>
+      )}
 
       <form className="admin-users-filters" onSubmit={handleSearchSubmit}>
         <label className="admin-filter-search">
@@ -222,7 +220,7 @@ function AdminUsersSection({
             <option value="">Todos os perfis</option>
             {ALL_ROLES.map((role) => (
               <option key={role} value={role}>
-                {ROLE_LABELS[role]} ({role})
+                {ROLE_LABELS[role]}
               </option>
             ))}
           </select>
@@ -262,7 +260,7 @@ function AdminUsersSection({
                 <div className="admin-user-info">
                   <strong>{item.name}</strong>
                   <span className="admin-user-email">{item.email}</span>
-                  <span className="role-badge">{ROLE_LABELS[item.role]} · {item.role}</span>
+                  <span className="role-badge">{ROLE_LABELS[item.role]}</span>
                 </div>
 
                 {isSelf ? (
@@ -280,7 +278,7 @@ function AdminUsersSection({
                     >
                       {ALL_ROLES.map((role) => (
                         <option key={role} value={role}>
-                          {ROLE_LABELS[role]} ({role})
+                          {ROLE_LABELS[role]}
                         </option>
                       ))}
                     </select>
@@ -516,10 +514,6 @@ export default function ProfilePage() {
       <main className="catalog">
         <div className="page-header">
           <div className="profile-header-stack">
-            <Link to="/" className="back-link">
-              <ArrowLeftIcon width={15} height={15} />
-              Voltar aos eventos
-            </Link>
             <span className="eyebrow">Conta ColaAí</span>
             <h1>Meu Perfil</h1>
             <p className="lead-text">Gerencie seus dados pessoais, foto de exibição e segurança da conta.</p>
@@ -566,7 +560,7 @@ export default function ProfilePage() {
               <div className="profile-identity-meta">
                 <h2>{name || profile.name}</h2>
                 <p className="profile-identity-email">{email || profile.email}</p>
-                <span className="role-badge">{ROLE_LABELS[profile.role]} · {profile.role}</span>
+                <span className="role-badge">{ROLE_LABELS[profile.role]}</span>
                 {profile.createdAt && (
                   <p className="profile-member-since">
                     Membro desde {formatMemberSince.format(new Date(profile.createdAt))}
@@ -621,28 +615,6 @@ export default function ProfilePage() {
                 PNG, JPEG ou WebP. Recorte quadrado automático em alta nitidez.
                 {avatarChanged && ' Clique em Salvar alterações para aplicar a foto.'}
               </p>
-
-              <div className="profile-shortcuts">
-                {isAdminRole(profile.role) && (
-                  <button
-                    type="button"
-                    className="btn btn-secondary btn-sm btn-full"
-                    onClick={() => setAdminDrawerOpen(true)}
-                  >
-                    <UsersIcon width={15} height={15} />
-                    Gerenciar contas
-                  </button>
-                )}
-                {canAccessBuyerTickets(profile.role) && (
-                  <Link to="/meus-ingressos" className="btn btn-ghost btn-sm btn-full">Meus Ingressos</Link>
-                )}
-                {canAccessPanel(profile.role) && (
-                  <Link to="/painel" className="btn btn-ghost btn-sm btn-full">Painel do organizador</Link>
-                )}
-                {canAccessCheckin(profile.role) && (
-                  <Link to="/check-in" className="btn btn-ghost btn-sm btn-full">Check-in de portaria</Link>
-                )}
-              </div>
             </section>
 
             <div className="profile-forms-stack">
@@ -805,7 +777,6 @@ export default function ProfilePage() {
                       <UsersIcon width={18} height={18} variant="gradient" />
                       Administração de Contas
                     </h2>
-                    <span className="role-badge">Somente Admin</span>
                   </div>
                   <p className="event-meta">
                     Consulte usuários cadastrados, filtre por perfil e promova contas para{' '}
@@ -835,9 +806,9 @@ export default function ProfilePage() {
           onClose={() => setAdminDrawerOpen(false)}
           side="right"
           size="lg"
-          eyebrow="Administração · Somente Admin"
+          eyebrow="Administração"
           title="Gestão de Contas e Permissões"
-          subtitle="Pesquise usuários cadastrados e gerencie os perfis de acesso."
+          subtitle="Novos cadastros públicos iniciam sempre como Comprador."
         >
           <AdminUsersSection
             token={token}

@@ -142,12 +142,6 @@ export default function LoginPage() {
     }
   }
 
-  function logout() {
-    sessionStorage.removeItem(sessionTokenKey)
-    setUser(null)
-    notifyUserUpdated(null)
-  }
-
   return (
     <AppLayout>
       <main className="catalog auth-page">
@@ -167,7 +161,6 @@ export default function LoginPage() {
                 {canAccessBuyerTickets(user.role) && <Link to="/meus-ingressos" className="btn btn-primary">Meus Ingressos</Link>}
                 {canAccessCheckin(user.role) && <Link to="/check-in" className="btn btn-primary">Abrir check-in</Link>}
                 <Link to="/perfil" className="btn btn-secondary">Meu Perfil</Link>
-                <button type="button" className="btn btn-ghost" onClick={logout}>Sair</button>
               </div>
             </div>
           ) : (

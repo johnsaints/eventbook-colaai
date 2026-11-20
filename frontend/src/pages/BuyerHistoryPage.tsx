@@ -388,7 +388,6 @@ export default function BuyerHistoryPage() {
     <AppLayout>
       <main className="catalog">
         <header className="page-header">
-          <p><Link to="/" className="back-link"><ArrowLeftIcon /> Voltar aos eventos</Link></p>
           <span className="eyebrow">Área do comprador</span>
           <h1>Meus Ingressos</h1>
         </header>
@@ -441,7 +440,6 @@ export default function BuyerHistoryPage() {
             {canAccessCheckin(sessionUser?.role) && (
               <Link to="/check-in" className="btn btn-secondary btn-sm">Abrir check-in</Link>
             )}
-            <Link to="/" className="btn btn-ghost btn-sm">Voltar aos eventos</Link>
           </div>
         </div>
       ) : (
@@ -461,7 +459,7 @@ export default function BuyerHistoryPage() {
         onClose={() => setSelectedTicket(null)}
         side="right"
         size="md"
-        eyebrow="Ingresso Digital · Portaria"
+        eyebrow="Ingresso Digital"
         title={selectedTicket?.event.title ?? ''}
         subtitle={selectedTicket?.lot.name}
       >
@@ -498,10 +496,6 @@ export default function BuyerHistoryPage() {
               <div>
                 <dt>Local</dt>
                 <dd>{selectedTicket.event.location}</dd>
-              </div>
-              <div>
-                <dt>Setor / Lote</dt>
-                <dd>{selectedTicket.lot.name}</dd>
               </div>
               <div>
                 <dt>Pedido</dt>

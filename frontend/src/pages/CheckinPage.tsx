@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link } from 'react-router'
 import { notifyUserUpdated, sessionTokenKey } from '../api'
 import AppLayout from '../components/AppLayout'
-import { ArrowLeftIcon, QrCodeIcon, ShieldCheckIcon } from '../components/Icons'
+import { QrCodeIcon, ShieldCheckIcon } from '../components/Icons'
 import { listCheckinEvents, submitCheckin, type CheckinEvent, type CheckinResult } from '../checkin'
 import { formatDate } from '../events'
 import './CheckinPage.css'
@@ -122,7 +122,6 @@ export default function CheckinPage() {
       <main className="catalog checkin-page">
         <div className="checkin-shell">
           <header className="page-header">
-            <p><Link to="/" className="back-link"><ArrowLeftIcon /> Voltar aos eventos</Link></p>
             <span className="eyebrow">Portaria ColaAí</span>
             <h1 className="checkin-title">
               <ShieldCheckIcon variant="gradient" width={26} height={26} className="title-icon" />
@@ -133,14 +132,12 @@ export default function CheckinPage() {
           {list.status === 'loading' && <p className="state-banner" role="status">Carregando seus eventos…</p>}
           {list.status === 'signed-out' && (
             <div className="state-banner">
-              <p><Link to="/login">Entrar</Link> com uma conta STAFF (ou ADMIN).</p>
-              <Link to="/" className="btn btn-ghost btn-sm">Voltar aos eventos</Link>
+              <p><Link to="/login">Entrar</Link> com uma conta de Equipe de Check-in (ou Administrador).</p>
             </div>
           )}
           {list.status === 'forbidden' && (
             <div className="state-banner state-error">
-              <p role="alert">Esta área é reservada ao perfil STAFF (ou ADMIN). <Link to="/login">Trocar de conta</Link>.</p>
-              <Link to="/" className="btn btn-ghost btn-sm">Voltar aos eventos</Link>
+              <p role="alert">Esta área é reservada à Equipe de Check-in (ou Administrador). <Link to="/login">Trocar de conta</Link>.</p>
             </div>
           )}
           {list.status === 'error' && (
@@ -168,7 +165,7 @@ export default function CheckinPage() {
                   <option value="" disabled>Selecione um evento</option>
                   {list.events.map(event => (
                     <option key={event.id} value={event.id}>
-                      {event.title} · {formatDate.format(new Date(event.startsAt))} · {event.location}
+                      {event.title}
                     </option>
                   ))}
                 </select>

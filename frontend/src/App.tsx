@@ -2,7 +2,6 @@ import { useEffect, useRef, useState, type ComponentType, type FormEvent } from 
 import { BrowserRouter, Link, Route, Routes } from 'react-router'
 import {
   apiUrl,
-  canAccessPanel,
   getStoredSessionUser,
   userUpdatedEventName,
   type AuthUser,
@@ -26,7 +25,6 @@ import {
   type CaIconProps,
 } from './components/Icons'
 import SymplaHeroCarousel from './components/SymplaHeroCarousel'
-import SymplaShelfCarousel from './components/SymplaShelfCarousel'
 import { formatDate, getEventCategoryVisual, resolveEventCoverSrc, type EventSummary } from './events'
 import BuyerHistoryPage from './pages/BuyerHistoryPage'
 import CheckinPage from './pages/CheckinPage'
@@ -218,10 +216,6 @@ function CatalogPage() {
           </div>
         </section>
 
-        {!isFiltered && highlights.length >= 2 && (
-          <SymplaShelfCarousel events={highlights} />
-        )}
-
         <section className="events-section" aria-labelledby="events-title">
           <div className="section-header">
             <div className="ca-section-heading">
@@ -352,7 +346,7 @@ function CatalogPage() {
           )}
         </section>
 
-        {(!sessionUser || canAccessPanel(sessionUser.role)) && (
+        {!sessionUser && (
           <section className="sympla-producer-banner" aria-label="Para organizadores de eventos">
             <div className="sympla-producer-copy">
               <span className="eyebrow">ColaAí Produtores</span>

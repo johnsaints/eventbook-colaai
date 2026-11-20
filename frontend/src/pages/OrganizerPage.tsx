@@ -6,13 +6,12 @@ import {
   canAccessPanel,
   getCurrentUser,
   notifyUserUpdated,
-  ROLE_LABELS,
   sessionTokenKey,
   type AuthUser,
 } from '../api'
 import AppLayout from '../components/AppLayout'
 import Drawer from '../components/Drawer'
-import { ArrowLeftIcon, CalendarIcon, ChartIcon, PinIcon, PlusIcon, TicketIcon, UsersIcon } from '../components/Icons'
+import { CalendarIcon, ChartIcon, PinIcon, PlusIcon, TicketIcon, UsersIcon } from '../components/Icons'
 import { formatDate, getEventForEdit, getMyEvents, type EditableEvent, type OrganizerEvent } from '../events'
 import EventForm from '../components/EventForm'
 import EventLotsPanel from '../components/EventLotsPanel'
@@ -212,7 +211,6 @@ export default function OrganizerPage() {
       <main className="catalog">
         <header className="page-header dashboard-header">
           <div>
-            <p><Link to="/" className="back-link"><ArrowLeftIcon /> Voltar aos eventos</Link></p>
             <span className="eyebrow">Área do organizador</span>
             <h1 tabIndex={-1} ref={panelHeadingRef}>Painel de eventos</h1>
           </div>
@@ -241,17 +239,11 @@ export default function OrganizerPage() {
             <div className="event-card dashboard-profile">
               {canAccessPanel(panel.user.role) ? (
                 <>
-                  <div>
-                    <h2>Olá, {panel.user.name}</h2>
+                  {panel.user.role === 'ADMIN' && (
                     <p className="event-meta">
-                      Perfil: <span className="role-badge">{ROLE_LABELS[panel.user.role]}</span>
+                      Modo Administrador: todos os eventos da plataforma estão visíveis para edição, lotes e publicação (equipe e ocupação permanecem exclusivos do organizador titular).
                     </p>
-                    {panel.user.role === 'ADMIN' && (
-                      <p className="event-meta">
-                        Modo Administrador: todos os eventos da plataforma estão visíveis para edição, lotes e publicação (equipe e ocupação permanecem exclusivos do organizador titular).
-                      </p>
-                    )}
-                  </div>
+                  )}
                   {myEvents && (
                     <dl className="dashboard-kpis">
                       <div className="kpi-box">
@@ -283,7 +275,6 @@ export default function OrganizerPage() {
                   </div>
                 </div>
               )}
-              <button type="button" className="btn btn-ghost btn-sm" onClick={logout}>Sair</button>
             </div>
           </section>
         )}
@@ -292,7 +283,9 @@ export default function OrganizerPage() {
 
         {myEvents && (
           <section aria-labelledby="my-events-title" className="panel-events">
-            <h2 id="my-events-title">Meus eventos</h2>
+            <h2 id="my-events-title">
+              {panel.status === 'ready' && panel.user.role === 'ADMIN' ? 'Eventos cadastrados' : 'Meus eventos'}
+            </h2>
             {myEvents.length === 0 ? (
               <div className="state-banner">
                 <p>Nenhum evento cadastrado ainda. Clique em “Novo evento” para começar.</p>
@@ -305,7 +298,7 @@ export default function OrganizerPage() {
                       <div className="colaai-ticket-head">
                         <h3>{event.title}</h3>
                         <span className={statusPillClass[event.status]}>
-                          Status: {statusLabel[event.status]}
+                          {statusLabel[event.status]}
                         </span>
                       </div>
                       <div className="card-meta-list">
@@ -334,24 +327,24 @@ export default function OrganizerPage() {
                           id={`lots-trigger-${event.id}`}
                           type="button"
                           className="btn btn-secondary btn-sm"
-                          aria-label={`Ver lotes de ${event.title}`}
+                          aria-label={`Lotes de ${event.title}`}
                           aria-expanded={drawer?.kind === 'event' && drawer.eventId === event.id && drawer.tab === 'lots'}
                           onClick={() => openEventDrawer(event.id, 'lots')}
                         >
                           <TicketIcon />
-                          Ver lotes
+                          Lotes
                         </button>
                         {isOrganizer && (
                           <button
                             id={`staff-trigger-${event.id}`}
                             type="button"
                             className="btn btn-ghost btn-sm"
-                            aria-label={`Gerenciar equipe de ${event.title}`}
+                            aria-label={`Equipe de ${event.title}`}
                             aria-expanded={drawer?.kind === 'event' && drawer.eventId === event.id && drawer.tab === 'staff'}
                             onClick={() => openEventDrawer(event.id, 'staff')}
                           >
                             <UsersIcon />
-                            Gerenciar equipe
+                            Equipe
                           </button>
                         )}
                         {isOrganizer && (
@@ -359,12 +352,12 @@ export default function OrganizerPage() {
                             id={`occupancy-trigger-${event.id}`}
                             type="button"
                             className="btn btn-ghost btn-sm"
-                            aria-label={`Ver ocupação de ${event.title}`}
+                            aria-label={`Ocupação de ${event.title}`}
                             aria-expanded={drawer?.kind === 'event' && drawer.eventId === event.id && drawer.tab === 'occupancy'}
                             onClick={() => openEventDrawer(event.id, 'occupancy')}
                           >
                             <ChartIcon />
-                            Ver ocupação
+                            Ocupação
                           </button>
                         )}
                         <PublishEventAction

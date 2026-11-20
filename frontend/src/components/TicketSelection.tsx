@@ -205,9 +205,9 @@ export default function TicketSelection({ event, initialItems }: {
                       </span>
                     </div>
                     <p className="lot-price">{formatPrice(priceInCents(lot.price))}</p>
-                    <p className="event-meta">
-                      {available > 0 ? 'Ingressos disponíveis: ' + available : 'Lote esgotado'}
-                    </p>
+                    {available > 0 && (
+                      <p className="event-meta">Ingressos disponíveis: {available}</p>
+                    )}
                   </div>
 
                   <div className="ticket-stepper" role="group" aria-label={'Seleção de ' + lot.name}>

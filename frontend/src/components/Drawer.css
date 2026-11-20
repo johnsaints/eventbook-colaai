@@ -211,6 +211,10 @@
   margin-bottom: 1rem;
 }
 
+.ca-drawer-body .auth-form {
+  max-width: none;
+}
+
 @keyframes caDrawerFadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
