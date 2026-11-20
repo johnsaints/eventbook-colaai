@@ -6,18 +6,34 @@ export async function seedDatabase(prisma: PrismaClient, seedPassword: string): 
   const passwordHash = await bcrypt.hash(seedPassword, 10);
 
   const users = [
-    { name: 'Admin User', email: 'admin@eventbook.test', role: Role.ADMIN },
-    { name: 'Organizer User', email: 'organizer@eventbook.test', role: Role.ORGANIZER },
-    { name: 'Staff User', email: 'staff@eventbook.test', role: Role.STAFF },
-    { name: 'Buyer User', email: 'buyer@eventbook.test', role: Role.BUYER },
-    { name: 'Administrador ColaAí', email: 'admin@eventbook.com', role: Role.ADMIN },
-    { name: 'Organizador ColaAí', email: 'organizador@eventbook.com', role: Role.ORGANIZER },
-    { name: 'Portaria Check-in', email: 'checkin@eventbook.com', role: Role.STAFF },
-    { name: 'Comprador ColaAí', email: 'comprador@eventbook.com', role: Role.BUYER },
+    {
+      name: 'Administrador ColaAí',
+      email: 'admin@colaai.com',
+      role: Role.ADMIN,
+      legacyEmails: ['admin@eventbook.test', 'admin@eventbook.com'],
+    },
+    {
+      name: 'Organizador ColaAí',
+      email: 'organizador@colaai.com',
+      role: Role.ORGANIZER,
+      legacyEmails: ['organizer@eventbook.test', 'organizador@eventbook.com'],
+    },
+    {
+      name: 'Portaria Check-in',
+      email: 'checkin@colaai.com',
+      role: Role.STAFF,
+      legacyEmails: ['staff@eventbook.test', 'checkin@eventbook.com'],
+    },
+    {
+      name: 'Comprador ColaAí',
+      email: 'comprador@colaai.com',
+      role: Role.BUYER,
+      legacyEmails: ['buyer@eventbook.test', 'comprador@eventbook.com'],
+    },
   ];
 
   for (const u of users) {
-    await prisma.user.upsert({
+    const targetUser = await prisma.user.upsert({
       where: { email: u.email },
       update: {},
       create: {
@@ -26,11 +42,51 @@ export async function seedDatabase(prisma: PrismaClient, seedPassword: string): 
         password: passwordHash,
         role: u.role,
       },
+      select: { id: true },
     });
+
+    const legacyUsers = await prisma.user.findMany({
+      where: { email: { in: u.legacyEmails } },
+      select: { id: true },
+    });
+
+    if (legacyUsers.length > 0) {
+      const legacyIds = legacyUsers.map((item) => item.id);
+      await prisma.$transaction(async (tx) => {
+        await tx.event.updateMany({
+          where: { organizerId: { in: legacyIds } },
+          data: { organizerId: targetUser.id },
+        });
+        await tx.order.updateMany({
+          where: { buyerId: { in: legacyIds } },
+          data: { buyerId: targetUser.id },
+        });
+        await tx.checkIn.updateMany({
+          where: { staffId: { in: legacyIds } },
+          data: { staffId: targetUser.id },
+        });
+
+        const legacyStaff = await tx.eventStaff.findMany({
+          where: { userId: { in: legacyIds } },
+          select: { eventId: true },
+        });
+        for (const item of legacyStaff) {
+          await tx.eventStaff.upsert({
+            where: { eventId_userId: { eventId: item.eventId, userId: targetUser.id } },
+            update: {},
+            create: { eventId: item.eventId, userId: targetUser.id },
+          });
+        }
+
+        await tx.user.deleteMany({
+          where: { id: { in: legacyIds } },
+        });
+      });
+    }
   }
 
   const organizer = await prisma.user.findUniqueOrThrow({
-    where: { email: 'organizer@eventbook.test' },
+    where: { email: 'organizador@colaai.com' },
     select: { id: true },
   });
 
@@ -225,7 +281,7 @@ export async function seedDatabase(prisma: PrismaClient, seedPassword: string): 
   const demoEventIds = [demoEventId, ...extraEvents.map(item => item.id)];
   const staffAccounts = await prisma.user.findMany({
     where: {
-      email: { in: ['staff@eventbook.test', 'checkin@eventbook.com'] },
+      email: 'checkin@colaai.com',
       role: Role.STAFF,
     },
     select: { id: true },
