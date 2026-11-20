@@ -18,6 +18,7 @@
   width: 1.75rem;
   height: 1.75rem;
   color: var(--ca-cyan);
+  flex-shrink: 0;
 }
 
 .checkin-form select {

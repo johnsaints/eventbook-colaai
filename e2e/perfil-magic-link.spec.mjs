@@ -152,7 +152,7 @@ test('navegação contextual por perfil (ORGANIZER, STAFF, ADMIN) e gestão de c
   }
 })
 
-test('layout mobile (360x800) sem overflow horizontal e menu no Drawer', async ({ page }) => {
+test('layout responsivo (mobile, tablet, desktop e ultrawide) sem overflow horizontal', async ({ page }) => {
   const prisma = new PrismaClient({ datasourceUrl: getE2EDatabaseUrl() })
   const tag = randomUUID()
   const email = `e2e-mobile-${tag}@eventbook.test`
@@ -192,53 +192,63 @@ test('layout mobile (360x800) sem overflow horizontal e menu no Drawer', async (
     )
 
     const firstEventId = createdEvents[0].id
-    await page.setViewportSize({ width: 360, height: 800 })
+    const viewports = [
+      { name: 'mobile', width: 360, height: 800, expectsDrawer: true },
+      { name: 'tablet', width: 768, height: 1024, expectsDrawer: true },
+      { name: 'desktop', width: 1280, height: 720, expectsDrawer: false },
+      { name: 'large', width: 1920, height: 1080, expectsDrawer: false },
+    ]
 
-    async function assertBoxFitsViewport(selector) {
-      const box = await page.locator(selector).first().boundingBox()
-      expect(box).not.toBeNull()
-      expect(box.x).toBeGreaterThanOrEqual(0)
-      expect(box.x + box.width).toBeLessThanOrEqual(360.5)
+    for (const vp of viewports) {
+      await page.setViewportSize({ width: vp.width, height: vp.height })
+
+      async function assertBoxFitsViewport(selector) {
+        const box = await page.locator(selector).first().boundingBox()
+        expect(box).not.toBeNull()
+        expect(box.x).toBeGreaterThanOrEqual(0)
+        expect(box.x + box.width).toBeLessThanOrEqual(vp.width + 0.5)
+      }
+
+      async function assertNoHorizontalOverflow() {
+        const overflow = await page.evaluate(() => ({
+          scrollWidth: document.documentElement.scrollWidth,
+          innerWidth: window.innerWidth,
+        }))
+        expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.innerWidth)
+      }
+
+      await page.goto('/')
+      await expect(page.locator('.sympla-hero-viewport')).toBeVisible()
+      await expect(page.locator('.sympla-cat-strip')).toBeVisible()
+      await assertBoxFitsViewport('.sympla-top-bar')
+      await assertBoxFitsViewport('.sympla-hero-viewport')
+      await assertBoxFitsViewport('.sympla-cat-strip')
+      await assertBoxFitsViewport('.event-list')
+      await assertNoHorizontalOverflow()
+
+      if (vp.expectsDrawer) {
+        await expect(page.locator('.navbar .nav-links')).not.toBeVisible()
+        await expect(page.getByRole('button', { name: 'Abrir menu de navegação' })).toBeVisible()
+      } else {
+        await expect(page.locator('.navbar .nav-links')).toBeVisible()
+        await expect(page.getByRole('button', { name: 'Abrir menu de navegação' })).not.toBeVisible()
+      }
+
+      await page.goto(`/events/${firstEventId}`)
+      await expect(page.getByRole('heading', { name: 'Lotes à venda' })).toBeVisible()
+      await assertBoxFitsViewport('.event-detail-hero')
+      await assertBoxFitsViewport('.lot-row-card')
+      await assertNoHorizontalOverflow()
+
+      await page.goto('/login')
+      await expect(page.getByRole('heading', { name: 'Entrar no ColaAí' })).toBeVisible()
+      await assertBoxFitsViewport('.auth-card')
+      await assertNoHorizontalOverflow()
     }
 
+    await page.setViewportSize({ width: 360, height: 800 })
     await page.goto('/')
-    await expect(page.locator('.sympla-hero-viewport')).toBeVisible()
-    await expect(page.locator('.sympla-cat-strip')).toBeVisible()
-    await assertBoxFitsViewport('.sympla-top-bar')
-    await assertBoxFitsViewport('.sympla-hero-viewport')
-    await assertBoxFitsViewport('.sympla-cat-strip')
-    await assertBoxFitsViewport('.event-list')
-
-    let overflow = await page.evaluate(() => ({
-      scrollWidth: document.documentElement.scrollWidth,
-      innerWidth: window.innerWidth,
-    }))
-    expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.innerWidth)
-
-    await page.goto(`/events/${firstEventId}`)
-    await expect(page.getByRole('heading', { name: 'Lotes à venda' })).toBeVisible()
-    await assertBoxFitsViewport('.event-detail-hero')
-    await assertBoxFitsViewport('.lot-row-card')
-    overflow = await page.evaluate(() => ({
-      scrollWidth: document.documentElement.scrollWidth,
-      innerWidth: window.innerWidth,
-    }))
-    expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.innerWidth)
-
-    await page.goto('/login')
-    await expect(page.getByRole('heading', { name: 'Entrar no ColaAí' })).toBeVisible()
-    await assertBoxFitsViewport('.auth-card')
-    overflow = await page.evaluate(() => ({
-      scrollWidth: document.documentElement.scrollWidth,
-      innerWidth: window.innerWidth,
-    }))
-    expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.innerWidth)
-
-    await page.goto('/')
-    await expect(page.locator('.navbar .nav-links')).not.toBeVisible()
-    const menuTrigger = page.getByRole('button', { name: 'Abrir menu de navegação' })
-    await expect(menuTrigger).toBeVisible()
-    await menuTrigger.click()
+    await page.getByRole('button', { name: 'Abrir menu de navegação' }).click()
 
     const mobileDrawer = page.getByRole('dialog')
     await expect(mobileDrawer).toBeVisible()

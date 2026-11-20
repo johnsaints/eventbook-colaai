@@ -142,7 +142,7 @@ export default function EventStaffPanel({ eventId, eventTitle, token, onClose, o
       {team.status === 'error' && (
         <>
           <p role="alert">{team.message}</p>
-          <button type="button" onClick={retryLoad}>Tentar novamente</button>
+          <button type="button" className="btn btn-secondary btn-sm" onClick={retryLoad}>Tentar novamente</button>
         </>
       )}
       {team.status === 'ready' && (
@@ -162,7 +162,7 @@ export default function EventStaffPanel({ eventId, eventTitle, token, onClose, o
               />
             </label>
             <p id="staff-email-help" className="event-meta">Use o e-mail de uma conta com perfil STAFF.</p>
-            <button type="submit" disabled={mutation !== null || confirming !== null}>
+            <button type="submit" className="btn btn-primary btn-sm" disabled={mutation !== null || confirming !== null}>
               {mutation?.kind === 'add' ? 'Adicionando…' : 'Adicionar à equipe'}
             </button>
           </form>
@@ -184,13 +184,14 @@ export default function EventStaffPanel({ eventId, eventTitle, token, onClose, o
                         <>
                           <p>Remover {member.name} da equipe deste evento?</p>
                           <div className="event-actions">
-                            <button ref={confirmRef} type="button" disabled={mutation !== null} onClick={() => removeMember(member)}>
+                            <button ref={confirmRef} type="button" className="btn btn-primary btn-sm" disabled={mutation !== null} onClick={() => removeMember(member)}>
                               {mutation?.kind === 'remove' && mutation.userId === member.userId
                                 ? 'Removendo…'
                                 : 'Confirmar remoção'}
                             </button>
                             <button
                               type="button"
+                              className="btn btn-ghost btn-sm"
                               disabled={mutation !== null}
                               onClick={() => {
                                 setConfirming(null)
@@ -206,6 +207,7 @@ export default function EventStaffPanel({ eventId, eventTitle, token, onClose, o
                         <button
                           id={'staff-remove-' + member.userId}
                           type="button"
+                          className="btn btn-ghost btn-sm"
                           aria-label={'Remover ' + member.name + ' da equipe'}
                           disabled={mutation !== null || confirming !== null}
                           onClick={() => {

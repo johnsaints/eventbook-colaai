@@ -127,7 +127,7 @@ export default function EventLotsPanel({ eventId, eventTitle, token, onClose, on
       {state.status === 'error' && (
         <>
           <p role="alert">Não foi possível carregar os lotes.</p>
-          <button type="button" onClick={reloadLots}>Tentar novamente</button>
+          <button type="button" className="btn btn-secondary btn-sm" onClick={reloadLots}>Tentar novamente</button>
         </>
       )}
 
@@ -156,6 +156,7 @@ export default function EventLotsPanel({ eventId, eventTitle, token, onClose, on
                     <td>
                       <button
                         type="button"
+                        className="btn btn-ghost btn-sm"
                         aria-label={`Editar lote ${lot.name}`}
                         disabled={form !== null}
                         onClick={() => openForm({ kind: 'edit', lot })}

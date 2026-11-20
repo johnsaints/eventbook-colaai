@@ -155,6 +155,7 @@
 .profile-card-header h2 {
   margin: 0;
   font-size: 1.15rem;
+  line-height: 1.25;
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
@@ -308,6 +309,20 @@
   border-radius: 999px;
   border: 1px solid rgba(0, 212, 255, 0.35);
   background: rgba(0, 212, 255, 0.1);
+}
+
+@media (min-width: 861px) and (max-width: 1024px) {
+  .profile-grid {
+    grid-template-columns: minmax(15.5rem, 18.5rem) minmax(0, 1fr);
+    gap: 1.25rem;
+  }
+}
+
+@media (min-width: 1440px) {
+  .profile-grid {
+    grid-template-columns: minmax(19rem, 23rem) minmax(0, 1fr);
+    gap: 2rem;
+  }
 }
 
 @media (max-width: 860px) {

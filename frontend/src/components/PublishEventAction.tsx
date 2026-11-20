@@ -66,6 +66,7 @@ export default function PublishEventAction({ event, token, onPublished, onSessio
     <div>
       <button
         type="button"
+        className="btn btn-primary btn-sm"
         aria-label={state.status === 'publishing' ? `Publicando ${event.title}` : `Publicar ${event.title}`}
         disabled={state.status === 'publishing'}
         onClick={() => void handlePublish()}

@@ -174,8 +174,8 @@ function renderTicket(ticket: HistoryTicket, onExpand: (ticket: HistoryTicket) =
               onClick={() => onExpand(ticket)}
               aria-label={`Apresentar QR de ${ticket.event.title}`}
             >
-              <QrCodeIcon width={12} height={12} />
-              Apresentar QR
+              <QrCodeIcon width={13} height={13} />
+              <span>Apresentar QR</span>
             </button>
           </div>
         </div>
@@ -187,7 +187,7 @@ function renderTicket(ticket: HistoryTicket, onExpand: (ticket: HistoryTicket) =
 function renderOrder(order: HistoryOrder, action: ReactNode) {
   return (
     <div className="order-card-body">
-      <div className="colaai-ticket-head order-card-head">
+      <div className="order-card-head">
         <h3>{order.event.title}</h3>
         <span className="status-pill status-neutral">
           <strong>{orderStatuses[order.status]}</strong>

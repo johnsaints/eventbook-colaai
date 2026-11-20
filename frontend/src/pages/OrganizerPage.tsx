@@ -295,7 +295,7 @@ export default function OrganizerPage() {
                 {myEvents.map((event) => (
                   <li key={event.id}>
                     <article className="event-card organizer-event-card">
-                      <div className="colaai-ticket-head">
+                      <div className="organizer-card-head">
                         <h3>{event.title}</h3>
                         <span className={statusPillClass[event.status]}>
                           {statusLabel[event.status]}
