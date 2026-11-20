@@ -13,9 +13,9 @@ const addStaffBody = z.object({
   email: z.string().trim().email().max(191).transform(value => value.toLowerCase()),
 }).strict();
 
-staffRoutes.get('/staff/events', authenticate, authorize(Role.STAFF), async (req, res, next) => {
+staffRoutes.get('/staff/events', authenticate, authorize(Role.STAFF, Role.ADMIN), async (req, res, next) => {
   try {
-    const events = await listAssignedEvents(req.user!.id);
+    const events = await listAssignedEvents(req.user!.id, req.user!.role);
     res.set('Cache-Control', 'no-store').status(200).json(events);
   } catch (error) {
     next(error);

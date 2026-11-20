@@ -3,7 +3,16 @@ import { Link } from 'react-router'
 import ribbonSymbol from '../assets/colaai-simbolo-matriz.png'
 import logoWordmark from '../assets/ColaAi_wordmark_aprovado_transparente.webp'
 import ticketCrowdBg from '../assets/colaai-ticket-crowd.webp'
-import { sessionTokenKey } from '../api'
+import {
+  canAccessCheckin,
+  canAccessPanel,
+  getStoredSessionUser,
+  notifyUserUpdated,
+  ROLE_LABELS,
+  sessionTokenKey,
+  userUpdatedEventName,
+  type AuthUser,
+} from '../api'
 import AppLayout from '../components/AppLayout'
 import CancelOrderAction from '../components/CancelOrderAction'
 import { ArrowLeftIcon, ArrowRightIcon, CalendarIcon, ClockIcon, PinIcon, TicketIcon } from '../components/Icons'
@@ -284,6 +293,7 @@ function HistorySection<T extends { id: string }>({
 
 export default function BuyerHistoryPage() {
   const [token] = useState(() => sessionStorage.getItem(sessionTokenKey))
+  const [sessionUser, setSessionUser] = useState<AuthUser | null>(() => getStoredSessionUser())
   const [access, setAccess] = useState<HistoryAccess | null>(null)
   const [now, setNow] = useState(Date.now)
   const [revision, setRevision] = useState(0)
@@ -294,6 +304,15 @@ export default function BuyerHistoryPage() {
   useEffect(() => () => requestRef.current?.abort(), [])
 
   useEffect(() => {
+    function handleUserUpdated(event: Event) {
+      setSessionUser((event as CustomEvent<AuthUser | null>).detail)
+    }
+
+    window.addEventListener(userUpdatedEventName, handleUserUpdated)
+    return () => window.removeEventListener(userUpdatedEventName, handleUserUpdated)
+  }, [])
+
+  useEffect(() => {
     if (!token || access) return
     const timer = window.setInterval(() => setNow(Date.now()), 1000)
     return () => window.clearInterval(timer)
@@ -302,6 +321,7 @@ export default function BuyerHistoryPage() {
   const handleAccess = useCallback((kind: HistoryAccess) => {
     if (kind === 'login' && sessionStorage.getItem(sessionTokenKey) === token) {
       sessionStorage.removeItem(sessionTokenKey)
+      notifyUserUpdated(null)
     }
     setAccess(current => current === 'login' ? current : kind)
   }, [token])
@@ -369,6 +389,27 @@ export default function BuyerHistoryPage() {
             ))}
           />
         </>
+      ) : access === 'forbidden' ? (
+        <div className="event-card">
+          <p className="form-alert" role="alert">
+            A área Meus Ingressos é exclusiva para contas de Comprador (e Administrador em modo de teste).
+          </p>
+          {sessionUser && (
+            <p className="event-meta">
+              Seu perfil atual é <span className="role-badge">{ROLE_LABELS[sessionUser.role]}</span>.
+            </p>
+          )}
+          <div className="auth-actions">
+            <Link to="/login" state={{ returnToHistory: true }} className="btn btn-primary btn-sm">Entrar como comprador</Link>
+            {canAccessPanel(sessionUser?.role) && (
+              <Link to="/painel" className="btn btn-secondary btn-sm">Abrir painel</Link>
+            )}
+            {canAccessCheckin(sessionUser?.role) && (
+              <Link to="/check-in" className="btn btn-secondary btn-sm">Abrir check-in</Link>
+            )}
+            <Link to="/" className="btn btn-ghost btn-sm">Voltar aos eventos</Link>
+          </div>
+        </div>
       ) : (
         <div className="event-card">
           <p role={access ? 'alert' : undefined}>

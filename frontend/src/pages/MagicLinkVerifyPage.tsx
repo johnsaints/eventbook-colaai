@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
 import {
+  canAccessBuyerTickets,
+  canAccessCheckin,
   canAccessPanel,
   notifyUserUpdated,
   sessionTokenKey,
@@ -75,7 +77,7 @@ export default function MagicLinkVerifyPage() {
           })
           return
         }
-        if (context?.returnToHistory === true && verified.user.role === 'BUYER') {
+        if (context?.returnToHistory === true && canAccessBuyerTickets(verified.user.role)) {
           void navigate('/meus-ingressos', { replace: true })
           return
         }
@@ -124,13 +126,13 @@ export default function MagicLinkVerifyPage() {
               <p className="event-meta">E-mail autenticado: {session.user.email}</p>
               <div className="auth-actions">
                 <Link to="/perfil" className="btn btn-primary">Meu Perfil</Link>
-                {session.user.role === 'BUYER' && (
+                {canAccessBuyerTickets(session.user.role) && (
                   <Link to="/meus-ingressos" className="btn btn-secondary">Meus Ingressos</Link>
                 )}
                 {canAccessPanel(session.user.role) && (
                   <Link to="/painel" className="btn btn-secondary">Abrir painel</Link>
                 )}
-                {session.user.role === 'STAFF' && (
+                {canAccessCheckin(session.user.role) && (
                   <Link to="/check-in" className="btn btn-secondary">Abrir check-in</Link>
                 )}
               </div>

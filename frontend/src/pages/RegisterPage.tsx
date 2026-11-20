@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router'
-import { login, registerUser, sessionTokenKey } from '../api'
+import { login, notifyUserUpdated, registerUser, sessionTokenKey } from '../api'
 import AppLayout from '../components/AppLayout'
 import type { ReservationDraft } from '../orders'
 
@@ -39,6 +39,7 @@ export default function RegisterPage() {
 
       if (session) {
         sessionStorage.setItem(sessionTokenKey, session.token)
+        notifyUserUpdated(session.user)
         if (typeof reservationDraft?.eventId === 'string' && Array.isArray(reservationDraft.items)) {
           void navigate('/events/' + encodeURIComponent(reservationDraft.eventId), {
             replace: true,

@@ -1,3 +1,4 @@
+import { Role } from '@prisma/client';
 import { z } from 'zod';
 import { createOptionalImageDataUrlSchema } from '../../shared/validation/imageDataUrl.js';
 
@@ -42,9 +43,24 @@ export const verifyMagicLinkSchema = z.object({
   token: z.string().trim().min(32, 'Token mágico inválido').max(256),
 });
 
+export const adminListUsersQuerySchema = z.object({
+  q: z.string().trim().max(100).optional(),
+  role: z.nativeEnum(Role).optional(),
+});
+
+export const adminUserParamsSchema = z.object({
+  id: z.guid().transform((value) => value.toLowerCase()),
+});
+
+export const adminUpdateUserRoleSchema = z.object({
+  role: z.nativeEnum(Role),
+}).strict();
+
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
 export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
 export type RequestMagicLinkInput = z.infer<typeof requestMagicLinkSchema>;
 export type VerifyMagicLinkInput = z.infer<typeof verifyMagicLinkSchema>;
+export type AdminListUsersQueryInput = z.infer<typeof adminListUsersQuerySchema>;
+export type AdminUpdateUserRoleInput = z.infer<typeof adminUpdateUserRoleSchema>;

@@ -1,5 +1,8 @@
 import { NextFunction, Request, Response } from 'express';
 import {
+  adminListUsersQuerySchema,
+  adminUpdateUserRoleSchema,
+  adminUserParamsSchema,
   changePasswordSchema,
   loginSchema,
   registerSchema,
@@ -76,6 +79,27 @@ export class AuthController {
       const payload = verifyMagicLinkSchema.parse(req.body);
       const session = await authService.verifyMagicLink(payload.token);
       res.status(200).json(session);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async listUsersForAdmin(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const query = adminListUsersQuerySchema.parse(req.query);
+      const result = await authService.listUsersForAdmin(query);
+      res.set('Cache-Control', 'no-store').status(200).json(result);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async updateUserRoleByAdmin(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { id } = adminUserParamsSchema.parse(req.params);
+      const { role } = adminUpdateUserRoleSchema.parse(req.body);
+      const user = await authService.updateUserRoleByAdmin(req.user!.id, id, role);
+      res.status(200).json(user);
     } catch (error) {
       next(error);
     }

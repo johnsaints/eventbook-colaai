@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
 import request from 'supertest';
 import { afterAll, expect, it } from 'vitest';
 import { app } from '../src/app.js';
@@ -249,5 +250,150 @@ it('bloqueia Link Mágico simulado em produção sem SMTP/Resend e aceita estrat
     expect(captured[0].magicUrl.startsWith('https://colaai.example/magic-link?token=')).toBe(true);
   } finally {
     await prisma.user.deleteMany({ where: { email } });
+  }
+});
+
+it('aplica permissões RBAC de ADMIN em fluxos de teste e gerencia perfis via /admin/users', async () => {
+  const client = request(app);
+  const passwordHash = await bcrypt.hash('SenhaRbac-2026!', 10);
+  const tag = randomUUID();
+
+  const [adminUser, organizerUser, staffUser, buyerUser] = await prisma.$transaction([
+    prisma.user.create({
+      data: { name: 'Admin RBAC', email: `rbac-admin-${tag}@eventbook.test`, password: passwordHash, role: 'ADMIN' },
+    }),
+    prisma.user.create({
+      data: { name: 'Organizador RBAC', email: `rbac-org-${tag}@eventbook.test`, password: passwordHash, role: 'ORGANIZER' },
+    }),
+    prisma.user.create({
+      data: { name: 'Staff RBAC', email: `rbac-staff-${tag}@eventbook.test`, password: passwordHash, role: 'STAFF' },
+    }),
+    prisma.user.create({
+      data: { name: 'Comprador RBAC', email: `rbac-buyer-${tag}@eventbook.test`, password: passwordHash, role: 'BUYER' },
+    }),
+  ]);
+
+  const adminAuth = `Bearer ${jwt.sign({ role: adminUser.role }, env.JWT_SECRET, { subject: adminUser.id })}`;
+  const orgAuth = `Bearer ${jwt.sign({ role: organizerUser.role }, env.JWT_SECRET, { subject: organizerUser.id })}`;
+  const staffAuth = `Bearer ${jwt.sign({ role: staffUser.role }, env.JWT_SECRET, { subject: staffUser.id })}`;
+  const buyerAuth = `Bearer ${jwt.sign({ role: buyerUser.role }, env.JWT_SECRET, { subject: buyerUser.id })}`;
+
+  try {
+    const now = Date.now();
+    const startsAt = new Date(now + 30 * 60_000);
+    const endsAt = new Date(now + 120 * 60_000);
+
+    const event = await prisma.event.create({
+      data: {
+        organizerId: organizerUser.id,
+        title: `Evento RBAC ${tag.slice(0, 8)}`,
+        description: 'Teste completo de permissões por perfil.',
+        location: 'Fortaleza, CE',
+        capacity: 50,
+        status: 'PUBLISHED',
+        startsAt,
+        endsAt,
+        lots: {
+          create: {
+            name: 'Lote Único RBAC',
+            price: '30.00',
+            totalQuantity: 10,
+            salesStartsAt: new Date(now - 60_000),
+            salesEndsAt: startsAt,
+          },
+        },
+      },
+      include: { lots: true },
+    });
+    const lotId = event.lots[0].id;
+
+    // STAFF não pode reservar ou consultar ingressos de comprador
+    await client.post('/orders').set('Authorization', staffAuth).send({
+      eventId: event.id,
+      items: [{ lotId, quantity: 1 }],
+    }).expect(403);
+    await client.get('/tickets/me').set('Authorization', staffAuth).expect(403);
+
+    // ADMIN pode testar criação de pedido, checkout, Meus Ingressos, Painel e Check-in
+    const orderRes = await client.post('/orders').set('Authorization', adminAuth).send({
+      eventId: event.id,
+      items: [{ lotId, quantity: 1 }],
+    }).expect(201);
+    await client.post(`/orders/${orderRes.body.id}/checkout`).set('Authorization', adminAuth).expect(200);
+
+    const adminOrders = await client.get('/orders/me').set('Authorization', adminAuth).expect(200);
+    expect(adminOrders.body.data.some((o: { id: string }) => o.id === orderRes.body.id)).toBe(true);
+
+    const adminTickets = await client.get('/tickets/me').set('Authorization', adminAuth).expect(200);
+    expect(adminTickets.body.data).toHaveLength(1);
+    const ticketCode: string = adminTickets.body.data[0].code;
+
+    const adminEvents = await client.get('/events/mine').set('Authorization', adminAuth).expect(200);
+    expect(adminEvents.body.data.some((e: { id: string }) => e.id === event.id)).toBe(true);
+
+    const staffEventsAsAdmin = await client.get('/staff/events').set('Authorization', adminAuth).expect(200);
+    expect(staffEventsAsAdmin.body.some((e: { id: string }) => e.id === event.id)).toBe(true);
+
+    const checkinAsAdmin = await client
+      .post(`/tickets/${encodeURIComponent(ticketCode)}/checkin`)
+      .set('Authorization', adminAuth)
+      .send({ eventId: event.id })
+      .expect(201);
+    expect(checkinAsAdmin.body.status).toBe('USED');
+
+    // Somente ADMIN lista e altera perfis em /admin/users
+    await client.get('/admin/users').expect(401);
+    for (const nonAdmin of [buyerAuth, orgAuth, staffAuth]) {
+      await client.get('/admin/users').set('Authorization', nonAdmin).expect(403);
+      await client.patch(`/admin/users/${buyerUser.id}/role`)
+        .set('Authorization', nonAdmin)
+        .send({ role: 'ORGANIZER' })
+        .expect(403);
+    }
+
+    const filteredUsers = await client
+      .get('/admin/users')
+      .query({ q: buyerUser.email, role: 'BUYER' })
+      .set('Authorization', adminAuth)
+      .expect(200);
+    expect(filteredUsers.body.data.map((u: { id: string }) => u.id)).toEqual([buyerUser.id]);
+
+    const promoted = await client
+      .patch(`/admin/users/${buyerUser.id}/role`)
+      .set('Authorization', adminAuth)
+      .send({ role: 'ORGANIZER' })
+      .expect(200);
+    expect(promoted.body).toMatchObject({ id: buyerUser.id, role: 'ORGANIZER' });
+    expect((await prisma.user.findUniqueOrThrow({ where: { id: buyerUser.id } })).role).toBe('ORGANIZER');
+
+    await client
+      .patch(`/admin/users/${buyerUser.id}/role`)
+      .set('Authorization', adminAuth)
+      .send({ role: 'STAFF' })
+      .expect(200);
+    expect((await prisma.user.findUniqueOrThrow({ where: { id: buyerUser.id } })).role).toBe('STAFF');
+
+    const missing = await client
+      .patch(`/admin/users/${randomUUID()}/role`)
+      .set('Authorization', adminAuth)
+      .send({ role: 'STAFF' })
+      .expect(404);
+    expect(missing.body.code).toBe('USER_NOT_FOUND');
+
+    const selfDemote = await client
+      .patch(`/admin/users/${adminUser.id}/role`)
+      .set('Authorization', adminAuth)
+      .send({ role: 'BUYER' })
+      .expect(422);
+    expect(selfDemote.body.code).toBe('SELF_ROLE_CHANGE_FORBIDDEN');
+  } finally {
+    await prisma.$transaction([
+      prisma.checkIn.deleteMany({ where: { staffId: { in: [adminUser.id, staffUser.id] } } }),
+      prisma.order.deleteMany({ where: { buyerId: { in: [adminUser.id, buyerUser.id] } } }),
+      prisma.event.deleteMany({ where: { organizerId: organizerUser.id } }),
+      prisma.user.deleteMany({
+        where: { id: { in: [adminUser.id, organizerUser.id, staffUser.id, buyerUser.id] } },
+      }),
+    ]);
   }
 });

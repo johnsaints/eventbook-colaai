@@ -2,8 +2,12 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { Link, NavLink, useNavigate } from 'react-router'
 import logoWordmark from '../assets/ColaAi_wordmark_aprovado_transparente.webp'
 import {
+  canAccessBuyerTickets,
+  canAccessCheckin,
   canAccessPanel,
   getCurrentUser,
+  getStoredSessionUser,
+  notifyUserUpdated,
   sessionTokenKey,
   userUpdatedEventName,
   type AuthUser,
@@ -12,7 +16,7 @@ import { BrandGridIcon, ChartIcon, LogoutIcon, QrCodeIcon, TicketIcon } from './
 
 export default function AppLayout({ children }: { children: ReactNode }) {
   const navigate = useNavigate()
-  const [user, setUser] = useState<AuthUser | null>(null)
+  const [user, setUser] = useState<AuthUser | null>(() => getStoredSessionUser())
   const [hasToken, setHasToken] = useState(() => Boolean(sessionStorage.getItem(sessionTokenKey)))
 
   useEffect(() => {
@@ -36,6 +40,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         if (controller.signal.aborted) return
         if (!loaded) {
           sessionStorage.removeItem(sessionTokenKey)
+          notifyUserUpdated(null)
           setHasToken(false)
           setUser(null)
           return
@@ -43,7 +48,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         setUser(loaded)
       })
       .catch(() => {
-        if (!controller.signal.aborted) setUser(null)
+        // Mantem a identidade provisoria derivada do JWT caso a API esteja indisponivel
       })
 
     return () => controller.abort()
@@ -51,6 +56,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
 
   function handleLogout() {
     sessionStorage.removeItem(sessionTokenKey)
+    notifyUserUpdated(null)
     setHasToken(false)
     setUser(null)
     void navigate('/login')
@@ -78,15 +84,17 @@ export default function AppLayout({ children }: { children: ReactNode }) {
                 </>
               )}
             </NavLink>
-            <NavLink to="/meus-ingressos" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>
-              {({ isActive }) => (
-                <>
-                  <TicketIcon width={15} height={15} variant={isActive ? 'gradient' : 'current'} className="nav-link-icon" />
-                  <span>Meus Ingressos</span>
-                </>
-              )}
-            </NavLink>
-            {(!user || canAccessPanel(user.role)) && (
+            {Boolean(user && canAccessBuyerTickets(user.role)) && (
+              <NavLink to="/meus-ingressos" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>
+                {({ isActive }) => (
+                  <>
+                    <TicketIcon width={15} height={15} variant={isActive ? 'gradient' : 'current'} className="nav-link-icon" />
+                    <span>Meus Ingressos</span>
+                  </>
+                )}
+              </NavLink>
+            )}
+            {Boolean(user && canAccessPanel(user.role)) && (
               <NavLink to="/painel" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>
                 {({ isActive }) => (
                   <>
@@ -96,7 +104,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
                 )}
               </NavLink>
             )}
-            {(!user || user.role === 'STAFF') && (
+            {Boolean(user && canAccessCheckin(user.role)) && (
               <NavLink to="/check-in" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>
                 {({ isActive }) => (
                   <>

@@ -1,6 +1,7 @@
 export const apiUrl = (import.meta.env.VITE_API_URL ?? 'http://localhost:3333').replace(/\/+$/, '')
 
 export const sessionTokenKey = 'eventbook:token'
+export const sessionUserKey = 'eventbook:user'
 export const userUpdatedEventName = 'colaai:user-updated'
 
 export type AuthUser = {
@@ -14,6 +15,40 @@ export type AuthUser = {
   avatarImage?: string | null
   createdAt?: string
   updatedAt?: string
+}
+
+export type UserRole = AuthUser['role']
+
+const validRoles: ReadonlySet<UserRole> = new Set(['BUYER', 'ORGANIZER', 'STAFF', 'ADMIN'])
+
+export const ROLE_LABELS: Record<UserRole, string> = {
+  BUYER: 'Comprador',
+  ORGANIZER: 'Organizador',
+  STAFF: 'Equipe de Check-in',
+  ADMIN: 'Administrador',
+}
+
+export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
+  BUYER: [
+    'Explorar vitrine, reservar e simular compra de ingressos',
+    'Acessar Meus Ingressos, QR Codes e histórico de pedidos',
+    'Editar dados cadastrais, foto de perfil e senha em Meu Perfil',
+  ],
+  ORGANIZER: [
+    'Acessar o Painel para criar, editar e publicar eventos e lotes',
+    'Vincular equipe de portaria (STAFF) e acompanhar ocupação dos próprios eventos',
+    'Editar dados cadastrais, foto de perfil e senha em Meu Perfil',
+  ],
+  STAFF: [
+    'Acessar a área de Check-in e validar ingressos dos eventos vinculados',
+    'Consultar apenas os eventos atribuídos à sua escala de portaria',
+    'Editar dados cadastrais, foto de perfil e senha em Meu Perfil',
+  ],
+  ADMIN: [
+    'Acesso completo às abas Meus Ingressos, Painel e Check-in para testes e supervisão',
+    'Gerenciar contas cadastradas e atribuir perfis (Comprador, Organizador, Equipe ou Admin)',
+    'Consultar eventos de toda a plataforma e testar reservas e validações na portaria',
+  ],
 }
 
 export type LoginSession = {
@@ -35,7 +70,77 @@ export type MagicLinkRequestResponse = {
   previewUrl?: string
 }
 
+function persistSessionUser(user: AuthUser | null) {
+  if (!user) {
+    sessionStorage.removeItem(sessionUserKey)
+    return
+  }
+  try {
+    sessionStorage.setItem(sessionUserKey, JSON.stringify(user))
+  } catch {
+    try {
+      const { avatarImage: _ignored, ...withoutAvatar } = user
+      sessionStorage.setItem(sessionUserKey, JSON.stringify(withoutAvatar))
+    } catch {
+      sessionStorage.removeItem(sessionUserKey)
+    }
+  }
+}
+
+function parseJwtClaims(token: string): { sub?: string; role?: UserRole } | null {
+  try {
+    const segment = token.split('.')[1]
+    if (!segment) return null
+    const base64 = segment.replace(/-/g, '+').replace(/_/g, '/')
+    const padded = base64.padEnd(Math.ceil(base64.length / 4) * 4, '=')
+    const decoded = JSON.parse(atob(padded)) as { sub?: unknown; role?: unknown }
+    const role = typeof decoded.role === 'string' && validRoles.has(decoded.role as UserRole)
+      ? (decoded.role as UserRole)
+      : undefined
+    const sub = typeof decoded.sub === 'string' ? decoded.sub : undefined
+    return sub && role ? { sub, role } : null
+  } catch {
+    return null
+  }
+}
+
+export function getStoredSessionUser(): AuthUser | null {
+  const token = sessionStorage.getItem(sessionTokenKey)
+  if (!token) {
+    sessionStorage.removeItem(sessionUserKey)
+    return null
+  }
+
+  try {
+    const raw = sessionStorage.getItem(sessionUserKey)
+    if (raw) {
+      const parsed = JSON.parse(raw) as Partial<AuthUser> | null
+      if (
+        parsed
+        && typeof parsed.id === 'string'
+        && typeof parsed.name === 'string'
+        && parsed.role
+        && validRoles.has(parsed.role)
+      ) {
+        return parsed as AuthUser
+      }
+    }
+  } catch {
+    sessionStorage.removeItem(sessionUserKey)
+  }
+
+  const claims = parseJwtClaims(token)
+  if (!claims?.sub || !claims.role) return null
+  return {
+    id: claims.sub,
+    name: 'Minha Conta',
+    email: '',
+    role: claims.role,
+  }
+}
+
 export function notifyUserUpdated(user: AuthUser | null) {
+  persistSessionUser(user)
   window.dispatchEvent(new CustomEvent<AuthUser | null>(userUpdatedEventName, { detail: user }))
 }
 
@@ -103,8 +208,20 @@ export async function login(email: string, password: string, signal: AbortSignal
   return session
 }
 
-export function canAccessPanel(role: AuthUser['role']) {
+export function canAccessBuyerTickets(role?: UserRole | null) {
+  return role === 'BUYER' || role === 'ADMIN'
+}
+
+export function canAccessPanel(role?: UserRole | null) {
   return role === 'ORGANIZER' || role === 'ADMIN'
+}
+
+export function canAccessCheckin(role?: UserRole | null) {
+  return role === 'STAFF' || role === 'ADMIN'
+}
+
+export function isAdminRole(role?: UserRole | null) {
+  return role === 'ADMIN'
 }
 
 export async function getCurrentUser(token: string, signal: AbortSignal) {
@@ -113,10 +230,19 @@ export async function getCurrentUser(token: string, signal: AbortSignal) {
     signal,
   })
 
-  if (response.status === 401 || response.status === 404) return null
+  if (response.status === 401 || response.status === 404) {
+    if (sessionStorage.getItem(sessionTokenKey) === token) {
+      sessionStorage.removeItem(sessionUserKey)
+    }
+    return null
+  }
   if (!response.ok) throw new Error('Falha ao consultar o perfil.')
 
-  return (await response.json()) as AuthUser
+  const loaded = (await response.json()) as AuthUser
+  if (sessionStorage.getItem(sessionTokenKey) === token) {
+    persistSessionUser(loaded)
+  }
+  return loaded
 }
 
 export async function updateProfile(
@@ -237,4 +363,70 @@ export async function verifyMagicLink(token: string, signal?: AbortSignal): Prom
     throw new Error('A API não confirmou a sessão. Tente novamente.')
   }
   return session
+}
+
+export type AdminUsersResult =
+  | { kind: 'ready'; users: AuthUser[] }
+  | { kind: 'login' }
+  | { kind: 'forbidden' }
+
+export async function listUsersForAdmin(
+  token: string,
+  params: { q?: string; role?: string },
+  signal: AbortSignal,
+): Promise<AdminUsersResult> {
+  const search = new URLSearchParams()
+  if (params.q?.trim()) search.set('q', params.q.trim())
+  if (params.role?.trim()) search.set('role', params.role.trim())
+  const qs = search.toString()
+
+  const response = await fetch(`${apiUrl}/admin/users${qs ? `?${qs}` : ''}`, {
+    headers: { Authorization: `Bearer ${token}` },
+    cache: 'no-store',
+    signal,
+  })
+
+  if (response.status === 401) return { kind: 'login' }
+  if (response.status === 403) return { kind: 'forbidden' }
+  if (!response.ok) throw new Error('Não foi possível carregar as contas cadastradas.')
+
+  const body = (await response.json()) as { data?: AuthUser[] }
+  if (!Array.isArray(body?.data)) throw new Error('Resposta inválida da lista de usuários.')
+  return { kind: 'ready', users: body.data }
+}
+
+export type UpdateUserRoleResult =
+  | { kind: 'updated'; user: AuthUser }
+  | { kind: 'login' }
+  | { kind: 'forbidden' }
+  | { kind: 'error'; message: string }
+
+export async function updateUserRoleByAdmin(
+  token: string,
+  userId: string,
+  role: UserRole,
+  signal: AbortSignal,
+): Promise<UpdateUserRoleResult> {
+  const response = await fetch(`${apiUrl}/admin/users/${encodeURIComponent(userId)}/role`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ role }),
+    signal,
+  })
+
+  if (response.status === 401) return { kind: 'login' }
+  if (response.status === 403) return { kind: 'forbidden' }
+  if (!response.ok) {
+    const body = (await response.json().catch(() => null)) as { message?: string } | null
+    return {
+      kind: 'error',
+      message: body?.message ?? 'Não foi possível atualizar o perfil desta conta.',
+    }
+  }
+
+  const updated = (await response.json()) as AuthUser
+  return { kind: 'updated', user: updated }
 }

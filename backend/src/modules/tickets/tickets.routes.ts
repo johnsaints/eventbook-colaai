@@ -8,7 +8,7 @@ import { checkInTicket } from './tickets.checkin.js';
 
 export const ticketsRoutes = Router();
 
-ticketsRoutes.get('/tickets/me', authenticate, authorize(Role.BUYER), async (req, res, next) => {
+ticketsRoutes.get('/tickets/me', authenticate, authorize(Role.BUYER, Role.ADMIN), async (req, res, next) => {
   try {
     const query = paginationQuerySchema.parse(req.query);
     const { page, limit } = query;
@@ -44,11 +44,11 @@ const checkInBody = z.object({
   eventId: z.guid().transform(value => value.toLowerCase()),
 }).strict();
 
-ticketsRoutes.post('/tickets/:code/checkin', authenticate, authorize(Role.STAFF), async (req, res, next) => {
+ticketsRoutes.post('/tickets/:code/checkin', authenticate, authorize(Role.STAFF, Role.ADMIN), async (req, res, next) => {
   try {
     const { code } = checkInParams.parse(req.params);
     const { eventId } = checkInBody.parse(req.body);
-    const checkIn = await checkInTicket(eventId, code, req.user!.id);
+    const checkIn = await checkInTicket(eventId, code, req.user!.id, req.user!.role);
     res.status(201).json(checkIn);
   } catch (error) {
     next(error);

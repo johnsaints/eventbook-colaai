@@ -1,4 +1,4 @@
-import { Prisma, Role } from '@prisma/client';
+import { EventStatus, Prisma, Role } from '@prisma/client';
 import { prisma } from '../../config/prisma.js';
 import { AppError } from '../../shared/errors/AppError.js';
 import { lockEventForWrite } from '../events/events.repository.js';
@@ -21,7 +21,15 @@ function assertEventOwner(organizerId: string, requesterId: string) {
   }
 }
 
-export async function listAssignedEvents(userId: string) {
+export async function listAssignedEvents(userId: string, role: Role = Role.STAFF) {
+  if (role === Role.ADMIN) {
+    return prisma.event.findMany({
+      where: { status: EventStatus.PUBLISHED },
+      select: { id: true, title: true, location: true, startsAt: true },
+      orderBy: [{ startsAt: 'asc' }, { id: 'asc' }],
+    });
+  }
+
   const assignments = await prisma.eventStaff.findMany({
     where: { userId, user: { role: Role.STAFF } },
     select: { event: { select: { id: true, title: true, location: true, startsAt: true } } },

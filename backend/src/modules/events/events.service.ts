@@ -57,13 +57,16 @@ export class EventsService {
     };
   }
 
-  async listMine(organizerId: string) {
-    if (!organizerId) {
+  async listMine(requester: { id: string; role: Role } | string) {
+    const requesterId = typeof requester === 'string' ? requester : requester.id;
+    const isAdmin = typeof requester === 'object' && requester.role === Role.ADMIN;
+
+    if (!requesterId) {
       throw new AppError('UNAUTHORIZED', 'Usuário não autenticado', 401);
     }
 
     return prisma.event.findMany({
-      where: { organizerId },
+      where: isAdmin ? {} : { organizerId: requesterId },
       select: {
         id: true,
         title: true,

@@ -1,10 +1,13 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router'
 import {
+  canAccessBuyerTickets,
+  canAccessCheckin,
   canAccessPanel,
   login,
   notifyUserUpdated,
   requestMagicLink,
+  ROLE_LABELS,
   sessionTokenKey,
   type AuthUser,
 } from '../api'
@@ -79,7 +82,7 @@ export default function LoginPage() {
         })
         return
       }
-      if (loginContext?.returnToHistory === true && session.user.role === 'BUYER') {
+      if (loginContext?.returnToHistory === true && canAccessBuyerTickets(session.user.role)) {
         void navigate('/meus-ingressos', { replace: true })
         return
       }
@@ -158,11 +161,11 @@ export default function LoginPage() {
           {user ? (
             <div className="auth-form">
               <p className="form-status" role="status">Sessão iniciada como {user.name}.</p>
-              <p className="event-meta">Perfil: <span className="role-badge">{user.role}</span></p>
+              <p className="event-meta">Perfil: <span className="role-badge">{ROLE_LABELS[user.role]}</span></p>
               <div className="auth-actions">
                 {canAccessPanel(user.role) && <Link to="/painel" className="btn btn-primary">Abrir painel</Link>}
-                {user.role === 'BUYER' && <Link to="/meus-ingressos" className="btn btn-primary">Meus Ingressos</Link>}
-                {user.role === 'STAFF' && <Link to="/check-in" className="btn btn-primary">Abrir check-in</Link>}
+                {canAccessBuyerTickets(user.role) && <Link to="/meus-ingressos" className="btn btn-primary">Meus Ingressos</Link>}
+                {canAccessCheckin(user.role) && <Link to="/check-in" className="btn btn-primary">Abrir check-in</Link>}
                 <Link to="/perfil" className="btn btn-secondary">Meu Perfil</Link>
                 <button type="button" className="btn btn-ghost" onClick={logout}>Sair</button>
               </div>

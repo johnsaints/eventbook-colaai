@@ -8,7 +8,7 @@ import { cancelOrder, createOrder, getOrder, listMyOrders } from './orders.servi
 
 export const ordersRoutes = Router();
 
-ordersRoutes.post('/orders', authenticate, authorize(Role.BUYER), async (req, res, next) => {
+ordersRoutes.post('/orders', authenticate, authorize(Role.BUYER, Role.ADMIN), async (req, res, next) => {
   try {
     const input = createOrderSchema.parse(req.body);
     const order = await createOrder(req.user!.id, input);
@@ -18,7 +18,7 @@ ordersRoutes.post('/orders', authenticate, authorize(Role.BUYER), async (req, re
   }
 });
 
-ordersRoutes.get('/orders/me', authenticate, authorize(Role.BUYER), async (req, res, next) => {
+ordersRoutes.get('/orders/me', authenticate, authorize(Role.BUYER, Role.ADMIN), async (req, res, next) => {
   try {
     const query = paginationQuerySchema.parse(req.query);
     const orders = await listMyOrders(req.user!.id, query);
@@ -28,7 +28,7 @@ ordersRoutes.get('/orders/me', authenticate, authorize(Role.BUYER), async (req, 
   }
 });
 
-ordersRoutes.get('/orders/:id', authenticate, authorize(Role.BUYER), async (req, res, next) => {
+ordersRoutes.get('/orders/:id', authenticate, authorize(Role.BUYER, Role.ADMIN), async (req, res, next) => {
   try {
     const { id } = orderParamsSchema.parse(req.params);
     const order = await getOrder(req.user!.id, id);
@@ -38,7 +38,7 @@ ordersRoutes.get('/orders/:id', authenticate, authorize(Role.BUYER), async (req,
   }
 });
 
-ordersRoutes.post('/orders/:id/cancel', authenticate, authorize(Role.BUYER), async (req, res, next) => {
+ordersRoutes.post('/orders/:id/cancel', authenticate, authorize(Role.BUYER, Role.ADMIN), async (req, res, next) => {
   try {
     const { id } = orderParamsSchema.parse(req.params);
     const order = await cancelOrder(req.user!.id, id);
@@ -48,7 +48,7 @@ ordersRoutes.post('/orders/:id/cancel', authenticate, authorize(Role.BUYER), asy
   }
 });
 
-ordersRoutes.post('/orders/:id/checkout', authenticate, authorize(Role.BUYER), async (req, res, next) => {
+ordersRoutes.post('/orders/:id/checkout', authenticate, authorize(Role.BUYER, Role.ADMIN), async (req, res, next) => {
   try {
     const { id } = orderParamsSchema.parse(req.params);
     const result = await checkoutOrder(req.user!.id, id);

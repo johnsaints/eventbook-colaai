@@ -1,13 +1,21 @@
-import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react'
+import { useCallback, useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react'
 import { Link } from 'react-router'
 import {
+  canAccessBuyerTickets,
+  canAccessCheckin,
   canAccessPanel,
   changePassword,
   getCurrentUser,
+  isAdminRole,
+  listUsersForAdmin,
   notifyUserUpdated,
+  ROLE_LABELS,
+  ROLE_PERMISSIONS,
   sessionTokenKey,
   updateProfile,
+  updateUserRoleByAdmin,
   type AuthUser,
+  type UserRole,
 } from '../api'
 import AppLayout from '../components/AppLayout'
 import {
@@ -15,8 +23,10 @@ import {
   CloseIcon,
   LockIcon,
   MailIcon,
+  ShieldCheckIcon,
   UploadIcon,
   UserIcon,
+  UsersIcon,
 } from '../components/Icons'
 import { prepareImageUpload } from '../imageUpload'
 import './ProfilePage.css'
@@ -33,6 +43,255 @@ function prepareAvatarUpload(file: File): Promise<string> {
     maxDataUrlLength: 600_000,
     cropSquare: true,
   })
+}
+
+const ALL_ROLES: UserRole[] = ['BUYER', 'ORGANIZER', 'STAFF', 'ADMIN']
+
+function AdminUsersSection({
+  token,
+  currentUserId,
+  onSessionExpired,
+}: {
+  token: string
+  currentUserId: string
+  onSessionExpired: () => void
+}) {
+  const [searchInput, setSearchInput] = useState('')
+  const [appliedQuery, setAppliedQuery] = useState('')
+  const [roleFilter, setRoleFilter] = useState('')
+  const [reloadTick, setReloadTick] = useState(0)
+  const queryKey = `${appliedQuery}|${roleFilter}|${reloadTick}`
+  const [fetchState, setFetchState] = useState<{
+    key: string
+    users: AuthUser[]
+    error: string
+  } | null>(null)
+  const [draftRoles, setDraftRoles] = useState<Record<string, UserRole>>({})
+  const [savingUserId, setSavingUserId] = useState<string | null>(null)
+  const [actionStatus, setActionStatus] = useState('')
+  const [actionError, setActionError] = useState('')
+  const updateReqRef = useRef<AbortController | null>(null)
+
+  const loading = fetchState?.key !== queryKey
+  const loadError = fetchState?.key === queryKey ? fetchState.error : ''
+  const users = loadError ? [] : (fetchState?.users ?? [])
+
+  useEffect(() => () => updateReqRef.current?.abort(), [])
+
+  useEffect(() => {
+    const controller = new AbortController()
+
+    listUsersForAdmin(token, { q: appliedQuery, role: roleFilter }, controller.signal)
+      .then((result) => {
+        if (controller.signal.aborted) return
+        if (result.kind === 'login') {
+          onSessionExpired()
+          return
+        }
+        if (result.kind === 'forbidden') {
+          setFetchState({
+            key: queryKey,
+            users: [],
+            error: 'Apenas contas administrativas podem listar ou alterar perfis.',
+          })
+          return
+        }
+        setFetchState({ key: queryKey, users: result.users, error: '' })
+        setDraftRoles(Object.fromEntries(result.users.map((item) => [item.id, item.role])))
+      })
+      .catch((error) => {
+        if (!controller.signal.aborted) {
+          setFetchState({
+            key: queryKey,
+            users: [],
+            error: error instanceof Error ? error.message : 'Falha ao consultar contas.',
+          })
+        }
+      })
+
+    return () => controller.abort()
+  }, [appliedQuery, onSessionExpired, queryKey, roleFilter, token])
+
+  function handleSearchSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setActionStatus('')
+    setActionError('')
+    setAppliedQuery(searchInput.trim())
+    setReloadTick((prev) => prev + 1)
+  }
+
+  async function handleSaveRole(targetUser: AuthUser) {
+    const nextRole = draftRoles[targetUser.id] ?? targetUser.role
+    if (updateReqRef.current || targetUser.id === currentUserId || nextRole === targetUser.role) {
+      return
+    }
+
+    const controller = new AbortController()
+    updateReqRef.current = controller
+    setSavingUserId(targetUser.id)
+    setActionStatus('')
+    setActionError('')
+
+    try {
+      const result = await updateUserRoleByAdmin(token, targetUser.id, nextRole, controller.signal)
+      if (controller.signal.aborted) return
+
+      if (result.kind === 'login') {
+        onSessionExpired()
+        return
+      }
+      if (result.kind === 'forbidden') {
+        setActionError('Sua conta não tem permissão para alterar perfis.')
+        return
+      }
+      if (result.kind === 'error') {
+        setActionError(result.message)
+        return
+      }
+
+      setFetchState((current) =>
+        current
+          ? {
+              ...current,
+              users: current.users.map((item) => (item.id === result.user.id ? result.user : item)),
+            }
+          : current,
+      )
+      setDraftRoles((current) => ({ ...current, [result.user.id]: result.user.role }))
+      setActionStatus(
+        `Perfil de ${result.user.name} atualizado para ${ROLE_LABELS[result.user.role]}.`,
+      )
+    } catch {
+      if (!controller.signal.aborted) {
+        setActionError('Não foi possível salvar o novo perfil agora.')
+      }
+    } finally {
+      updateReqRef.current = null
+      if (!controller.signal.aborted) setSavingUserId(null)
+    }
+  }
+
+  return (
+    <section className="profile-card" aria-labelledby="admin-users-heading">
+      <div className="profile-card-header">
+        <h2 id="admin-users-heading">
+          <UsersIcon width={18} height={18} variant="gradient" />
+          Gestão de Contas e Permissões
+        </h2>
+        <span className="role-badge">Somente Admin</span>
+      </div>
+
+      <p className="profile-magic-note">
+        <ShieldCheckIcon width={16} height={16} variant="gradient" />
+        <span>
+          Defina quem atua como <strong>Comprador</strong>, <strong>Organizador</strong>,{' '}
+          <strong>Equipe de Check-in (Staff)</strong> ou <strong>Administrador</strong>. Novos
+          cadastros públicos iniciam sempre como Comprador.
+        </span>
+      </p>
+
+      <form className="admin-users-filters" onSubmit={handleSearchSubmit}>
+        <label className="admin-filter-search">
+          Buscar por nome ou e-mail
+          <input
+            type="search"
+            value={searchInput}
+            placeholder="nome@exemplo.com"
+            onChange={(e) => setSearchInput(e.currentTarget.value)}
+          />
+        </label>
+        <label>
+          Filtrar perfil
+          <select
+            value={roleFilter}
+            onChange={(e) => {
+              setRoleFilter(e.currentTarget.value)
+              setActionStatus('')
+              setActionError('')
+            }}
+          >
+            <option value="">Todos os perfis</option>
+            {ALL_ROLES.map((role) => (
+              <option key={role} value={role}>
+                {ROLE_LABELS[role]} ({role})
+              </option>
+            ))}
+          </select>
+        </label>
+        <button type="submit" className="btn btn-secondary btn-sm admin-filter-btn">
+          Buscar
+        </button>
+      </form>
+
+      {actionError && <p className="form-alert" role="alert">{actionError}</p>}
+      {actionStatus && <p className="form-status" role="status">{actionStatus}</p>}
+
+      {loading ? (
+        <p className="event-meta" role="status">Carregando contas cadastradas…</p>
+      ) : loadError ? (
+        <div className="state-banner state-error">
+          <p role="alert">{loadError}</p>
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            onClick={() => setReloadTick((prev) => prev + 1)}
+          >
+            Tentar novamente
+          </button>
+        </div>
+      ) : users.length === 0 ? (
+        <p className="event-meta">Nenhuma conta encontrada para este filtro.</p>
+      ) : (
+        <ul className="admin-users-list">
+          {users.map((item) => {
+            const selectedRole = draftRoles[item.id] ?? item.role
+            const isSelf = item.id === currentUserId
+            const busy = savingUserId === item.id
+
+            return (
+              <li key={item.id} className="admin-user-row">
+                <div className="admin-user-info">
+                  <strong>{item.name}</strong>
+                  <span className="admin-user-email">{item.email}</span>
+                  <span className="role-badge">{ROLE_LABELS[item.role]} · {item.role}</span>
+                </div>
+
+                {isSelf ? (
+                  <span className="admin-self-tag">Sua conta atual</span>
+                ) : (
+                  <div className="admin-user-controls">
+                    <select
+                      aria-label={`Perfil de ${item.email}`}
+                      value={selectedRole}
+                      disabled={busy}
+                      onChange={(e) => {
+                        const next = e.currentTarget.value as UserRole
+                        setDraftRoles((current) => ({ ...current, [item.id]: next }))
+                      }}
+                    >
+                      {ALL_ROLES.map((role) => (
+                        <option key={role} value={role}>
+                          {ROLE_LABELS[role]} ({role})
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      className="btn btn-secondary btn-sm"
+                      disabled={busy || selectedRole === item.role}
+                      onClick={() => void handleSaveRole(item)}
+                    >
+                      {busy ? 'Salvando…' : 'Salvar perfil'}
+                    </button>
+                  </div>
+                )}
+              </li>
+            )
+          })}
+        </ul>
+      )}
+    </section>
+  )
 }
 
 export default function ProfilePage() {
@@ -234,6 +493,13 @@ export default function ProfilePage() {
   const avatarChanged = (profile?.avatarImage ?? null) !== avatarImage
   const monogram = (name || profile?.name || 'C').trim().charAt(0).toUpperCase() || 'C'
 
+  const expireSession = useCallback(() => {
+    sessionStorage.removeItem(sessionTokenKey)
+    setToken(null)
+    setProfile(null)
+    notifyUserUpdated(null)
+  }, [])
+
   return (
     <AppLayout>
       <main className="catalog">
@@ -289,12 +555,21 @@ export default function ProfilePage() {
               <div className="profile-identity-meta">
                 <h2>{name || profile.name}</h2>
                 <p className="profile-identity-email">{email || profile.email}</p>
-                <span className="role-badge">{profile.role}</span>
+                <span className="role-badge">{ROLE_LABELS[profile.role]} · {profile.role}</span>
                 {profile.createdAt && (
                   <p className="profile-member-since">
                     Membro desde {formatMemberSince.format(new Date(profile.createdAt))}
                   </p>
                 )}
+              </div>
+
+              <div className="profile-permissions">
+                <h3>Permissões da sua conta</h3>
+                <ul>
+                  {ROLE_PERMISSIONS[profile.role].map((permission) => (
+                    <li key={permission}>{permission}</li>
+                  ))}
+                </ul>
               </div>
 
               <div className="profile-avatar-actions">
@@ -337,11 +612,13 @@ export default function ProfilePage() {
               </p>
 
               <div className="profile-shortcuts">
-                <Link to="/meus-ingressos" className="btn btn-ghost btn-sm btn-full">Meus Ingressos</Link>
+                {canAccessBuyerTickets(profile.role) && (
+                  <Link to="/meus-ingressos" className="btn btn-ghost btn-sm btn-full">Meus Ingressos</Link>
+                )}
                 {canAccessPanel(profile.role) && (
                   <Link to="/painel" className="btn btn-ghost btn-sm btn-full">Painel do organizador</Link>
                 )}
-                {profile.role === 'STAFF' && (
+                {canAccessCheckin(profile.role) && (
                   <Link to="/check-in" className="btn btn-ghost btn-sm btn-full">Check-in de portaria</Link>
                 )}
               </div>
@@ -499,6 +776,14 @@ export default function ProfilePage() {
                   </div>
                 </form>
               </section>
+
+              {isAdminRole(profile.role) && token && (
+                <AdminUsersSection
+                  token={token}
+                  currentUserId={profile.id}
+                  onSessionExpired={expireSession}
+                />
+              )}
             </div>
           </div>
         )}

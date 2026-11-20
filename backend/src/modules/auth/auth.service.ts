@@ -6,6 +6,7 @@ import { prisma } from '../../config/prisma.js';
 import { env } from '../../config/env.js';
 import { AppError } from '../../shared/errors/AppError.js';
 import {
+  AdminListUsersQueryInput,
   ChangePasswordInput,
   LoginInput,
   RegisterInput,
@@ -280,5 +281,54 @@ export class AuthService {
     }
 
     return this.issueSession(record.user);
+  }
+
+  async listUsersForAdmin(query: AdminListUsersQueryInput) {
+    const search = query.q && query.q.length > 0 ? query.q : undefined;
+    const where: Prisma.UserWhereInput = {
+      ...(query.role ? { role: query.role } : {}),
+      ...(search
+        ? {
+            OR: [
+              { name: { contains: search } },
+              { email: { contains: search } },
+            ],
+          }
+        : {}),
+    };
+
+    const data = await prisma.user.findMany({
+      where,
+      select: USER_PROFILE_SELECT,
+      orderBy: [{ createdAt: 'desc' }, { name: 'asc' }],
+      take: 100,
+    });
+
+    return { data };
+  }
+
+  async updateUserRoleByAdmin(adminId: string, targetUserId: string, role: Role) {
+    if (adminId === targetUserId && role !== Role.ADMIN) {
+      throw new AppError(
+        'SELF_ROLE_CHANGE_FORBIDDEN',
+        'Você não pode remover o perfil ADMIN da sua própria conta.',
+        422,
+      );
+    }
+
+    const target = await prisma.user.findUnique({
+      where: { id: targetUserId },
+      select: { id: true },
+    });
+
+    if (!target) {
+      throw new AppError('USER_NOT_FOUND', 'Usuário não encontrado', 404);
+    }
+
+    return prisma.user.update({
+      where: { id: targetUserId },
+      data: { role },
+      select: USER_PROFILE_SELECT,
+    });
   }
 }

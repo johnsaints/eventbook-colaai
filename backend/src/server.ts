@@ -11,11 +11,8 @@ async function seedDemoIfEmpty() {
     return;
   }
 
-  const userCount = await prisma.user.count();
-  if (userCount > 0) return;
-
   await seedDatabase(prisma, env.SEED_PASSWORD);
-  console.info(JSON.stringify({ event: 'seed_completed_on_empty_db' }));
+  console.info(JSON.stringify({ event: 'seed_completed' }));
 }
 
 app.listen(env.PORT, () => {

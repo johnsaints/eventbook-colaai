@@ -24,7 +24,7 @@ export class EventsController {
 
   async listMine(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const data = await eventsService.listMine(req.user!.id);
+      const data = await eventsService.listMine(req.user!);
       res.status(200).json({ data });
     } catch (error) {
       next(error);

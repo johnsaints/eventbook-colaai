@@ -1,6 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, Navigate } from 'react-router'
-import { canAccessPanel, getCurrentUser, sessionTokenKey, type AuthUser } from '../api'
+import {
+  canAccessBuyerTickets,
+  canAccessCheckin,
+  canAccessPanel,
+  getCurrentUser,
+  notifyUserUpdated,
+  ROLE_LABELS,
+  sessionTokenKey,
+  type AuthUser,
+} from '../api'
 import AppLayout from '../components/AppLayout'
 import { ArrowLeftIcon, CalendarIcon, ChartIcon, PinIcon, PlusIcon, TicketIcon, UsersIcon } from '../components/Icons'
 import { formatDate, getEventForEdit, getMyEvents, type EditableEvent, type OrganizerEvent } from '../events'
@@ -56,6 +65,7 @@ export default function OrganizerPage() {
 
         if (!user || events === null) {
           sessionStorage.removeItem(sessionTokenKey)
+          notifyUserUpdated(null)
           setPanel({ status: 'signed-out' })
           return
         }
@@ -78,6 +88,7 @@ export default function OrganizerPage() {
 
   const logout = useCallback(() => {
     sessionStorage.removeItem(sessionTokenKey)
+    notifyUserUpdated(null)
     setPanel({ status: 'signed-out' })
   }, [])
 
@@ -201,7 +212,14 @@ export default function OrganizerPage() {
                 <>
                   <div>
                     <h2>Olá, {panel.user.name}</h2>
-                    <p className="event-meta">Perfil: <span className="role-badge">{panel.user.role}</span></p>
+                    <p className="event-meta">
+                      Perfil: <span className="role-badge">{ROLE_LABELS[panel.user.role]}</span>
+                    </p>
+                    {panel.user.role === 'ADMIN' && (
+                      <p className="event-meta">
+                        Modo Administrador: todos os eventos da plataforma estão visíveis para edição, lotes e publicação (equipe e ocupação permanecem exclusivos do organizador titular).
+                      </p>
+                    )}
                   </div>
                   {myEvents && (
                     <dl className="dashboard-kpis">
@@ -221,7 +239,18 @@ export default function OrganizerPage() {
                   )}
                 </>
               ) : (
-                <p className="form-alert" role="alert">Seu perfil não tem acesso ao painel.</p>
+                <div>
+                  <p className="form-alert" role="alert">Seu perfil não tem acesso ao painel.</p>
+                  <div className="auth-actions">
+                    <Link to="/" className="btn btn-secondary btn-sm">Voltar aos eventos</Link>
+                    {canAccessBuyerTickets(panel.user.role) && (
+                      <Link to="/meus-ingressos" className="btn btn-primary btn-sm">Meus Ingressos</Link>
+                    )}
+                    {canAccessCheckin(panel.user.role) && (
+                      <Link to="/check-in" className="btn btn-primary btn-sm">Abrir check-in</Link>
+                    )}
+                  </div>
+                </div>
               )}
               <button type="button" className="btn btn-ghost btn-sm" onClick={logout}>Sair</button>
             </div>

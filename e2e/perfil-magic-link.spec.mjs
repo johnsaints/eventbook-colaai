@@ -6,6 +6,7 @@ import { apiUrl, getE2EDatabaseUrl } from './environment.mjs'
 
 const require = createRequire(new URL('../backend/package.json', import.meta.url))
 const { PrismaClient } = require('@prisma/client')
+const bcrypt = require('bcryptjs')
 
 const SAMPLE_AVATAR_PATH = fileURLToPath(new URL('../frontend/public/favicon-32x32.png', import.meta.url))
 
@@ -30,6 +31,12 @@ test('login por Link Mágico e edição completa de perfil com foto', async ({ p
 
     await expect(page).toHaveURL(/\/magic-link\?token=/)
     await expect(page.getByRole('status')).toHaveText('Sessão iniciada como Mariana E2E.')
+
+    const nav = page.locator('.navbar .nav-links')
+    await expect(nav.getByRole('link', { name: 'Eventos', exact: true })).toBeVisible()
+    await expect(nav.getByRole('link', { name: 'Meus Ingressos', exact: true })).toBeVisible()
+    await expect(nav.getByRole('link', { name: 'Painel', exact: true })).toHaveCount(0)
+    await expect(nav.getByRole('link', { name: 'Check-in', exact: true })).toHaveCount(0)
 
     await page.getByRole('link', { name: 'Meu Perfil' }).first().click()
     await expect(page).toHaveURL(/\/perfil$/)
@@ -57,6 +64,78 @@ test('login por Link Mágico e edição completa de perfil com foto', async ({ p
     await expect(page.locator('.navbar .user-avatar-img')).toBeVisible()
   } finally {
     await prisma.user.deleteMany({ where: { email } })
+    await prisma.$disconnect()
+  }
+})
+
+test('navegação contextual por perfil (ORGANIZER, STAFF, ADMIN) e gestão de contas pelo Admin', async ({ page }) => {
+  const prisma = new PrismaClient({ datasourceUrl: getE2EDatabaseUrl() })
+  const tag = randomUUID()
+  const password = 'EventBook-RBAC-123!'
+  const passwordHash = await bcrypt.hash(password, 10)
+  const emails = {
+    organizer: `e2e-org-${tag}@eventbook.test`,
+    staff: `e2e-staff-${tag}@eventbook.test`,
+    admin: `e2e-admin-${tag}@eventbook.test`,
+    target: `e2e-target-${tag}@eventbook.test`,
+  }
+
+  try {
+    await prisma.$transaction([
+      prisma.user.create({ data: { name: 'Org RBAC', email: emails.organizer, password: passwordHash, role: 'ORGANIZER' } }),
+      prisma.user.create({ data: { name: 'Staff RBAC', email: emails.staff, password: passwordHash, role: 'STAFF' } }),
+      prisma.user.create({ data: { name: 'Admin RBAC', email: emails.admin, password: passwordHash, role: 'ADMIN' } }),
+      prisma.user.create({ data: { name: 'Alvo RBAC', email: emails.target, password: passwordHash, role: 'BUYER' } }),
+    ])
+
+    const nav = page.locator('.navbar .nav-links')
+
+    async function signIn(email) {
+      await page.goto('/login')
+      await page.getByLabel('E-mail').fill(email)
+      await page.getByLabel('Senha').fill(password)
+      await page.getByRole('button', { name: 'Entrar', exact: true }).click()
+      await expect(page.getByRole('status')).toContainText('Sessão iniciada como')
+    }
+
+    // ORGANIZER vê Eventos e Painel; não vê Meus Ingressos nem Check-in
+    await signIn(emails.organizer)
+    await expect(nav.getByRole('link', { name: 'Eventos', exact: true })).toBeVisible()
+    await expect(nav.getByRole('link', { name: 'Painel', exact: true })).toBeVisible()
+    await expect(nav.getByRole('link', { name: 'Meus Ingressos', exact: true })).toHaveCount(0)
+    await expect(nav.getByRole('link', { name: 'Check-in', exact: true })).toHaveCount(0)
+    await page.locator('.navbar').getByRole('button', { name: 'Sair' }).click()
+
+    // STAFF vê Eventos e Check-in; não vê Meus Ingressos nem Painel
+    await signIn(emails.staff)
+    await expect(nav.getByRole('link', { name: 'Eventos', exact: true })).toBeVisible()
+    await expect(nav.getByRole('link', { name: 'Check-in', exact: true })).toBeVisible()
+    await expect(nav.getByRole('link', { name: 'Meus Ingressos', exact: true })).toHaveCount(0)
+    await expect(nav.getByRole('link', { name: 'Painel', exact: true })).toHaveCount(0)
+    await page.locator('.navbar').getByRole('button', { name: 'Sair' }).click()
+
+    // ADMIN vê todas as 4 abas e altera perfil de usuário em /perfil
+    await signIn(emails.admin)
+    await expect(nav.getByRole('link', { name: 'Eventos', exact: true })).toBeVisible()
+    await expect(nav.getByRole('link', { name: 'Meus Ingressos', exact: true })).toBeVisible()
+    await expect(nav.getByRole('link', { name: 'Painel', exact: true })).toBeVisible()
+    await expect(nav.getByRole('link', { name: 'Check-in', exact: true })).toBeVisible()
+
+    await page.getByRole('link', { name: 'Meu Perfil' }).first().click()
+    await expect(page.getByRole('heading', { name: 'Gestão de Contas e Permissões' })).toBeVisible()
+    await page.getByLabel('Buscar por nome ou e-mail').fill(emails.target)
+    await page.getByRole('button', { name: 'Buscar', exact: true }).click()
+
+    const roleSelect = page.getByLabel(`Perfil de ${emails.target}`)
+    await expect(roleSelect).toHaveValue('BUYER')
+    await roleSelect.selectOption('ORGANIZER')
+    await page.getByRole('button', { name: 'Salvar perfil', exact: true }).click()
+
+    await expect(page.getByRole('status')).toContainText('Perfil de Alvo RBAC atualizado para Organizador.')
+    const updatedTarget = await prisma.user.findUniqueOrThrow({ where: { email: emails.target } })
+    expect(updatedTarget.role).toBe('ORGANIZER')
+  } finally {
+    await prisma.user.deleteMany({ where: { email: { in: Object.values(emails) } } })
     await prisma.$disconnect()
   }
 })

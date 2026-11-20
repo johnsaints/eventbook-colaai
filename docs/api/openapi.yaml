@@ -261,6 +261,90 @@ paths:
                 $ref: '#/components/schemas/ApiError'
         '500':
           $ref: '#/components/responses/InternalError'
+  /admin/users:
+    get:
+      tags:
+        - Autenticação
+      operationId: listUsersForAdmin
+      summary: Listar usuários e perfis para administração
+      description: Acesso exclusivo para ADMIN. Permite filtrar por termo em nome ou e-mail e por perfil.
+      parameters:
+        - name: q
+          in: query
+          required: false
+          description: Termo opcional para buscar por nome ou e-mail.
+          schema:
+            type: string
+            maxLength: 100
+        - name: role
+          in: query
+          required: false
+          description: Filtrar por perfil específico.
+          schema:
+            $ref: '#/components/schemas/Role'
+      responses:
+        '200':
+          description: Contas encontradas, até 100 registros mais recentes.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminUserList'
+          headers:
+            Cache-Control:
+              description: A resposta contém dados privados.
+              schema:
+                type: string
+                const: no-store
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /admin/users/{id}/role:
+    patch:
+      tags:
+        - Autenticação
+      operationId: updateUserRoleByAdmin
+      summary: Alterar o perfil de acesso de uma conta
+      description: Acesso exclusivo para ADMIN. Bloqueia remoção do próprio perfil ADMIN pelo administrador autenticado.
+      parameters:
+        - $ref: '#/components/parameters/AdminUserId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminUpdateUserRoleInput'
+      responses:
+        '200':
+          description: Perfil da conta atualizado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Usuário não encontrado. Código `USER_NOT_FOUND`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '422':
+          description: Auto-rebaixamento do administrador autenticado recusado. Código `SELF_ROLE_CHANGE_FORBIDDEN`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '500':
+          $ref: '#/components/responses/InternalError'
   /events:
     get:
       tags:
@@ -327,7 +411,7 @@ paths:
         - Eventos
       operationId: listMyEvents
       summary: Listar os eventos da conta autenticada
-      description: Acesso para ORGANIZER ou ADMIN. A lista contém apenas eventos em que a conta é proprietária.
+      description: Acesso para ORGANIZER ou ADMIN. Organizadores veem apenas seus eventos; ADMIN vê todos os eventos da plataforma.
       responses:
         '200':
           description: Eventos da conta, em ordem de início.
@@ -580,7 +664,7 @@ paths:
         - Pedidos
       operationId: reserveTickets
       summary: Reservar ingressos
-      description: Acesso para BUYER. Cada item referencia um lote do evento publicado. A reserva congela
+      description: Acesso para BUYER ou ADMIN. Cada item referencia um lote do evento publicado. A reserva congela
         o preço de cada lote.
       requestBody:
         required: true
@@ -627,6 +711,7 @@ paths:
         - Pedidos
       operationId: listMyOrders
       summary: Consultar o histórico de pedidos
+      description: Acesso para BUYER ou ADMIN.
       parameters:
         - $ref: '#/components/parameters/HistoryPage'
         - $ref: '#/components/parameters/Limit'
@@ -762,6 +847,7 @@ paths:
         - Equipe
       operationId: listAssignedEvents
       summary: Listar eventos atribuídos ao staff
+      description: Acesso para STAFF ou ADMIN. Para STAFF retorna eventos vinculados; para ADMIN lista eventos publicados para testes na portaria.
       responses:
         '200':
           description: Eventos atribuídos à conta STAFF, ordenados pelo início.
@@ -887,6 +973,7 @@ paths:
         - Ingressos
       operationId: listMyTickets
       summary: Listar os ingressos do comprador
+      description: Acesso para BUYER ou ADMIN.
       parameters:
         - $ref: '#/components/parameters/HistoryPage'
         - $ref: '#/components/parameters/Limit'
@@ -917,7 +1004,7 @@ paths:
         - Ingressos
       operationId: checkInTicket
       summary: Validar um ingresso na entrada
-      description: Acesso para STAFF vinculado ao evento. A janela começa duas horas antes do início e
+      description: Acesso para STAFF vinculado ao evento ou ADMIN em testes operacionais. A janela começa duas horas antes do início e
         termina no fim do evento. As duas bordas estão incluídas.
       parameters:
         - $ref: '#/components/parameters/TicketCode'
@@ -1006,6 +1093,14 @@ components:
       in: path
       required: true
       description: ID do evento.
+      schema:
+        type: string
+        format: uuid
+    AdminUserId:
+      name: id
+      in: path
+      required: true
+      description: ID da conta de usuário.
       schema:
         type: string
         format: uuid
@@ -1207,6 +1302,23 @@ components:
             updatedAt:
               type: string
               format: date-time
+    AdminUserList:
+      type: object
+      required:
+        - data
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserProfile'
+    AdminUpdateUserRoleInput:
+      type: object
+      required:
+        - role
+      additionalProperties: false
+      properties:
+        role:
+          $ref: '#/components/schemas/Role'
     UpdateProfileInput:
       type: object
       properties:

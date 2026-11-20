@@ -10,12 +10,16 @@ export async function seedDatabase(prisma: PrismaClient, seedPassword: string): 
     { name: 'Organizer User', email: 'organizer@eventbook.test', role: Role.ORGANIZER },
     { name: 'Staff User', email: 'staff@eventbook.test', role: Role.STAFF },
     { name: 'Buyer User', email: 'buyer@eventbook.test', role: Role.BUYER },
+    { name: 'Administrador ColaAí', email: 'admin@eventbook.com', role: Role.ADMIN },
+    { name: 'Organizador ColaAí', email: 'organizador@eventbook.com', role: Role.ORGANIZER },
+    { name: 'Portaria Check-in', email: 'checkin@eventbook.com', role: Role.STAFF },
+    { name: 'Comprador ColaAí', email: 'comprador@eventbook.com', role: Role.BUYER },
   ];
 
   for (const u of users) {
     await prisma.user.upsert({
       where: { email: u.email },
-      update: { password: passwordHash, role: u.role, name: u.name },
+      update: {},
       create: {
         name: u.name,
         email: u.email,
@@ -216,5 +220,24 @@ export async function seedDatabase(prisma: PrismaClient, seedPassword: string): 
         },
       },
     });
+  }
+
+  const demoEventIds = [demoEventId, ...extraEvents.map(item => item.id)];
+  const staffAccounts = await prisma.user.findMany({
+    where: {
+      email: { in: ['staff@eventbook.test', 'checkin@eventbook.com'] },
+      role: Role.STAFF,
+    },
+    select: { id: true },
+  });
+
+  for (const eventId of demoEventIds) {
+    for (const staffAccount of staffAccounts) {
+      await prisma.eventStaff.upsert({
+        where: { eventId_userId: { eventId, userId: staffAccount.id } },
+        update: {},
+        create: { eventId, userId: staffAccount.id },
+      });
+    }
   }
 }

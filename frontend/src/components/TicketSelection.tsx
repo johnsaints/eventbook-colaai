@@ -1,6 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router'
-import { sessionTokenKey } from '../api'
+import {
+  canAccessBuyerTickets,
+  getStoredSessionUser,
+  notifyUserUpdated,
+  ROLE_LABELS,
+  sessionTokenKey,
+  userUpdatedEventName,
+  type AuthUser,
+} from '../api'
 import { getEvent, type EventDetails } from '../events'
 import { formatPrice, priceInCents, reserveTickets, type Reservation, type ReservationDraft, type ReservationItem } from '../orders'
 import ReservationConfirmation from './ReservationConfirmation'
@@ -21,12 +29,24 @@ export default function TicketSelection({ event, initialItems }: {
       .map(item => [item.lotId, item.quantity]))
   )
   const [hasSession, setHasSession] = useState(() => Boolean(sessionStorage.getItem(sessionTokenKey)))
+  const [sessionUser, setSessionUser] = useState<AuthUser | null>(() => getStoredSessionUser())
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [reservation, setReservation] = useState<{ order: Reservation; lotNames: Record<string, string> } | null>(null)
   const requestRef = useRef<AbortController | null>(null)
 
   useEffect(() => () => requestRef.current?.abort(), [])
+
+  useEffect(() => {
+    function handleUserUpdated(event: Event) {
+      const updated = (event as CustomEvent<AuthUser | null>).detail
+      setSessionUser(updated)
+      setHasSession(Boolean(sessionStorage.getItem(sessionTokenKey)))
+    }
+
+    window.addEventListener(userUpdatedEventName, handleUserUpdated)
+    return () => window.removeEventListener(userUpdatedEventName, handleUserUpdated)
+  }, [])
 
   const selection = lots.map(lot => {
     const available = availableQuantity(lot)
@@ -71,7 +91,10 @@ export default function TicketSelection({ event, initialItems }: {
         const lotNames = Object.fromEntries(selected.map(({ lot }) => [lot.id, lot.name]))
         setReservation({ order: result.order, lotNames })
       } else if (result.kind === 'login') {
-        if (sessionStorage.getItem(sessionTokenKey) === token) sessionStorage.removeItem(sessionTokenKey)
+        if (sessionStorage.getItem(sessionTokenKey) === token) {
+          sessionStorage.removeItem(sessionTokenKey)
+          notifyUserUpdated(null)
+        }
         setHasSession(false)
         setError('Sua sessão expirou. Entre novamente para reservar.')
       } else {
@@ -179,11 +202,7 @@ export default function TicketSelection({ event, initialItems }: {
           )}
           {error && <p className="form-alert" role="alert">{error}</p>}
           {selected.length > 0 && (
-            hasSession ? (
-              <button className="ticket-cart-action btn-full" type="button" disabled={busy} onClick={() => void submit()}>
-                {busy ? 'Confirmando reserva…' : 'Reservar ingressos'}
-              </button>
-            ) : (
+            !hasSession ? (
               <Link
                 to="/login"
                 state={{ reservationDraft: draft }}
@@ -191,6 +210,23 @@ export default function TicketSelection({ event, initialItems }: {
               >
                 Entrar para reservar
               </Link>
+            ) : sessionUser && !canAccessBuyerTickets(sessionUser.role) ? (
+              <>
+                <p className="form-alert" role="alert">
+                  Sua conta está no perfil {ROLE_LABELS[sessionUser.role]}. A reserva e compra de ingressos está disponível apenas para contas de Comprador (ou Admin).
+                </p>
+                <Link
+                  to="/login"
+                  state={{ reservationDraft: draft }}
+                  className="btn btn-secondary btn-full"
+                >
+                  Trocar para conta de comprador
+                </Link>
+              </>
+            ) : (
+              <button className="ticket-cart-action btn-full" type="button" disabled={busy} onClick={() => void submit()}>
+                {busy ? 'Confirmando reserva…' : 'Reservar ingressos'}
+              </button>
             )
           )}
         </section>

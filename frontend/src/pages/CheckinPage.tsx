@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link } from 'react-router'
-import { sessionTokenKey } from '../api'
+import { notifyUserUpdated, sessionTokenKey } from '../api'
 import AppLayout from '../components/AppLayout'
 import { ArrowLeftIcon, QrCodeIcon, ShieldCheckIcon } from '../components/Icons'
 import { listCheckinEvents, submitCheckin, type CheckinEvent, type CheckinResult } from '../checkin'
@@ -12,7 +12,10 @@ type EventList =
   | { status: 'ready'; events: CheckinEvent[] }
 
 function clearSession(token: string) {
-  if (sessionStorage.getItem(sessionTokenKey) === token) sessionStorage.removeItem(sessionTokenKey)
+  if (sessionStorage.getItem(sessionTokenKey) === token) {
+    sessionStorage.removeItem(sessionTokenKey)
+    notifyUserUpdated(null)
+  }
 }
 
 function CheckinFeedback({ result }: { result: CheckinResult }) {
@@ -130,12 +133,14 @@ export default function CheckinPage() {
           {list.status === 'loading' && <p className="state-banner" role="status">Carregando seus eventos…</p>}
           {list.status === 'signed-out' && (
             <div className="state-banner">
-              <p><Link to="/login">Entrar</Link> com uma conta STAFF.</p>
+              <p><Link to="/login">Entrar</Link> com uma conta STAFF (ou ADMIN).</p>
+              <Link to="/" className="btn btn-ghost btn-sm">Voltar aos eventos</Link>
             </div>
           )}
           {list.status === 'forbidden' && (
             <div className="state-banner state-error">
-              <p role="alert">Esta área é reservada ao perfil STAFF. <Link to="/login">Trocar de conta</Link>.</p>
+              <p role="alert">Esta área é reservada ao perfil STAFF (ou ADMIN). <Link to="/login">Trocar de conta</Link>.</p>
+              <Link to="/" className="btn btn-ghost btn-sm">Voltar aos eventos</Link>
             </div>
           )}
           {list.status === 'error' && (

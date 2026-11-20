@@ -1,6 +1,12 @@
 import { useEffect, useRef, useState, type ComponentType, type FormEvent } from 'react'
 import { BrowserRouter, Link, Route, Routes } from 'react-router'
-import { apiUrl } from './api'
+import {
+  apiUrl,
+  canAccessPanel,
+  getStoredSessionUser,
+  userUpdatedEventName,
+  type AuthUser,
+} from './api'
 import AppLayout from './components/AppLayout'
 import {
   ArrowLeftIcon,
@@ -71,7 +77,17 @@ function CatalogPage() {
   const [searchInput, setSearchInput] = useState('')
   const [activeQuery, setActiveQuery] = useState('')
   const [activeCategory, setActiveCategory] = useState('all')
+  const [sessionUser, setSessionUser] = useState<AuthUser | null>(() => getStoredSessionUser())
   const headingRef = useRef<HTMLHeadingElement>(null)
+
+  useEffect(() => {
+    function handleUserUpdated(event: Event) {
+      setSessionUser((event as CustomEvent<AuthUser | null>).detail)
+    }
+
+    window.addEventListener(userUpdatedEventName, handleUserUpdated)
+    return () => window.removeEventListener(userUpdatedEventName, handleUserUpdated)
+  }, [])
 
   useEffect(() => {
     const controller = new AbortController()
@@ -336,20 +352,22 @@ function CatalogPage() {
           )}
         </section>
 
-        <section className="sympla-producer-banner" aria-label="Para organizadores de eventos">
-          <div className="sympla-producer-copy">
-            <span className="eyebrow">ColaAí Produtores</span>
-            <h2>Organize e venda ingressos do seu evento com segurança</h2>
-            <p className="event-meta">
-              Publique eventos por lotes, acompanhe a ocupação em tempo real e controle o check-in digital da portaria.
-            </p>
-          </div>
-          <Link to="/painel" className="btn btn-primary">
-            <ShieldCheckIcon width={17} height={17} />
-            Abrir painel do organizador
-            <ArrowRightIcon />
-          </Link>
-        </section>
+        {(!sessionUser || canAccessPanel(sessionUser.role)) && (
+          <section className="sympla-producer-banner" aria-label="Para organizadores de eventos">
+            <div className="sympla-producer-copy">
+              <span className="eyebrow">ColaAí Produtores</span>
+              <h2>Organize e venda ingressos do seu evento com segurança</h2>
+              <p className="event-meta">
+                Publique eventos por lotes, acompanhe a ocupação em tempo real e controle o check-in digital da portaria.
+              </p>
+            </div>
+            <Link to="/painel" className="btn btn-primary">
+              <ShieldCheckIcon width={17} height={17} />
+              Abrir painel do organizador
+              <ArrowRightIcon />
+            </Link>
+          </section>
+        )}
       </main>
     </AppLayout>
   )

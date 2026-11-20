@@ -9,15 +9,22 @@ function ticketAlreadyUsed() {
   return new AppError('TICKET_ALREADY_USED', 'Este ingresso já foi utilizado.', 409);
 }
 
-export async function checkInTicket(eventId: string, code: string, staffId: string) {
+export async function checkInTicket(
+  eventId: string,
+  code: string,
+  staffId: string,
+  requesterRole: Role = Role.STAFF,
+) {
   return prisma.$transaction(async tx => {
     const event = await lockEventForWrite(tx, eventId);
-    const assignment = await tx.eventStaff.findFirst({
-      where: { eventId, userId: staffId, user: { role: Role.STAFF } },
-      select: { id: true },
-    });
-    if (!assignment) {
-      throw new AppError('FORBIDDEN', 'Você não integra a equipe deste evento.', 403);
+    if (requesterRole !== Role.ADMIN) {
+      const assignment = await tx.eventStaff.findFirst({
+        where: { eventId, userId: staffId, user: { role: Role.STAFF } },
+        select: { id: true },
+      });
+      if (!assignment) {
+        throw new AppError('FORBIDDEN', 'Você não integra a equipe deste evento.', 403);
+      }
     }
 
     const ticket = await tx.ticket.findUnique({
