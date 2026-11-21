@@ -70,20 +70,57 @@ export type MagicLinkRequestResponse = {
   previewUrl?: string
 }
 
-function persistSessionUser(user: AuthUser | null) {
+function readStorage(storage: Storage, key: string): string | null {
+  try {
+    return storage.getItem(key)
+  } catch {
+    return null
+  }
+}
+
+function writeStorage(storage: Storage, key: string, value: string): boolean {
+  try {
+    storage.setItem(key, value)
+    return true
+  } catch {
+    return false
+  }
+}
+
+function removeStorage(storage: Storage, key: string) {
+  try {
+    storage.removeItem(key)
+  } catch {
+    // Ignora falhas de acesso em ambientes com armazenamento restrito
+  }
+}
+
+function getActiveSessionStorage(): Storage | null {
+  if (readStorage(sessionStorage, sessionTokenKey)) return sessionStorage
+  if (readStorage(localStorage, sessionTokenKey)) return localStorage
+  return null
+}
+
+export function getSessionToken(): string | null {
+  return readStorage(sessionStorage, sessionTokenKey) ?? readStorage(localStorage, sessionTokenKey)
+}
+
+function persistSessionUser(user: AuthUser | null, targetStorage?: Storage | null) {
   if (!user) {
-    sessionStorage.removeItem(sessionUserKey)
+    removeStorage(sessionStorage, sessionUserKey)
+    removeStorage(localStorage, sessionUserKey)
     return
   }
-  try {
-    sessionStorage.setItem(sessionUserKey, JSON.stringify(user))
-  } catch {
-    try {
-      const { avatarImage: _ignored, ...withoutAvatar } = user
-      sessionStorage.setItem(sessionUserKey, JSON.stringify(withoutAvatar))
-    } catch {
-      sessionStorage.removeItem(sessionUserKey)
-    }
+
+  const storage = targetStorage ?? getActiveSessionStorage() ?? sessionStorage
+  const opposite = storage === localStorage ? sessionStorage : localStorage
+  removeStorage(opposite, sessionUserKey)
+
+  if (writeStorage(storage, sessionUserKey, JSON.stringify(user))) return
+
+  const { avatarImage: _ignored, ...withoutAvatar } = user
+  if (!writeStorage(storage, sessionUserKey, JSON.stringify(withoutAvatar))) {
+    removeStorage(storage, sessionUserKey)
   }
 }
 
@@ -105,14 +142,16 @@ function parseJwtClaims(token: string): { sub?: string; role?: UserRole } | null
 }
 
 export function getStoredSessionUser(): AuthUser | null {
-  const token = sessionStorage.getItem(sessionTokenKey)
-  if (!token) {
-    sessionStorage.removeItem(sessionUserKey)
+  const storage = getActiveSessionStorage()
+  const token = storage ? readStorage(storage, sessionTokenKey) : null
+  if (!storage || !token) {
+    removeStorage(sessionStorage, sessionUserKey)
+    removeStorage(localStorage, sessionUserKey)
     return null
   }
 
   try {
-    const raw = sessionStorage.getItem(sessionUserKey)
+    const raw = readStorage(storage, sessionUserKey)
     if (raw) {
       const parsed = JSON.parse(raw) as Partial<AuthUser> | null
       if (
@@ -126,7 +165,7 @@ export function getStoredSessionUser(): AuthUser | null {
       }
     }
   } catch {
-    sessionStorage.removeItem(sessionUserKey)
+    removeStorage(storage, sessionUserKey)
   }
 
   const claims = parseJwtClaims(token)
@@ -137,6 +176,50 @@ export function getStoredSessionUser(): AuthUser | null {
     email: '',
     role: claims.role,
   }
+}
+
+export function persistSession(token: string, user: AuthUser, remember = false) {
+  const preferred = remember ? localStorage : sessionStorage
+  const opposite = remember ? sessionStorage : localStorage
+
+  removeStorage(opposite, sessionTokenKey)
+  removeStorage(opposite, sessionUserKey)
+
+  const storedInPreferred = writeStorage(preferred, sessionTokenKey, token)
+  const actualTarget = storedInPreferred
+    ? preferred
+    : preferred === localStorage && writeStorage(sessionStorage, sessionTokenKey, token)
+      ? sessionStorage
+      : preferred
+
+  persistSessionUser(user, actualTarget)
+  window.dispatchEvent(new CustomEvent<AuthUser | null>(userUpdatedEventName, { detail: user }))
+}
+
+export function clearSession(expectedToken?: string): boolean {
+  if (expectedToken === undefined) {
+    removeStorage(sessionStorage, sessionTokenKey)
+    removeStorage(sessionStorage, sessionUserKey)
+    removeStorage(localStorage, sessionTokenKey)
+    removeStorage(localStorage, sessionUserKey)
+    window.dispatchEvent(new CustomEvent<AuthUser | null>(userUpdatedEventName, { detail: null }))
+    return true
+  }
+
+  let cleared = false
+  for (const storage of [sessionStorage, localStorage]) {
+    if (readStorage(storage, sessionTokenKey) === expectedToken) {
+      removeStorage(storage, sessionTokenKey)
+      removeStorage(storage, sessionUserKey)
+      cleared = true
+    }
+  }
+
+  if (cleared) {
+    const remaining = getStoredSessionUser()
+    window.dispatchEvent(new CustomEvent<AuthUser | null>(userUpdatedEventName, { detail: remaining }))
+  }
+  return cleared
 }
 
 export function notifyUserUpdated(user: AuthUser | null) {
@@ -188,11 +271,16 @@ export async function registerUser(
   return (await response.json()) as AuthUser
 }
 
-export async function login(email: string, password: string, signal: AbortSignal) {
+export async function login(
+  email: string,
+  password: string,
+  signal: AbortSignal,
+  rememberMe = false,
+) {
   const response = await fetch(`${apiUrl}/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({ email, password, rememberMe }),
     signal,
   })
 
@@ -237,15 +325,15 @@ export async function getCurrentUser(token: string, signal: AbortSignal) {
   })
 
   if (response.status === 401 || response.status === 404) {
-    if (sessionStorage.getItem(sessionTokenKey) === token) {
-      sessionStorage.removeItem(sessionUserKey)
+    if (getSessionToken() === token) {
+      persistSessionUser(null)
     }
     return null
   }
   if (!response.ok) throw new Error('Falha ao consultar o perfil.')
 
   const loaded = (await response.json()) as AuthUser
-  if (sessionStorage.getItem(sessionTokenKey) === token) {
+  if (getSessionToken() === token) {
     persistSessionUser(loaded)
   }
   return loaded
@@ -345,12 +433,15 @@ export async function requestMagicLink(
   return (await response.json()) as MagicLinkRequestResponse
 }
 
-export async function verifyMagicLink(token: string, signal?: AbortSignal): Promise<LoginSession> {
+export async function verifyMagicLink(
+  token: string,
+  options: { signal?: AbortSignal; rememberMe?: boolean } = {},
+): Promise<LoginSession> {
   const response = await fetch(`${apiUrl}/auth/magic-link/verify`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ token }),
-    signal,
+    body: JSON.stringify({ token, rememberMe: Boolean(options.rememberMe) }),
+    signal: options.signal,
   })
 
   if (response.status === 401 || response.status === 400) {

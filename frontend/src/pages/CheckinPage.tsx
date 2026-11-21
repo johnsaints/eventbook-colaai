@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link } from 'react-router'
-import { notifyUserUpdated, sessionTokenKey } from '../api'
+import { clearSession, getSessionToken } from '../api'
 import AppLayout from '../components/AppLayout'
 import { QrCodeIcon, ShieldCheckIcon } from '../components/Icons'
 import { listCheckinEvents, submitCheckin, type CheckinEvent, type CheckinResult } from '../checkin'
@@ -10,13 +10,6 @@ import './CheckinPage.css'
 type EventList =
   | { status: 'loading' | 'error' | 'forbidden' | 'signed-out' }
   | { status: 'ready'; events: CheckinEvent[] }
-
-function clearSession(token: string) {
-  if (sessionStorage.getItem(sessionTokenKey) === token) {
-    sessionStorage.removeItem(sessionTokenKey)
-    notifyUserUpdated(null)
-  }
-}
 
 function CheckinFeedback({ result }: { result: CheckinResult }) {
   if (result.status === 'approved') {
@@ -53,7 +46,7 @@ function CheckinFeedback({ result }: { result: CheckinResult }) {
 }
 
 export default function CheckinPage() {
-  const [token] = useState(() => sessionStorage.getItem(sessionTokenKey))
+  const [token] = useState(() => getSessionToken())
   const [list, setList] = useState<EventList>({ status: token ? 'loading' : 'signed-out' })
   const [revision, setRevision] = useState(0)
   const [eventId, setEventId] = useState('')

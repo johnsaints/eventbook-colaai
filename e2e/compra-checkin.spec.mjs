@@ -96,7 +96,7 @@ test('cadastro, compra e check-in do mesmo ingresso', async ({ browser, page, re
     await expect(page).toHaveURL(frontendUrl + eventPath)
     await expect(page.getByLabel('Quantidade de ' + lotName)).toHaveText('1')
     await page.getByRole('button', { name: 'Reservar ingressos' }).click()
-    await expect(page.getByRole('status')).toHaveText('Ingressos reservados.')
+    await expect(page.locator('.reservation-panel').getByRole('status')).toHaveText('Ingressos reservados.')
     await page.getByRole('button', { name: 'Simular pagamento' }).click()
     await expect(page.getByRole('heading', { name: 'Pagamento confirmado' })).toBeVisible()
     await expect(page.getByText('1 ingresso emitido.', { exact: true })).toBeVisible()
@@ -143,7 +143,7 @@ test('cadastro, compra e check-in do mesmo ingresso', async ({ browser, page, re
       await expect(input).toBeFocused()
       await input.fill(code)
       await input.press('Enter')
-      await expect(staffPage.getByRole('status')).toContainText('Check-in aprovado')
+      await expect(staffPage.locator('main').getByRole('status')).toContainText('Check-in aprovado')
 
       await input.fill(code)
       await input.press('Enter')

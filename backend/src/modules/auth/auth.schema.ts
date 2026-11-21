@@ -16,6 +16,7 @@ export const registerSchema = z.object({
 export const loginSchema = z.object({
   email: z.string().trim().email('E-mail inválido').toLowerCase(),
   password: z.string().min(1, 'A senha é obrigatória'),
+  rememberMe: z.boolean().optional().default(false),
 });
 
 export const updateProfileSchema = z.object({
@@ -41,6 +42,7 @@ export const requestMagicLinkSchema = z.object({
 
 export const verifyMagicLinkSchema = z.object({
   token: z.string().trim().min(32, 'Token mágico inválido').max(256),
+  rememberMe: z.boolean().optional().default(false),
 });
 
 export const adminListUsersQuerySchema = z.object({

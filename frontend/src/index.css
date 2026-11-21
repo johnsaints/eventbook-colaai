@@ -1813,6 +1813,59 @@ a:hover {
   border-color: var(--ca-cyan);
 }
 
+.auth-form label.remember-access-field {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.7rem;
+  padding: 0.75rem 0.9rem;
+  border-radius: 0.7rem;
+  background: rgba(7, 21, 43, 0.55);
+  border: 1px solid rgba(110, 168, 255, 0.16);
+  cursor: pointer;
+  font-weight: 500;
+  transition: border-color 0.18s ease, background-color 0.18s ease;
+}
+
+.auth-form label.remember-access-field:hover {
+  border-color: rgba(110, 168, 255, 0.34);
+  background: rgba(10, 29, 58, 0.72);
+}
+
+.auth-form label.remember-access-field:has(input:checked) {
+  border-color: rgba(0, 212, 255, 0.45);
+  background: rgba(0, 212, 255, 0.08);
+}
+
+.auth-form label.remember-access-field input[type='checkbox'] {
+  width: 1.125rem;
+  height: 1.125rem;
+  margin: 0.14rem 0 0;
+  padding: 0;
+  flex-shrink: 0;
+  accent-color: var(--ca-cyan);
+  cursor: pointer;
+}
+
+.remember-access-copy {
+  display: grid;
+  gap: 0.18rem;
+  min-width: 0;
+}
+
+.remember-access-copy strong {
+  font-size: 0.9rem;
+  color: var(--ca-text);
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.remember-access-copy span {
+  font-size: 0.8rem;
+  color: var(--ca-text-muted);
+  line-height: 1.35;
+  font-weight: 400;
+}
+
 .auth-actions {
   display: flex;
   flex-wrap: wrap;

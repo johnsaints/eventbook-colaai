@@ -56,10 +56,10 @@ export class AuthService {
     private readonly appBaseUrl: string = env.APP_URL,
   ) {}
 
-  private issueSession(user: SessionUser) {
+  private issueSession(user: SessionUser, rememberMe = false) {
     const token = jwt.sign({ role: user.role }, env.JWT_SECRET, {
       subject: user.id,
-      expiresIn: '1d',
+      expiresIn: rememberMe ? '30d' : '1d',
     });
 
     return {
@@ -114,7 +114,7 @@ export class AuthService {
       throw new AppError('INVALID_CREDENTIALS', 'E-mail ou senha incorretos', 401);
     }
 
-    return this.issueSession(user);
+    return this.issueSession(user, data.rememberMe);
   }
 
   async getProfile(userId: string) {
@@ -243,7 +243,7 @@ export class AuthService {
     };
   }
 
-  async verifyMagicLink(rawToken: string) {
+  async verifyMagicLink(rawToken: string, rememberMe = false) {
     const tokenHash = hashMagicToken(rawToken);
     const now = new Date();
 
@@ -280,7 +280,7 @@ export class AuthService {
       throw new AppError('INVALID_MAGIC_LINK', 'Link mágico inválido ou já utilizado. Solicite um novo link.', 401);
     }
 
-    return this.issueSession(record.user);
+    return this.issueSession(record.user, rememberMe);
   }
 
   async listUsersForAdmin(query: AdminListUsersQueryInput) {

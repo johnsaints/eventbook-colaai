@@ -39,6 +39,8 @@ it('permite consultar e editar perfil completo, foto válida e bloqueia SVG ou e
 
     const loginRes = await client.post('/login').send({ email: emailA, password }).expect(200);
     const token: string = loginRes.body.token;
+    const defaultClaims = jwt.verify(token, env.JWT_SECRET) as { iat: number; exp: number };
+    expect(defaultClaims.exp - defaultClaims.iat).toBe(86_400);
 
     const initialMe = await client.get('/me').set('Authorization', `Bearer ${token}`).expect(200);
     expect(initialMe.body).toMatchObject({
@@ -395,5 +397,53 @@ it('aplica permissões RBAC de ADMIN em fluxos de teste e gerencia perfis via /a
         where: { id: { in: [adminUser.id, organizerUser.id, staffUser.id, buyerUser.id] } },
       }),
     ]);
+  }
+});
+
+it('estende validade do JWT para 30 dias quando rememberMe é true em /login e /auth/magic-link/verify', async () => {
+  const email = `remember-${randomUUID()}@eventbook.test`;
+  const password = 'SenhaRemember-2026!';
+  const client = request(app);
+
+  const lifetimeSeconds = (token: string) => {
+    const decoded = jwt.verify(token, env.JWT_SECRET) as { iat?: number; exp?: number };
+    expect(typeof decoded.iat).toBe('number');
+    expect(typeof decoded.exp).toBe('number');
+    return decoded.exp! - decoded.iat!;
+  };
+
+  try {
+    await prisma.user.create({
+      data: {
+        name: 'Usuario Remember',
+        email,
+        password: await bcrypt.hash(password, 10),
+        role: 'BUYER',
+      },
+    });
+
+    const explicitShortLogin = await client
+      .post('/login')
+      .send({ email, password, rememberMe: false })
+      .expect(200);
+    expect(lifetimeSeconds(explicitShortLogin.body.token)).toBe(86_400);
+
+    const rememberedLogin = await client
+      .post('/login')
+      .send({ email, password, rememberMe: true })
+      .expect(200);
+    expect(lifetimeSeconds(rememberedLogin.body.token)).toBe(30 * 86_400);
+
+    const magicReq = await client.post('/auth/magic-link').send({ email }).expect(200);
+    const rawToken = new URL(magicReq.body.previewUrl as string).searchParams.get('token');
+    expect(rawToken).toBeTruthy();
+
+    const rememberedMagic = await client
+      .post('/auth/magic-link/verify')
+      .send({ token: rawToken, rememberMe: true })
+      .expect(200);
+    expect(lifetimeSeconds(rememberedMagic.body.token)).toBe(30 * 86_400);
+  } finally {
+    await prisma.user.deleteMany({ where: { email } });
   }
 });

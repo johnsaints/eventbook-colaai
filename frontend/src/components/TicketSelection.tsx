@@ -2,10 +2,10 @@ import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router'
 import {
   canAccessBuyerTickets,
+  clearSession,
+  getSessionToken,
   getStoredSessionUser,
-  notifyUserUpdated,
   ROLE_LABELS,
-  sessionTokenKey,
   userUpdatedEventName,
   type AuthUser,
 } from '../api'
@@ -31,7 +31,7 @@ export default function TicketSelection({ event, initialItems }: {
       .filter(item => item && typeof item.lotId === 'string' && Number.isSafeInteger(item.quantity) && item.quantity > 0)
       .map(item => [item.lotId, item.quantity]))
   )
-  const [hasSession, setHasSession] = useState(() => Boolean(sessionStorage.getItem(sessionTokenKey)))
+  const [hasSession, setHasSession] = useState(() => Boolean(getSessionToken()))
   const [sessionUser, setSessionUser] = useState<AuthUser | null>(() => getStoredSessionUser())
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -45,7 +45,7 @@ export default function TicketSelection({ event, initialItems }: {
     function handleUserUpdated(event: Event) {
       const updated = (event as CustomEvent<AuthUser | null>).detail
       setSessionUser(updated)
-      setHasSession(Boolean(sessionStorage.getItem(sessionTokenKey)))
+      setHasSession(Boolean(getSessionToken()))
     }
 
     window.addEventListener(userUpdatedEventName, handleUserUpdated)
@@ -79,7 +79,7 @@ export default function TicketSelection({ event, initialItems }: {
 
   async function submit() {
     if (draft.items.length === 0 || requestRef.current || reservation) return
-    const token = sessionStorage.getItem(sessionTokenKey)
+    const token = getSessionToken()
     if (!token) {
       setHasSession(false)
       return
@@ -99,10 +99,7 @@ export default function TicketSelection({ event, initialItems }: {
         setReservation({ order: result.order, lotNames })
         scrollWindowToTop(true)
       } else if (result.kind === 'login') {
-        if (sessionStorage.getItem(sessionTokenKey) === token) {
-          sessionStorage.removeItem(sessionTokenKey)
-          notifyUserUpdated(null)
-        }
+        clearSession(token)
         setHasSession(false)
         setError('Sua sessão expirou. Entre novamente para reservar.')
       } else {

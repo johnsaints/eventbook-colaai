@@ -26,7 +26,7 @@ test('login por Link Mágico e edição completa de perfil com foto', async ({ p
     await page.getByLabel('E-mail cadastrado').fill(email)
     await page.getByRole('button', { name: 'Enviar link mágico' }).click()
 
-    await expect(page.getByRole('status')).toContainText('enviaremos um link de acesso válido por 15 minutos')
+    await expect(page.locator('main').getByRole('status')).toContainText('enviaremos um link de acesso válido por 15 minutos')
     await page.getByRole('link', { name: 'Abrir link mágico de acesso' }).click()
 
     await expect(page).toHaveURL(/\/$/)
@@ -52,7 +52,7 @@ test('login por Link Mágico e edição completa de perfil com foto', async ({ p
     await page.getByLabel('Sobre você').fill('Participando de shows e eventos de tecnologia.')
     await page.getByRole('button', { name: 'Salvar alterações' }).click()
 
-    await expect(page.getByRole('status')).toHaveText('Cadastro e perfil atualizados com sucesso.')
+    await expect(page.locator('main').getByRole('status')).toHaveText('Cadastro e perfil atualizados com sucesso.')
     await expect(page.locator('.navbar').getByRole('link', { name: 'Mariana Atualizada' })).toBeVisible()
 
     // Recarrega a página para confirmar persistência em banco e atualização imediata no header
@@ -119,17 +119,41 @@ test('navegação contextual por perfil (ORGANIZER, STAFF, ADMIN) e gestão de c
       return new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 16)
     }
 
-    async function signIn(email, expectedPath) {
+    async function signIn(email, expectedPath, { rememberMe = false } = {}) {
       await page.goto('/login')
       await page.getByLabel('E-mail').fill(email)
       await page.getByLabel('Senha').fill(password)
+      const rememberCheckbox = page.getByLabel(/Lembrar acesso neste dispositivo/i)
+      if (rememberMe) {
+        await rememberCheckbox.check()
+      } else {
+        await expect(rememberCheckbox).not.toBeChecked()
+      }
       await page.getByRole('button', { name: 'Entrar', exact: true }).click()
       await expect(page).toHaveURL(expectedPath)
-      await expect(page.locator('.ca-toast')).toContainText('Sessão iniciada como')
+      await expect(page.locator('.ca-toast').filter({ hasText: 'Sessão iniciada como' })).toBeVisible()
     }
 
-    // ORGANIZER redireciona direto para /painel -> cria evento -> vai para Lotes -> publica, destaca, oculta e exclui
+    async function signOutAndAssertHome() {
+      await page.locator('.navbar').getByRole('button', { name: 'Sair' }).click()
+      await expect(page).toHaveURL(/\/$/)
+      await expect(page.locator('.ca-toast').filter({ hasText: 'Logout realizado com sucesso.' })).toBeVisible()
+      const tokens = await page.evaluate(() => ({
+        session: sessionStorage.getItem('eventbook:token'),
+        local: localStorage.getItem('eventbook:token'),
+      }))
+      expect(tokens.session).toBeNull()
+      expect(tokens.local).toBeNull()
+    }
+
+    // ORGANIZER redireciona direto para /painel (sem "Lembrar acesso": somente sessionStorage)
     await signIn(emails.organizer, /\/painel$/)
+    const organizerTokens = await page.evaluate(() => ({
+      session: sessionStorage.getItem('eventbook:token'),
+      local: localStorage.getItem('eventbook:token'),
+    }))
+    expect(organizerTokens.session).toBeTruthy()
+    expect(organizerTokens.local).toBeNull()
     await expect(nav.getByRole('link', { name: 'Eventos', exact: true })).toBeVisible()
     await expect(nav.getByRole('link', { name: 'Painel', exact: true })).toBeVisible()
     await expect(nav.getByRole('link', { name: 'Meus Ingressos', exact: true })).toHaveCount(0)
@@ -157,7 +181,7 @@ test('navegação contextual por perfil (ORGANIZER, STAFF, ADMIN) e gestão de c
     await organizerDrawer.getByLabel('Início das vendas').fill(toLocalInputString(now + 60_000))
     await organizerDrawer.getByLabel('Fim das vendas').fill(toLocalInputString(now + 47 * 3_600_000))
     await organizerDrawer.getByRole('button', { name: 'Cadastrar lote' }).click()
-    await expect(organizerDrawer.getByRole('status')).toContainText('Lote cadastrado!')
+    await expect(organizerDrawer.getByRole('status').filter({ hasText: 'Lote cadastrado!' })).toBeVisible()
 
     await page.keyboard.press('Escape')
     await expect(organizerDrawer).toHaveCount(0)
@@ -186,7 +210,7 @@ test('navegação contextual por perfil (ORGANIZER, STAFF, ADMIN) e gestão de c
     await eventCard.getByRole('button', { name: 'Confirmar exclusão' }).click()
     await expect(eventCard).toHaveCount(0)
 
-    await page.locator('.navbar').getByRole('button', { name: 'Sair' }).click()
+    await signOutAndAssertHome()
 
     // STAFF redireciona direto para /check-in, não vê Eventos e fica em modo somente leitura na página de evento
     await signIn(emails.staff, /\/check-in$/)
@@ -198,10 +222,22 @@ test('navegação contextual por perfil (ORGANIZER, STAFF, ADMIN) e gestão de c
     await page.goto(`/events/${staffSampleEvent.id}`)
     await expect(page.getByRole('alert')).toContainText('A reserva e compra de ingressos está disponível apenas para contas de Comprador')
     await expect(page.getByRole('button', { name: 'Adicionar ingresso de Pista Staff' })).toBeDisabled()
-    await page.locator('.navbar').getByRole('button', { name: 'Sair' }).click()
+    await signOutAndAssertHome()
 
-    // ADMIN redireciona para /painel, vê todas as 4 abas e altera perfil de usuário em /perfil
-    await signIn(emails.admin, /\/painel$/)
+    // ADMIN entra com "Lembrar acesso" marcado -> persiste em localStorage e mantém login em nova aba
+    await signIn(emails.admin, /\/painel$/, { rememberMe: true })
+    const adminTokens = await page.evaluate(() => ({
+      session: sessionStorage.getItem('eventbook:token'),
+      local: localStorage.getItem('eventbook:token'),
+    }))
+    expect(adminTokens.local).toBeTruthy()
+    expect(adminTokens.session).toBeNull()
+
+    const secondTab = await page.context().newPage()
+    await secondTab.goto('/painel')
+    await expect(secondTab.locator('.navbar').getByRole('link', { name: 'Admin RBAC' })).toBeVisible()
+    await secondTab.close()
+
     await expect(nav.getByRole('link', { name: 'Eventos', exact: true })).toBeVisible()
     await expect(nav.getByRole('link', { name: 'Meus Ingressos', exact: true })).toBeVisible()
     await expect(nav.getByRole('link', { name: 'Painel', exact: true })).toBeVisible()
@@ -220,11 +256,12 @@ test('navegação contextual por perfil (ORGANIZER, STAFF, ADMIN) e gestão de c
     await roleSelect.selectOption('ORGANIZER')
     await adminDrawer.getByRole('button', { name: 'Salvar perfil', exact: true }).click()
 
-    await expect(adminDrawer.getByRole('status')).toContainText('Perfil de Alvo RBAC atualizado para Organizador.')
+    await expect(adminDrawer.getByRole('status').filter({ hasText: 'Perfil de Alvo RBAC atualizado para Organizador.' })).toBeVisible()
     await page.keyboard.press('Escape')
     await expect(adminDrawer).toHaveCount(0)
     const updatedTarget = await prisma.user.findUniqueOrThrow({ where: { email: emails.target } })
     expect(updatedTarget.role).toBe('ORGANIZER')
+    await signOutAndAssertHome()
   } finally {
     await prisma.event.deleteMany({ where: { organizer: { email: emails.organizer } } })
     await prisma.user.deleteMany({ where: { email: { in: Object.values(emails) } } })

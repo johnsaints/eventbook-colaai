@@ -6,10 +6,10 @@ import ticketCrowdBg from '../assets/colaai-ticket-crowd.webp'
 import {
   canAccessCheckin,
   canAccessPanel,
+  clearSession,
+  getSessionToken,
   getStoredSessionUser,
-  notifyUserUpdated,
   ROLE_LABELS,
-  sessionTokenKey,
   userUpdatedEventName,
   type AuthUser,
 } from '../api'
@@ -407,7 +407,7 @@ function HistorySection<T extends { id: string }>({
 }
 
 export default function BuyerHistoryPage() {
-  const [token] = useState(() => sessionStorage.getItem(sessionTokenKey))
+  const [token] = useState(() => getSessionToken())
   const [sessionUser, setSessionUser] = useState<AuthUser | null>(() => getStoredSessionUser())
   const [access, setAccess] = useState<HistoryAccess | null>(null)
   const [now, setNow] = useState(Date.now)
@@ -445,9 +445,8 @@ export default function BuyerHistoryPage() {
   }, [access, token])
 
   const handleAccess = useCallback((kind: HistoryAccess) => {
-    if (kind === 'login' && sessionStorage.getItem(sessionTokenKey) === token) {
-      sessionStorage.removeItem(sessionTokenKey)
-      notifyUserUpdated(null)
+    if (kind === 'login' && token) {
+      clearSession(token)
     }
     setAccess(current => current === 'login' ? current : kind)
   }, [token])

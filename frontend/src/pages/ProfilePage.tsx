@@ -2,13 +2,14 @@ import { useCallback, useEffect, useRef, useState, type ChangeEvent, type FormEv
 import { Link } from 'react-router'
 import {
   changePassword,
+  clearSession,
   getCurrentUser,
+  getSessionToken,
   isAdminRole,
   listUsersForAdmin,
   notifyUserUpdated,
   ROLE_LABELS,
   ROLE_PERMISSIONS,
-  sessionTokenKey,
   updateProfile,
   updateUserRoleByAdmin,
   type AuthUser,
@@ -303,7 +304,7 @@ function AdminUsersSection({
 }
 
 export default function ProfilePage() {
-  const [token, setToken] = useState(() => sessionStorage.getItem(sessionTokenKey))
+  const [token, setToken] = useState(() => getSessionToken())
   const [attempt, setAttempt] = useState(0)
   const [profile, setProfile] = useState<AuthUser | null>(null)
   const [resolvedKey, setResolvedKey] = useState('')
@@ -353,10 +354,9 @@ export default function ProfilePage() {
       .then((loaded) => {
         if (controller.signal.aborted) return
         if (!loaded) {
-          sessionStorage.removeItem(sessionTokenKey)
+          clearSession(token)
           setToken(null)
           setProfile(null)
-          notifyUserUpdated(null)
           return
         }
         setLoadError('')
@@ -424,10 +424,9 @@ export default function ProfilePage() {
       if (controller.signal.aborted) return
 
       if (!updated) {
-        sessionStorage.removeItem(sessionTokenKey)
+        clearSession(token)
         setToken(null)
         setProfile(null)
-        notifyUserUpdated(null)
         return
       }
 
@@ -475,10 +474,9 @@ export default function ProfilePage() {
 
       if (!result.ok) {
         if (result.expired) {
-          sessionStorage.removeItem(sessionTokenKey)
+          clearSession(token)
           setToken(null)
           setProfile(null)
-          notifyUserUpdated(null)
           return
         }
         setPasswordError(result.message)
@@ -504,11 +502,10 @@ export default function ProfilePage() {
 
   const expireSession = useCallback(() => {
     setAdminDrawerOpen(false)
-    sessionStorage.removeItem(sessionTokenKey)
+    clearSession(token ?? undefined)
     setToken(null)
     setProfile(null)
-    notifyUserUpdated(null)
-  }, [])
+  }, [token])
 
   return (
     <AppLayout>
@@ -536,7 +533,7 @@ export default function ProfilePage() {
               className="btn btn-primary"
               onClick={() => {
                 setLoadError('')
-                setToken(sessionStorage.getItem(sessionTokenKey))
+                setToken(getSessionToken())
                 setAttempt((prev) => prev + 1)
               }}
             >

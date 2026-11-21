@@ -5,36 +5,51 @@ import {
   canAccessBuyerTickets,
   canAccessCheckin,
   canAccessPanel,
+  clearSession,
   getCurrentUser,
+  getSessionToken,
   getStoredSessionUser,
-  notifyUserUpdated,
   ROLE_LABELS,
   sessionTokenKey,
+  sessionUserKey,
   userUpdatedEventName,
   type AuthUser,
 } from '../api'
+import { showToast } from '../toast'
 import Drawer from './Drawer'
 import { ArrowRightIcon, BrandGridIcon, ChartIcon, LogoutIcon, MenuIcon, QrCodeIcon, TicketIcon } from './Icons'
 
 export default function AppLayout({ children }: { children: ReactNode }) {
   const navigate = useNavigate()
   const [user, setUser] = useState<AuthUser | null>(() => getStoredSessionUser())
-  const [hasToken, setHasToken] = useState(() => Boolean(sessionStorage.getItem(sessionTokenKey)))
+  const [hasToken, setHasToken] = useState(() => Boolean(getSessionToken()))
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   useEffect(() => {
     function handleUserUpdated(event: Event) {
       const updated = (event as CustomEvent<AuthUser | null>).detail
       setUser(updated)
-      setHasToken(Boolean(sessionStorage.getItem(sessionTokenKey)))
+      setHasToken(Boolean(getSessionToken()))
+    }
+
+    function handleStorageChange(event: StorageEvent) {
+      if (event.key !== null && event.key !== sessionTokenKey && event.key !== sessionUserKey) {
+        return
+      }
+      setUser(getStoredSessionUser())
+      setHasToken(Boolean(getSessionToken()))
     }
 
     window.addEventListener(userUpdatedEventName, handleUserUpdated)
-    return () => window.removeEventListener(userUpdatedEventName, handleUserUpdated)
+    window.addEventListener('storage', handleStorageChange)
+    return () => {
+      window.removeEventListener(userUpdatedEventName, handleUserUpdated)
+      window.removeEventListener('storage', handleStorageChange)
+    }
   }, [])
 
   useEffect(() => {
-    const token = sessionStorage.getItem(sessionTokenKey)
+    const token = getSessionToken()
     if (!token) return
 
     const controller = new AbortController()
@@ -42,8 +57,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       .then((loaded) => {
         if (controller.signal.aborted) return
         if (!loaded) {
-          sessionStorage.removeItem(sessionTokenKey)
-          notifyUserUpdated(null)
+          clearSession(token)
           setHasToken(false)
           setUser(null)
           return
@@ -59,11 +73,14 @@ export default function AppLayout({ children }: { children: ReactNode }) {
 
   function handleLogout() {
     setMobileMenuOpen(false)
-    sessionStorage.removeItem(sessionTokenKey)
-    notifyUserUpdated(null)
+    clearSession()
     setHasToken(false)
     setUser(null)
-    void navigate('/login')
+    showToast({
+      message: 'Logout realizado com sucesso.',
+      tone: 'success',
+    })
+    void navigate('/', { replace: true })
   }
 
   const isStaff = user?.role === 'STAFF'

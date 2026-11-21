@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router'
-import { login, notifyUserUpdated, registerUser, ROLE_LABELS, sessionTokenKey } from '../api'
+import { login, persistSession, registerUser, ROLE_LABELS } from '../api'
 import AppLayout from '../components/AppLayout'
 import type { ReservationDraft } from '../orders'
 import { showToast } from '../toast'
@@ -39,8 +39,7 @@ export default function RegisterPage() {
       if (controller.signal.aborted) return
 
       if (session) {
-        sessionStorage.setItem(sessionTokenKey, session.token)
-        notifyUserUpdated(session.user)
+        persistSession(session.token, session.user, false)
         showToast({
           message: `Sessão iniciada como ${session.user.name}.`,
           detail: ROLE_LABELS[session.user.role],

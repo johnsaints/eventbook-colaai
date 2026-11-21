@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router'
-import { sessionTokenKey } from '../api'
+import { clearSession, getSessionToken } from '../api'
 import { formatPrice, payReservation, priceInCents, type CheckoutResult, type Reservation } from '../orders'
 
 type PaymentState = CheckoutResult | { kind: 'idle' | 'submitting' }
@@ -67,7 +67,7 @@ export default function ReservationConfirmation({
       return
     }
 
-    const token = sessionStorage.getItem(sessionTokenKey)
+    const token = getSessionToken()
     if (!token) {
       setPayment({ kind: 'login' })
       return
@@ -79,8 +79,8 @@ export default function ReservationConfirmation({
     try {
       const result = await payReservation(order, token, controller.signal)
       if (controller.signal.aborted) return
-      if (result.kind === 'login' && sessionStorage.getItem(sessionTokenKey) === token) {
-        sessionStorage.removeItem(sessionTokenKey)
+      if (result.kind === 'login') {
+        clearSession(token)
       }
       setPayment(result)
     } catch {

@@ -1520,6 +1520,10 @@ components:
         token:
           type: string
           minLength: 32
+        rememberMe:
+          type: boolean
+          default: false
+          description: Quando verdadeiro, estende a validade do token JWT para 30 dias em vez de 1 dia.
     RegisterInput:
       type: object
       required:
@@ -1552,6 +1556,10 @@ components:
           minLength: 1
           format: password
           writeOnly: true
+        rememberMe:
+          type: boolean
+          default: false
+          description: Quando verdadeiro, estende a validade do token JWT para 30 dias em vez de 1 dia.
     LoginSession:
       type: object
       required:
@@ -1560,7 +1568,7 @@ components:
       properties:
         token:
           type: string
-          description: JWT Bearer com validade de um dia.
+          description: JWT Bearer com validade padrão de 1 dia (ou 30 dias quando `rememberMe` é true).
         user:
           $ref: '#/components/schemas/User'
     Pagination:

@@ -4,10 +4,9 @@ import {
   canAccessBuyerTickets,
   defaultRouteForRole,
   login,
-  notifyUserUpdated,
+  persistSession,
   requestMagicLink,
   ROLE_LABELS,
-  sessionTokenKey,
 } from '../api'
 import AppLayout from '../components/AppLayout'
 import { LockIcon, MailIcon } from '../components/Icons'
@@ -34,6 +33,7 @@ export default function LoginPage() {
   const reservationDraft = loginContext?.reservationDraft
 
   const [mode, setMode] = useState<AuthMode>('password')
+  const [rememberMe, setRememberMe] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [magicStatus, setMagicStatus] = useState('')
@@ -62,7 +62,7 @@ export default function LoginPage() {
     setError('')
 
     try {
-      const session = await login(email, password, controller.signal)
+      const session = await login(email, password, controller.signal, rememberMe)
       if (controller.signal.aborted) return
 
       if (!session) {
@@ -70,8 +70,7 @@ export default function LoginPage() {
         return
       }
 
-      sessionStorage.setItem(sessionTokenKey, session.token)
-      notifyUserUpdated(session.user)
+      persistSession(session.token, session.user, rememberMe)
       showToast({
         message: `Sessão iniciada como ${session.user.name}.`,
         detail: ROLE_LABELS[session.user.role],
@@ -117,10 +116,18 @@ export default function LoginPage() {
     setMagicStatus('')
     setMagicPreviewPath(null)
 
-    if (loginContext) {
-      sessionStorage.setItem(magicContextStorageKey, JSON.stringify(loginContext))
-    } else {
+    try {
       sessionStorage.removeItem(magicContextStorageKey)
+      if (loginContext || rememberMe) {
+        localStorage.setItem(
+          magicContextStorageKey,
+          JSON.stringify({ ...(loginContext ?? {}), rememberMe }),
+        )
+      } else {
+        localStorage.removeItem(magicContextStorageKey)
+      }
+    } catch {
+      // Ignora falhas de acesso em armazenamento restrito
     }
 
     try {
@@ -188,6 +195,18 @@ export default function LoginPage() {
                 Senha
                 <input name="password" type="password" autoComplete="current-password" placeholder="Sua senha" required />
               </label>
+              <label className="remember-access-field">
+                <input
+                  type="checkbox"
+                  name="rememberMe"
+                  checked={rememberMe}
+                  onChange={(event) => setRememberMe(event.target.checked)}
+                />
+                <span className="remember-access-copy">
+                  <strong>Lembrar acesso neste dispositivo</strong>
+                  <span>Mantém sua conta conectada por até 30 dias em dispositivos seguros.</span>
+                </span>
+              </label>
               {error && <p className="form-alert" role="alert">{error}</p>}
               <button type="submit" className="btn btn-primary" disabled={submitting}>
                 {submitting ? 'Entrando…' : 'Entrar'}
@@ -202,6 +221,18 @@ export default function LoginPage() {
               <p className="event-meta">
                 Enviaremos um link de uso único válido por 15 minutos para entrar sem digitar senha.
               </p>
+              <label className="remember-access-field">
+                <input
+                  type="checkbox"
+                  name="rememberMe"
+                  checked={rememberMe}
+                  onChange={(event) => setRememberMe(event.target.checked)}
+                />
+                <span className="remember-access-copy">
+                  <strong>Lembrar acesso neste dispositivo</strong>
+                  <span>Mantém sua conta conectada por até 30 dias em dispositivos seguros.</span>
+                </span>
+              </label>
               {error && <p className="form-alert" role="alert">{error}</p>}
               {magicStatus && <p className="form-status" role="status">{magicStatus}</p>}
               {magicPreviewPath && (

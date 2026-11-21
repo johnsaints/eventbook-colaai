@@ -3,9 +3,8 @@ import { Link, useNavigate, useSearchParams } from 'react-router'
 import {
   canAccessBuyerTickets,
   defaultRouteForRole,
-  notifyUserUpdated,
+  persistSession,
   ROLE_LABELS,
-  sessionTokenKey,
   verifyMagicLink,
   type LoginSession,
 } from '../api'
@@ -15,32 +14,58 @@ import type { ReservationDraft } from '../orders'
 import { showToast } from '../toast'
 
 const magicContextStorageKey = 'colaai:magic-login-context'
-const inFlightVerifications = new Map<string, Promise<LoginSession>>()
 
 type MagicRedirectContext = {
   reservationDraft?: ReservationDraft
   returnToHistory?: boolean
+  rememberMe?: boolean
 }
 
-function redeemMagicTokenOnce(token: string): Promise<LoginSession> {
+type InFlightEntry = {
+  promise: Promise<LoginSession>
+  context: MagicRedirectContext | null
+}
+
+const inFlightVerifications = new Map<string, InFlightEntry>()
+
+function peekStoredMagicContext(): MagicRedirectContext | null {
+  for (const storage of [localStorage, sessionStorage]) {
+    try {
+      const raw = storage.getItem(magicContextStorageKey)
+      if (!raw) continue
+      return JSON.parse(raw) as MagicRedirectContext
+    } catch {
+      try {
+        storage.removeItem(magicContextStorageKey)
+      } catch {
+        // Ignora falha ao limpar armazenamento restrito
+      }
+    }
+  }
+  return null
+}
+
+function clearStoredMagicContext() {
+  for (const storage of [localStorage, sessionStorage]) {
+    try {
+      storage.removeItem(magicContextStorageKey)
+    } catch {
+      // Ignora falha ao limpar armazenamento restrito
+    }
+  }
+}
+
+function redeemMagicTokenOnce(token: string): InFlightEntry {
   const existing = inFlightVerifications.get(token)
   if (existing) return existing
 
-  const promise = verifyMagicLink(token)
-  inFlightVerifications.set(token, promise)
-  return promise
-}
-
-function consumeStoredMagicContext(): MagicRedirectContext | null {
-  try {
-    const raw = sessionStorage.getItem(magicContextStorageKey)
-    if (!raw) return null
-    sessionStorage.removeItem(magicContextStorageKey)
-    return JSON.parse(raw) as MagicRedirectContext
-  } catch {
-    sessionStorage.removeItem(magicContextStorageKey)
-    return null
+  const context = peekStoredMagicContext()
+  const entry: InFlightEntry = {
+    context,
+    promise: verifyMagicLink(token, { rememberMe: Boolean(context?.rememberMe) }),
   }
+  inFlightVerifications.set(token, entry)
+  return entry
 }
 
 export default function MagicLinkVerifyPage() {
@@ -60,20 +85,20 @@ export default function MagicLinkVerifyPage() {
     if (!rawToken) return
 
     let cancelled = false
+    const { promise, context } = redeemMagicTokenOnce(rawToken)
 
-    redeemMagicTokenOnce(rawToken)
+    promise
       .then((verified) => {
         if (cancelled) return
 
-        sessionStorage.setItem(sessionTokenKey, verified.token)
-        notifyUserUpdated(verified.user)
+        clearStoredMagicContext()
+        persistSession(verified.token, verified.user, Boolean(context?.rememberMe))
         showToast({
           message: `Sessão iniciada como ${verified.user.name}.`,
           detail: ROLE_LABELS[verified.user.role],
           tone: 'success',
         })
 
-        const context = consumeStoredMagicContext()
         const draft = context?.reservationDraft
         if (typeof draft?.eventId === 'string' && Array.isArray(draft.items)) {
           void navigate('/events/' + encodeURIComponent(draft.eventId), {

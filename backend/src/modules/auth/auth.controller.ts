@@ -77,7 +77,7 @@ export class AuthController {
   async verifyMagicLink(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const payload = verifyMagicLinkSchema.parse(req.body);
-      const session = await authService.verifyMagicLink(payload.token);
+      const session = await authService.verifyMagicLink(payload.token, payload.rememberMe);
       res.status(200).json(session);
     } catch (error) {
       next(error);

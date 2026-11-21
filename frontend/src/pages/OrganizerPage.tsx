@@ -4,9 +4,9 @@ import {
   canAccessBuyerTickets,
   canAccessCheckin,
   canAccessPanel,
+  clearSession,
   getCurrentUser,
-  notifyUserUpdated,
-  sessionTokenKey,
+  getSessionToken,
   type AuthUser,
 } from '../api'
 import AppLayout from '../components/AppLayout'
@@ -65,7 +65,7 @@ const statusLabel: Record<OrganizerEvent['status'], string> = {
 }
 
 export default function OrganizerPage() {
-  const [token] = useState(() => sessionStorage.getItem(sessionTokenKey))
+  const [token] = useState(() => getSessionToken())
   const [panel, setPanel] = useState<PanelState>({ status: 'loading' })
   const [panelAttempt, setPanelAttempt] = useState(0)
   const [mountNow] = useState(() => Date.now())
@@ -103,8 +103,7 @@ export default function OrganizerPage() {
         if (controller.signal.aborted) return
 
         if (!user || events === null) {
-          sessionStorage.removeItem(sessionTokenKey)
-          notifyUserUpdated(null)
+          clearSession(sessionToken)
           setPanel({ status: 'signed-out' })
           return
         }
@@ -126,10 +125,9 @@ export default function OrganizerPage() {
   }
 
   const logout = useCallback(() => {
-    sessionStorage.removeItem(sessionTokenKey)
-    notifyUserUpdated(null)
+    clearSession(token ?? undefined)
     setPanel({ status: 'signed-out' })
-  }, [])
+  }, [token])
 
   async function openEditor(eventId: string) {
     if (!token) return
