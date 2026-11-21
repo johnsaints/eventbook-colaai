@@ -181,6 +181,23 @@ test('navegação contextual por perfil (ORGANIZER, STAFF, ADMIN) e gestão de c
     await expect(organizerDrawer).toBeVisible()
     await expect(organizerDrawer.getByRole('heading', { name: 'Novo evento' })).toBeVisible()
 
+    // Valida bloqueio do scroll de fundo e enquadramento da gaveta na altura da viewport
+    const drawerLayout = await page.evaluate(() => {
+      const dialog = document.querySelector('[role="dialog"]')
+      const rect = dialog ? dialog.getBoundingClientRect() : null
+      return {
+        htmlOverflow: document.documentElement.style.overflow,
+        bodyOverflow: document.body.style.overflow,
+        fitsViewport: Boolean(rect && rect.top >= 0 && rect.bottom <= window.innerHeight + 1),
+      }
+    })
+    expect(drawerLayout.htmlOverflow).toBe('hidden')
+    expect(drawerLayout.bodyOverflow).toBe('hidden')
+    expect(drawerLayout.fitsViewport).toBe(true)
+
+    const createEventBtn = organizerDrawer.getByRole('button', { name: 'Criar evento' })
+    await expect(createEventBtn).toHaveClass(/btn-primary/)
+
     const createdTitle = `Evento Painel E2E ${tag.slice(0, 6)}`
     await organizerDrawer.getByLabel('Título').fill(createdTitle)
     await organizerDrawer.getByLabel('Descrição').fill('Descrição completa para validar criação direta para lotes e gestão.')
@@ -189,20 +206,32 @@ test('navegação contextual por perfil (ORGANIZER, STAFF, ADMIN) e gestão de c
     await organizerDrawer.getByLabel('Início').fill(toLocalInputString(now + 48 * 3_600_000))
     await organizerDrawer.getByLabel('Término').fill(toLocalInputString(now + 52 * 3_600_000))
     await expect(organizerDrawer.getByLabel(/Vincular automaticamente minha equipe padrão \(1\)/)).toBeChecked()
-    await organizerDrawer.getByRole('button', { name: 'Criar evento' }).click()
+    await createEventBtn.click()
 
     await expect(organizerDrawer.getByRole('tab', { name: 'Lotes' })).toHaveAttribute('aria-selected', 'true')
     await expect(organizerDrawer.getByRole('heading', { name: 'Novo lote' })).toBeVisible()
+    const createLotBtn = organizerDrawer.getByRole('button', { name: 'Cadastrar lote' })
+    const cancelLotBtn = organizerDrawer.getByRole('button', { name: 'Cancelar' })
+    await expect(createLotBtn).toHaveClass(/btn-primary/)
+    await expect(cancelLotBtn).toHaveClass(/btn-ghost/)
+
     await organizerDrawer.getByLabel('Nome do lote').fill('Lote Único E2E')
     await organizerDrawer.getByLabel('Preço (R$)').fill('50')
     await organizerDrawer.getByLabel('Quantidade de ingressos').fill('40')
     await organizerDrawer.getByLabel('Início das vendas').fill(toLocalInputString(now + 60_000))
     await organizerDrawer.getByLabel('Fim das vendas').fill(toLocalInputString(now + 47 * 3_600_000))
-    await organizerDrawer.getByRole('button', { name: 'Cadastrar lote' }).click()
+    await createLotBtn.click()
     await expect(organizerDrawer.getByRole('status').filter({ hasText: 'Lote cadastrado!' })).toBeVisible()
 
     await page.keyboard.press('Escape')
     await expect(organizerDrawer).toHaveCount(0)
+
+    const unlockedScroll = await page.evaluate(() => ({
+      htmlOverflow: document.documentElement.style.overflow,
+      bodyOverflow: document.body.style.overflow,
+    }))
+    expect(unlockedScroll.htmlOverflow).toBe('')
+    expect(unlockedScroll.bodyOverflow).toBe('')
 
     const eventCard = page.locator('article.organizer-event-card')
       .filter({ has: page.getByRole('heading', { name: createdTitle, exact: true }) })

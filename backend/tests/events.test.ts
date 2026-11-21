@@ -304,7 +304,7 @@ it('permite upload válido de capa PNG/JPEG/WebP e bloqueia formato inválido ou
 });
 
 it('oculta evento publicado em POST /events/:id/unpublish, exclui sem vendas ou arquiva com histórico em DELETE /events/:id', async () => {
-  const [owner, other, buyer] = await prisma.$transaction([
+  const [owner, other, buyer, staff] = await prisma.$transaction([
     prisma.user.create({
       data: {
         name: 'Organizador Dono',
@@ -329,11 +329,20 @@ it('oculta evento publicado em POST /events/:id/unpublish, exclui sem vendas ou 
         role: 'BUYER',
       },
     }),
+    prisma.user.create({
+      data: {
+        name: 'Staff Histórico',
+        email: `staff-${randomUUID()}@eventbook.test`,
+        password: 'fixture-sem-login',
+        role: 'STAFF',
+      },
+    }),
   ]);
 
   const ownerToken = jwt.sign({ role: owner.role }, env.JWT_SECRET, { subject: owner.id });
   const otherToken = jwt.sign({ role: other.role }, env.JWT_SECRET, { subject: other.id });
   const buyerToken = jwt.sign({ role: buyer.role }, env.JWT_SECRET, { subject: buyer.id });
+  const staffToken = jwt.sign({ role: staff.role }, env.JWT_SECRET, { subject: staff.id });
 
   const now = Date.now();
   const marker = randomUUID().slice(0, 8);
@@ -372,11 +381,12 @@ it('oculta evento publicado em POST /events/:id/unpublish, exclui sem vendas ou 
         featured: true,
         organizerId: owner.id,
         lots: { create: { ...salesWindow, name: 'Pista', price: 80, totalQuantity: 100, soldQuantity: 1 } },
+        staff: { create: { userId: staff.id } },
       },
       include: { lots: true },
     });
 
-    await prisma.order.create({
+    const soldOrder = await prisma.order.create({
       data: {
         buyerId: buyer.id,
         eventId: soldEvent.id,
@@ -385,6 +395,15 @@ it('oculta evento publicado em POST /events/:id/unpublish, exclui sem vendas ou 
         expiresAt: new Date(now + 900_000),
         paidAt: new Date(now),
         items: { create: { lotId: soldEvent.lots[0].id, quantity: 1, unitPriceSnapshot: 80 } },
+      },
+    });
+
+    const soldTicket = await prisma.ticket.create({
+      data: {
+        code: `CA-ARCHIVED-${marker}`,
+        orderId: soldOrder.id,
+        eventId: soldEvent.id,
+        lotId: soldEvent.lots[0].id,
       },
     });
 
@@ -412,7 +431,7 @@ it('oculta evento publicado em POST /events/:id/unpublish, exclui sem vendas ou 
       soldTickets: 1,
       reservedTickets: 0,
       lotsCount: 1,
-      staffCount: 0,
+      staffCount: 1,
     });
 
     await request(app)
@@ -463,11 +482,48 @@ it('oculta evento publicado em POST /events/:id/unpublish, exclui sem vendas ou 
       .set('Authorization', `Bearer ${ownerToken}`)
       .expect(422);
     expect(unpublishArchived.body.code).toBe('EVENT_ARCHIVED');
+
+    // Histórico do comprador preserva pedidos/ingressos sinalizando status CANCELLED no evento
+    const buyerTickets = await request(app)
+      .get('/tickets/me')
+      .set('Authorization', `Bearer ${buyerToken}`)
+      .expect(200);
+    expect(buyerTickets.body.data).toEqual([
+      expect.objectContaining({
+        code: soldTicket.code,
+        event: expect.objectContaining({ id: soldEvent.id, status: 'CANCELLED' }),
+      }),
+    ]);
+
+    const buyerOrders = await request(app)
+      .get('/orders/me')
+      .set('Authorization', `Bearer ${buyerToken}`)
+      .expect(200);
+    expect(buyerOrders.body.data).toEqual([
+      expect.objectContaining({
+        id: soldOrder.id,
+        event: expect.objectContaining({ id: soldEvent.id, status: 'CANCELLED' }),
+      }),
+    ]);
+
+    // Check-in e listagem de portaria rejeitam o evento cancelado/arquivado
+    const staffEventsAfterArchive = await request(app)
+      .get('/staff/events')
+      .set('Authorization', `Bearer ${staffToken}`)
+      .expect(200);
+    expect(staffEventsAfterArchive.body).toEqual([]);
+
+    const cancelledCheckin = await request(app)
+      .post(`/tickets/${encodeURIComponent(soldTicket.code)}/checkin`)
+      .set('Authorization', `Bearer ${staffToken}`)
+      .send({ eventId: soldEvent.id })
+      .expect(422);
+    expect(cancelledCheckin.body.code).toBe('EVENT_CANCELLED');
   } finally {
     await prisma.$transaction([
       prisma.order.deleteMany({ where: { buyerId: buyer.id } }),
       prisma.event.deleteMany({ where: { organizerId: owner.id } }),
-      prisma.user.deleteMany({ where: { id: { in: [owner.id, other.id, buyer.id] } } }),
+      prisma.user.deleteMany({ where: { id: { in: [owner.id, other.id, buyer.id, staff.id] } } }),
     ]);
   }
 });

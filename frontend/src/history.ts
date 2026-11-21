@@ -5,6 +5,7 @@ type HistoryEvent = {
   title: string
   startsAt: string
   location: string
+  status?: 'DRAFT' | 'PUBLISHED' | 'CANCELLED'
 }
 
 export type HistoryTicket = {

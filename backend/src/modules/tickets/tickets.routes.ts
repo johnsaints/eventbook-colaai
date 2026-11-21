@@ -26,7 +26,7 @@ ticketsRoutes.get('/tickets/me', authenticate, authorize(Role.BUYER, Role.ADMIN)
           status: true,
           usedAt: true,
           createdAt: true,
-          event: { select: { id: true, title: true, startsAt: true, location: true } },
+          event: { select: { id: true, title: true, startsAt: true, location: true, status: true } },
           lot: { select: { id: true, name: true } },
         },
       }),

@@ -123,15 +123,20 @@ export default function LotForm({ eventId, token, initialLot, onSaved, onCancel,
       </label>
       <label className="checkbox-field">
         <input name="active" type="checkbox" defaultChecked={initialLot?.active ?? true} />
-        Lote ativo
+        <span className="remember-access-copy">
+          <strong>Lote ativo</strong>
+          <span>Disponível para venda na vitrine dentro do período informado.</span>
+        </span>
       </label>
       {submission.status === 'error' && <p role="alert">{submission.message}</p>}
       {submission.status === 'no-change' && <p role="status">{submission.message}</p>}
       <div className="event-actions">
-        <button type="submit" disabled={submission.status === 'submitting'}>
+        <button type="submit" className="btn btn-primary" disabled={submission.status === 'submitting'}>
           {submission.status === 'submitting' ? 'Salvando…' : initialLot ? 'Salvar alterações' : 'Cadastrar lote'}
         </button>
-        <button type="button" disabled={submission.status === 'submitting'} onClick={onCancel}>Cancelar</button>
+        <button type="button" className="btn btn-ghost" disabled={submission.status === 'submitting'} onClick={onCancel}>
+          Cancelar
+        </button>
       </div>
     </form>
   )

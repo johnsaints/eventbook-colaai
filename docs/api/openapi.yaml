@@ -1379,8 +1379,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/ApiError'
         '422':
-          description: Ingresso de outro evento, cancelado ou check-in fora do horário. Códigos `TICKET_WRONG_EVENT`,
-            `TICKET_INVALID` e `CHECKIN_WINDOW_CLOSED`.
+          description: Ingresso de outro evento, cancelado, evento cancelado ou check-in fora do horário. Códigos
+            `TICKET_WRONG_EVENT`, `TICKET_INVALID`, `EVENT_CANCELLED` e `CHECKIN_WINDOW_CLOSED`.
           content:
             application/json:
               schema:
@@ -1824,7 +1824,8 @@ components:
         startsAt:
           type: string
           format: date-time
-    ManagedEventSummary:
+        status:
+          $ref: '#/components/schemas/EventStatus'
       allOf:
         - $ref: '#/components/schemas/EventReference'
         - type: object

@@ -245,7 +245,7 @@ export default function EventForm({ token, initialEvent, defaultTeamCount = 0, o
       )}
       {submission.status === 'error' && <p role="alert">{submission.message}</p>}
       {submission.status === 'saved' && <p role="status">{submission.message}</p>}
-      <button type="submit" disabled={submission.status === 'submitting' || processingCover}>
+      <button type="submit" className="btn btn-primary" disabled={submission.status === 'submitting' || processingCover}>
         {submission.status === 'submitting' ? 'Salvando…' : initialEvent ? 'Salvar alterações' : 'Criar evento'}
       </button>
     </form>

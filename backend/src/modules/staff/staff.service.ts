@@ -45,7 +45,11 @@ export async function listAssignedEvents(userId: string, role: Role = Role.STAFF
   }
 
   const assignments = await prisma.eventStaff.findMany({
-    where: { userId, user: { role: Role.STAFF } },
+    where: {
+      userId,
+      user: { role: Role.STAFF },
+      event: { status: { not: EventStatus.CANCELLED } },
+    },
     select: { event: { select: { id: true, title: true, location: true, startsAt: true } } },
     orderBy: [{ event: { startsAt: 'asc' } }, { eventId: 'asc' }],
   });

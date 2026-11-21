@@ -2030,7 +2030,8 @@ a:hover {
   border-color: var(--ca-cyan);
 }
 
-.auth-form label.remember-access-field {
+.auth-form label.remember-access-field,
+.auth-form label.checkbox-field {
   display: flex;
   align-items: flex-start;
   gap: 0.7rem;
@@ -2043,17 +2044,20 @@ a:hover {
   transition: border-color 0.18s ease, background-color 0.18s ease;
 }
 
-.auth-form label.remember-access-field:hover {
+.auth-form label.remember-access-field:hover,
+.auth-form label.checkbox-field:hover {
   border-color: rgba(110, 168, 255, 0.34);
   background: rgba(10, 29, 58, 0.72);
 }
 
-.auth-form label.remember-access-field:has(input:checked) {
+.auth-form label.remember-access-field:has(input:checked),
+.auth-form label.checkbox-field:has(input:checked) {
   border-color: rgba(0, 212, 255, 0.45);
   background: rgba(0, 212, 255, 0.08);
 }
 
-.auth-form label.remember-access-field input[type='checkbox'] {
+.auth-form label.remember-access-field input[type='checkbox'],
+.auth-form label.checkbox-field input[type='checkbox'] {
   width: 1.125rem;
   height: 1.125rem;
   margin: 0.14rem 0 0;

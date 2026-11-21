@@ -23,6 +23,7 @@ import {
   CheckCircleIcon,
   CheckIcon,
   ClockIcon,
+  CloseIcon,
   CopyIcon,
   PinIcon,
   QrCodeIcon,
@@ -155,8 +156,11 @@ function TicketCard({
 }) {
   const startsAt = new Date(ticket.event.startsAt)
   const usedAtDate = ticket.usedAt ? new Date(ticket.usedAt) : null
-  const isValid = ticket.status === 'VALID'
+  const isEventCancelled = ticket.event.status === 'CANCELLED'
   const isUsed = ticket.status === 'USED'
+  const isTicketCancelled = ticket.status === 'CANCELLED'
+  const isValid = ticket.status === 'VALID' && !isEventCancelled
+  const showEventCancelled = isEventCancelled && !isUsed
 
   const [tearing, setTearing] = useState(() => {
     if (!isUsed) return false
@@ -177,11 +181,16 @@ function TicketCard({
 
   const ticketClass = [
     'colaai-ticket',
-    isUsed ? 'is-used' : ticket.status === 'CANCELLED' ? 'is-cancelled' : '',
+    isUsed ? 'is-used' : isTicketCancelled || showEventCancelled ? 'is-cancelled' : '',
     tearing ? 'is-tearing' : '',
   ]
     .filter(Boolean)
     .join(' ')
+
+  const statusPillClass = showEventCancelled
+    ? ticketStatusClass.CANCELLED
+    : ticketStatusClass[ticket.status]
+  const statusPillLabel = showEventCancelled ? 'Evento cancelado' : ticketStatuses[ticket.status]
 
   return (
     <div className={ticketClass}>
@@ -200,9 +209,9 @@ function TicketCard({
           <div className="colaai-ticket-main">
             <div className="colaai-ticket-head">
               <div className="colaai-ticket-status-row">
-                <span className={ticketStatusClass[ticket.status]}>
+                <span className={statusPillClass}>
                   <span className="ca-ticket-status-bar" aria-hidden="true" />
-                  <strong>{ticketStatuses[ticket.status]}</strong>
+                  <strong>{statusPillLabel}</strong>
                 </span>
               </div>
               <h3>{ticket.event.title}</h3>
@@ -252,9 +261,18 @@ function TicketCard({
                 </div>
               )}
               <div className="colaai-ticket-receipt-stamp">
-                <CheckCircleIcon width={20} height={20} className="colaai-ticket-used-icon" />
-                <strong>{isUsed ? 'Check-in realizado' : 'Ingresso cancelado'}</strong>
+                {showEventCancelled ? (
+                  <CloseIcon width={18} height={18} className="colaai-ticket-used-icon" />
+                ) : (
+                  <CheckCircleIcon width={20} height={20} className="colaai-ticket-used-icon" />
+                )}
+                <strong>
+                  {isUsed ? 'Check-in realizado' : showEventCancelled ? 'Evento cancelado' : 'Ingresso cancelado'}
+                </strong>
               </div>
+              {showEventCancelled && (
+                <span className="colaai-ticket-used-time">Cancelado pelo organizador</span>
+              )}
               {isUsed && usedAtDate && !Number.isNaN(usedAtDate.getTime()) && (
                 <time dateTime={ticket.usedAt ?? undefined} className="colaai-ticket-used-time">
                   Validado em {formatTicketDate.format(usedAtDate)} às {formatTicketTime.format(usedAtDate)}
@@ -270,17 +288,26 @@ function TicketCard({
 }
 
 function renderTicket(ticket: HistoryTicket, onExpand: (ticket: HistoryTicket) => void) {
-  return <TicketCard key={`${ticket.id}-${ticket.status}`} ticket={ticket} onExpand={onExpand} />
+  return <TicketCard key={`${ticket.id}-${ticket.status}-${ticket.event.status ?? ''}`} ticket={ticket} onExpand={onExpand} />
 }
 
 function renderOrder(order: HistoryOrder, action: ReactNode) {
+  const isEventCancelled = order.event.status === 'CANCELLED'
+
   return (
     <div className="order-card-body">
       <div className="order-card-head">
         <h3>{order.event.title}</h3>
-        <span className="status-pill status-neutral">
-          <strong>{orderStatuses[order.status]}</strong>
-        </span>
+        <div className="order-card-head-pills">
+          {isEventCancelled && (
+            <span className="status-pill status-cancelled">
+              <strong>Evento cancelado</strong>
+            </span>
+          )}
+          <span className="status-pill status-neutral">
+            <strong>{orderStatuses[order.status]}</strong>
+          </span>
+        </div>
       </div>
       <div className="card-meta-list">
         <p className="event-meta meta-row">
@@ -549,7 +576,7 @@ export default function BuyerHistoryPage() {
       </main>
 
       <Drawer
-        open={selectedTicket?.status === 'VALID'}
+        open={Boolean(selectedTicket && selectedTicket.status === 'VALID' && selectedTicket.event.status !== 'CANCELLED')}
         onClose={() => setSelectedTicket(null)}
         side="right"
         size="md"
@@ -557,7 +584,7 @@ export default function BuyerHistoryPage() {
         title={selectedTicket?.event.title ?? ''}
         subtitle={selectedTicket?.lot.name}
       >
-        {selectedTicket?.status === 'VALID' && (
+        {selectedTicket?.status === 'VALID' && selectedTicket.event.status !== 'CANCELLED' && (
           <div className="ticket-drawer-content">
             <div className="ticket-drawer-status">
               <span className={ticketStatusClass[selectedTicket.status]}>

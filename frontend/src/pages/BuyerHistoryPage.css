@@ -336,6 +336,15 @@
   min-width: 0;
 }
 
+.order-card-head-pills {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.35rem;
+  flex-shrink: 0;
+}
+
 .order-amount {
   font-size: 1.05rem;
   color: var(--ca-cyan);

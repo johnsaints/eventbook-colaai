@@ -20,6 +20,54 @@ type DrawerProps = {
   children: ReactNode
 }
 
+type ScrollLockSnapshot = {
+  htmlOverflow: string
+  htmlOverscrollBehavior: string
+  bodyOverflow: string
+  bodyPaddingRight: string
+}
+
+let activeScrollLocks = 0
+let scrollSnapshot: ScrollLockSnapshot | null = null
+
+function acquireScrollLock() {
+  if (activeScrollLocks === 0) {
+    const html = document.documentElement
+    const body = document.body
+    const scrollbarWidth = Math.max(0, window.innerWidth - html.clientWidth)
+
+    scrollSnapshot = {
+      htmlOverflow: html.style.overflow,
+      htmlOverscrollBehavior: html.style.overscrollBehavior,
+      bodyOverflow: body.style.overflow,
+      bodyPaddingRight: body.style.paddingRight,
+    }
+
+    html.style.overflow = 'hidden'
+    html.style.overscrollBehavior = 'none'
+    body.style.overflow = 'hidden'
+
+    if (scrollbarWidth > 0) {
+      const computedPaddingRight = Number.parseFloat(window.getComputedStyle(body).paddingRight) || 0
+      body.style.paddingRight = `${computedPaddingRight + scrollbarWidth}px`
+    }
+  }
+  activeScrollLocks += 1
+}
+
+function releaseScrollLock() {
+  activeScrollLocks = Math.max(0, activeScrollLocks - 1)
+  if (activeScrollLocks === 0 && scrollSnapshot) {
+    const html = document.documentElement
+    const body = document.body
+    html.style.overflow = scrollSnapshot.htmlOverflow
+    html.style.overscrollBehavior = scrollSnapshot.htmlOverscrollBehavior
+    body.style.overflow = scrollSnapshot.bodyOverflow
+    body.style.paddingRight = scrollSnapshot.bodyPaddingRight
+    scrollSnapshot = null
+  }
+}
+
 /** Gaveta deslizante reutilizável com bloqueio de scroll, retorno de foco e suporte a Esc. */
 export default function Drawer({
   open,
@@ -55,8 +103,7 @@ export default function Drawer({
 
     previousFocusRef.current =
       document.activeElement instanceof HTMLElement ? document.activeElement : null
-    const previousOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
+    acquireScrollLock()
 
     const frame = requestAnimationFrame(() => {
       panelRef.current?.focus()
@@ -74,7 +121,7 @@ export default function Drawer({
     return () => {
       cancelAnimationFrame(frame)
       document.removeEventListener('keydown', handleKeyDown)
-      document.body.style.overflow = previousOverflow
+      releaseScrollLock()
       const previous = previousFocusRef.current
       if (previous && previous.isConnected) {
         requestAnimationFrame(() => previous.focus())

@@ -123,7 +123,7 @@ export async function listMyOrders(buyerId: string, query: PaginationQuery) {
         ...orderSelect,
         paidAt: true,
         cancelledAt: true,
-        event: { select: { id: true, title: true, startsAt: true, location: true } },
+        event: { select: { id: true, title: true, startsAt: true, location: true, status: true } },
       },
     }),
     prisma.order.count({ where }),

@@ -4,6 +4,7 @@ import type { CancelOrderResult, HistoryOrder } from '../history'
 const paidCancellationLeadTime = 12 * 60 * 60_000
 
 function blockReason(order: HistoryOrder, now: number) {
+  if (order.event.status === 'CANCELLED') return 'Este evento foi cancelado pelo organizador.'
   if (order.status === 'CANCELLED') return 'Este pedido já foi cancelado.'
   if (order.status === 'EXPIRED') return 'A reserva deste pedido expirou.'
 

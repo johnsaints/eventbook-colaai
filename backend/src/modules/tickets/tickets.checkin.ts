@@ -1,4 +1,4 @@
-import { Prisma, Role, TicketStatus } from '@prisma/client';
+import { EventStatus, Prisma, Role, TicketStatus } from '@prisma/client';
 import { prisma } from '../../config/prisma.js';
 import { AppError } from '../../shared/errors/AppError.js';
 import { lockEventForWrite } from '../events/events.repository.js';
@@ -25,6 +25,10 @@ export async function checkInTicket(
       if (!assignment) {
         throw new AppError('FORBIDDEN', 'Você não integra a equipe deste evento.', 403);
       }
+    }
+
+    if (event.status === EventStatus.CANCELLED) {
+      throw new AppError('EVENT_CANCELLED', 'Este evento foi cancelado e não aceita check-in.', 422);
     }
 
     const ticket = await tx.ticket.findUnique({
