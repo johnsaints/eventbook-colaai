@@ -1,7 +1,5 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
-import ribbonSymbol from '../assets/colaai-simbolo-matriz.png'
-import logoWordmark from '../assets/ColaAi_wordmark_aprovado_transparente.webp'
 import { formatDate, getEventCategoryVisual, resolveEventCoverSrc, type EventSummary } from '../events'
 import { ArrowLeftIcon, ArrowRightIcon, CalendarIcon, PinIcon, TicketIcon, UsersIcon } from './Icons'
 
@@ -16,7 +14,7 @@ type SymplaHeroCarouselProps = {
 const SLIDE_INTERVAL_MS = 5500
 
 export default function SymplaHeroCarousel({ events }: SymplaHeroCarouselProps) {
-  const slides = events.slice(0, 5)
+  const slides = events.slice(0, 8)
   const [index, setIndex] = useState(0)
   const [paused, setPaused] = useState(false)
 
@@ -90,11 +88,6 @@ export default function SymplaHeroCarousel({ events }: SymplaHeroCarouselProps) 
                       <span className="date-day">{day}</span>
                       <span className="date-month">{month}</span>
                     </div>
-                  </div>
-
-                  <div className="sympla-visual-seal" aria-hidden="true">
-                    <img src={ribbonSymbol} alt="" className="sympla-visual-seal-ribbon" />
-                    <img src={logoWordmark} alt="" className="sympla-visual-seal-wordmark" />
                   </div>
                 </div>
 

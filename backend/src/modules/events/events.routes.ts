@@ -74,6 +74,6 @@ eventsRoutes.delete(
 eventsRoutes.patch(
   '/events/:id/featured',
   authenticate,
-  authorize(Role.ADMIN),
+  authorize(Role.ORGANIZER, Role.ADMIN),
   (req, res, next) => eventsController.setFeatured(req, res, next)
 );

@@ -29,8 +29,8 @@ test('login por Link Mágico e edição completa de perfil com foto', async ({ p
     await expect(page.getByRole('status')).toContainText('enviaremos um link de acesso válido por 15 minutos')
     await page.getByRole('link', { name: 'Abrir link mágico de acesso' }).click()
 
-    await expect(page).toHaveURL(/\/magic-link\?token=/)
-    await expect(page.getByRole('status')).toHaveText('Sessão iniciada como Mariana E2E.')
+    await expect(page).toHaveURL(/\/$/)
+    await expect(page.locator('.ca-toast')).toContainText('Sessão iniciada como Mariana E2E.')
 
     const nav = page.locator('.navbar .nav-links')
     await expect(nav.getByRole('link', { name: 'Eventos', exact: true })).toBeVisible()
@@ -38,7 +38,7 @@ test('login por Link Mágico e edição completa de perfil com foto', async ({ p
     await expect(nav.getByRole('link', { name: 'Painel', exact: true })).toHaveCount(0)
     await expect(nav.getByRole('link', { name: 'Check-in', exact: true })).toHaveCount(0)
 
-    await page.getByRole('link', { name: 'Meu Perfil' }).first().click()
+    await page.locator('.navbar a[href="/perfil"]').click()
     await expect(page).toHaveURL(/\/perfil$/)
     await expect(page.getByRole('heading', { name: 'Meu Perfil' })).toBeVisible()
 
@@ -119,21 +119,22 @@ test('navegação contextual por perfil (ORGANIZER, STAFF, ADMIN) e gestão de c
       return new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 16)
     }
 
-    async function signIn(email) {
+    async function signIn(email, expectedPath) {
       await page.goto('/login')
       await page.getByLabel('E-mail').fill(email)
       await page.getByLabel('Senha').fill(password)
       await page.getByRole('button', { name: 'Entrar', exact: true }).click()
-      await expect(page.getByRole('status')).toContainText('Sessão iniciada como')
+      await expect(page).toHaveURL(expectedPath)
+      await expect(page.locator('.ca-toast')).toContainText('Sessão iniciada como')
     }
 
-    // ORGANIZER cria evento -> vai direto para Lotes -> publica, oculta e exclui no painel simplificado
-    await signIn(emails.organizer)
+    // ORGANIZER redireciona direto para /painel -> cria evento -> vai para Lotes -> publica, destaca, oculta e exclui
+    await signIn(emails.organizer, /\/painel$/)
     await expect(nav.getByRole('link', { name: 'Eventos', exact: true })).toBeVisible()
     await expect(nav.getByRole('link', { name: 'Painel', exact: true })).toBeVisible()
     await expect(nav.getByRole('link', { name: 'Meus Ingressos', exact: true })).toHaveCount(0)
     await expect(nav.getByRole('link', { name: 'Check-in', exact: true })).toHaveCount(0)
-    await nav.getByRole('link', { name: 'Painel', exact: true }).click()
+    await expect(page.locator('.dashboard-bento-grid')).toBeVisible()
     await page.getByRole('button', { name: 'Novo evento' }).click()
     const organizerDrawer = page.getByRole('dialog')
     await expect(organizerDrawer).toBeVisible()
@@ -169,6 +170,13 @@ test('navegação contextual por perfil (ORGANIZER, STAFF, ADMIN) e gestão de c
 
     await eventCard.getByRole('button', { name: `Publicar ${createdTitle}` }).click()
     await expect(eventCard.getByText('Publicado', { exact: true })).toBeVisible()
+
+    const featureBtn = eventCard.getByRole('button', { name: `Destacar ${createdTitle}` })
+    await expect(featureBtn).toBeVisible()
+    await featureBtn.click()
+    const unfeatureBtn = eventCard.getByRole('button', { name: `Remover destaque de ${createdTitle}` })
+    await expect(unfeatureBtn).toHaveAttribute('aria-pressed', 'true')
+
     const hideBtn = eventCard.getByRole('button', { name: `Ocultar ${createdTitle}` })
     await expect(hideBtn).toBeVisible()
     await hideBtn.click()
@@ -180,8 +188,8 @@ test('navegação contextual por perfil (ORGANIZER, STAFF, ADMIN) e gestão de c
 
     await page.locator('.navbar').getByRole('button', { name: 'Sair' }).click()
 
-    // STAFF vê apenas Check-in na navegação e fica em modo somente leitura na página de evento
-    await signIn(emails.staff)
+    // STAFF redireciona direto para /check-in, não vê Eventos e fica em modo somente leitura na página de evento
+    await signIn(emails.staff, /\/check-in$/)
     await expect(nav.getByRole('link', { name: 'Eventos', exact: true })).toHaveCount(0)
     await expect(nav.getByRole('link', { name: 'Check-in', exact: true })).toBeVisible()
     await expect(nav.getByRole('link', { name: 'Meus Ingressos', exact: true })).toHaveCount(0)
@@ -192,14 +200,14 @@ test('navegação contextual por perfil (ORGANIZER, STAFF, ADMIN) e gestão de c
     await expect(page.getByRole('button', { name: 'Adicionar ingresso de Pista Staff' })).toBeDisabled()
     await page.locator('.navbar').getByRole('button', { name: 'Sair' }).click()
 
-    // ADMIN vê todas as 4 abas e altera perfil de usuário em /perfil
-    await signIn(emails.admin)
+    // ADMIN redireciona para /painel, vê todas as 4 abas e altera perfil de usuário em /perfil
+    await signIn(emails.admin, /\/painel$/)
     await expect(nav.getByRole('link', { name: 'Eventos', exact: true })).toBeVisible()
     await expect(nav.getByRole('link', { name: 'Meus Ingressos', exact: true })).toBeVisible()
     await expect(nav.getByRole('link', { name: 'Painel', exact: true })).toBeVisible()
     await expect(nav.getByRole('link', { name: 'Check-in', exact: true })).toBeVisible()
 
-    await page.getByRole('link', { name: 'Meu Perfil' }).first().click()
+    await page.locator('.navbar a[href="/perfil"]').click()
     await page.getByRole('button', { name: 'Gerenciar contas e permissões' }).click()
     const adminDrawer = page.getByRole('dialog')
     await expect(adminDrawer).toBeVisible()
@@ -299,7 +307,8 @@ test('layout responsivo (mobile, tablet, desktop e ultrawide) sem overflow horiz
     await page.getByLabel('E-mail').fill(buyerEmail)
     await page.getByLabel('Senha').fill(mobilePassword)
     await page.getByRole('button', { name: 'Entrar', exact: true }).click()
-    await expect(page.getByRole('status')).toContainText('Sessão iniciada como')
+    await expect(page).toHaveURL(/\/$/)
+    await expect(page.locator('.ca-toast')).toContainText('Sessão iniciada como')
 
     const viewports = [
       { name: 'mobile', width: 360, height: 800, expectsDrawer: true, verticalTicket: true },
@@ -329,6 +338,12 @@ test('layout responsivo (mobile, tablet, desktop e ultrawide) sem overflow horiz
       await page.goto('/')
       await expect(page.locator('.sympla-hero-viewport')).toBeVisible()
       await expect(page.locator('.sympla-cat-strip')).toBeVisible()
+      await expect(page.locator('.sympla-visual-seal')).toHaveCount(0)
+      const heroBox = await page.locator('.sympla-hero').boundingBox()
+      const topBarBox = await page.locator('.sympla-top-bar').boundingBox()
+      expect(heroBox).not.toBeNull()
+      expect(topBarBox).not.toBeNull()
+      expect(heroBox.y).toBeLessThan(topBarBox.y)
       await expect(page.locator('.sympla-top-bar .hero-ambient-video')).toBeAttached()
       const videoToggle = page.locator('.sympla-top-bar .hero-video-toggle')
       await expect(videoToggle).toHaveAttribute('aria-label', 'Pausar vídeo de fundo')

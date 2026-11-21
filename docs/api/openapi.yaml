@@ -621,7 +621,7 @@ paths:
         - Eventos
       operationId: setEventFeatured
       summary: Marcar ou remover evento dos destaques
-      description: Acesso exclusivo para ADMIN. Define curadoria editorial do evento na vitrine de destaques.
+      description: Acesso para ORGANIZER dono do evento ou ADMIN. Define curadoria editorial do evento na vitrine de destaques.
       parameters:
         - $ref: '#/components/parameters/EventId'
       requestBody:
@@ -645,6 +645,12 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/EventNotFound'
+        '422':
+          description: Evento não publicado não pode ser destacado (`EVENT_NOT_PUBLISHED`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
         '500':
           $ref: '#/components/responses/InternalError'
   /events/{id}/lots:
@@ -1618,6 +1624,18 @@ components:
               minimum: 1
             hasSales:
               type: boolean
+            soldTickets:
+              type: integer
+              minimum: 0
+            reservedTickets:
+              type: integer
+              minimum: 0
+            lotsCount:
+              type: integer
+              minimum: 0
+            staffCount:
+              type: integer
+              minimum: 0
     EventDeleteOrArchiveResponse:
       type: object
       required:

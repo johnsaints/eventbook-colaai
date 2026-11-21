@@ -14,6 +14,7 @@ import { formatPrice, priceInCents, reserveTickets, type Reservation, type Reser
 import Drawer from './Drawer'
 import { TicketIcon } from './Icons'
 import ReservationConfirmation from './ReservationConfirmation'
+import { scrollWindowToTop } from '../scroll'
 import './TicketSelection.css'
 
 function availableQuantity(lot: EventDetails['lots'][number]) {
@@ -96,6 +97,7 @@ export default function TicketSelection({ event, initialItems }: {
         const lotNames = Object.fromEntries(selected.map(({ lot }) => [lot.id, lot.name]))
         setMobileCartOpen(false)
         setReservation({ order: result.order, lotNames })
+        scrollWindowToTop(true)
       } else if (result.kind === 'login') {
         if (sessionStorage.getItem(sessionTokenKey) === token) {
           sessionStorage.removeItem(sessionTokenKey)

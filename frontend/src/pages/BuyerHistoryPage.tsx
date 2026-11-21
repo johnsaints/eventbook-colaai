@@ -33,6 +33,7 @@ import TicketQrCode from '../components/TicketQrCode'
 import { formatDate } from '../events'
 import { cancelMyOrder, listMyOrders, listMyTickets, type CancelOrderResult, type HistoryAccess, type HistoryOrder, type HistoryPage, type HistoryResult, type HistoryTicket } from '../history'
 import { formatPrice, priceInCents } from '../orders'
+import { scrollElementToTop } from '../scroll'
 import './BuyerHistoryPage.css'
 
 const formatTicketDate = new Intl.DateTimeFormat('pt-BR', {
@@ -319,6 +320,7 @@ function HistorySection<T extends { id: string }>({
   const [page, setPage] = useState(1)
   const [attempt, setAttempt] = useState(0)
   const [result, setResult] = useState<{ page: number; attempt: number; revision: number; data: HistoryPage<T> | null } | null>(null)
+  const sectionRef = useRef<HTMLElement>(null)
   const current = result?.page === page && result.attempt === attempt && result.revision === revision ? result : null
   const totalPages = result?.data?.meta.totalPages ?? 0
 
@@ -346,8 +348,13 @@ function HistorySection<T extends { id: string }>({
   const canGoBack = current !== null && page > 1
   const canGoForward = current?.data != null && page < totalPages
 
+  function goToHistoryPage(nextPage: number) {
+    setPage(nextPage)
+    scrollElementToTop(sectionRef.current)
+  }
+
   return (
-    <section className="history-section ca-section-heading" aria-labelledby={id}>
+    <section className="history-section ca-section-heading" ref={sectionRef} aria-labelledby={id}>
       <h2 id={id}>{title}</h2>
       {notice && <p role="status">{notice}</p>}
       {!current && (id === 'my-tickets-title' ? <TicketsSkeleton /> : <p role="status">Carregando…</p>)}
@@ -378,7 +385,7 @@ function HistorySection<T extends { id: string }>({
             className="history-action"
             type="button"
             aria-disabled={!canGoBack}
-            onClick={() => { if (canGoBack) setPage(page - 1) }}
+            onClick={() => { if (canGoBack) goToHistoryPage(page - 1) }}
           >
             <ArrowLeftIcon width={15} height={15} />
             Anterior
@@ -388,7 +395,7 @@ function HistorySection<T extends { id: string }>({
             className="history-action"
             type="button"
             aria-disabled={!canGoForward}
-            onClick={() => { if (canGoForward) setPage(page + 1) }}
+            onClick={() => { if (canGoForward) goToHistoryPage(page + 1) }}
           >
             Próxima
             <ArrowRightIcon width={15} height={15} />

@@ -34,6 +34,7 @@ import {
   type EditableEvent,
   type OrganizerEvent,
 } from '../events'
+import { scrollElementToTop } from '../scroll'
 import EventForm from '../components/EventForm'
 import EventLotsPanel from '../components/EventLotsPanel'
 import EventStaffPanel from '../components/EventStaffPanel'
@@ -50,9 +51,12 @@ type EditState =
   | { status: 'ready'; event: EditableEvent }
 
 type OrganizerDrawerTab = 'edit' | 'lots' | 'staff' | 'occupancy'
+type OrganizerEventFilter = 'active' | 'published' | 'draft' | 'featured' | 'archived'
 type OrganizerDrawerState =
   | { kind: 'create' }
   | { kind: 'event'; eventId: string; tab: OrganizerDrawerTab; autoCreateLot?: boolean; lotGuidance?: string }
+
+const countFormat = new Intl.NumberFormat('pt-BR')
 
 const statusLabel: Record<OrganizerEvent['status'], string> = {
   DRAFT: 'Rascunho',
@@ -64,12 +68,14 @@ export default function OrganizerPage() {
   const [token] = useState(() => sessionStorage.getItem(sessionTokenKey))
   const [panel, setPanel] = useState<PanelState>({ status: 'loading' })
   const [panelAttempt, setPanelAttempt] = useState(0)
+  const [mountNow] = useState(() => Date.now())
   const panelHeadingRef = useRef<HTMLHeadingElement>(null)
+  const eventsSectionRef = useRef<HTMLElement>(null)
 
   const [drawer, setDrawer] = useState<OrganizerDrawerState | null>(null)
   const [editing, setEditing] = useState<EditState | null>(null)
   const [editNotice, setEditNotice] = useState('')
-  const [eventFilter, setEventFilter] = useState<'active' | 'archived'>('active')
+  const [eventFilter, setEventFilter] = useState<OrganizerEventFilter>('active')
   const [confirmingRemoveId, setConfirmingRemoveId] = useState<string | null>(null)
   const [busyEventActionId, setBusyEventActionId] = useState<string | null>(null)
   const [togglingFeaturedId, setTogglingFeaturedId] = useState<string | null>(null)
@@ -196,6 +202,10 @@ export default function OrganizerPage() {
       const mergedEvent: OrganizerEvent = {
         ...event,
         hasSales: event.hasSales ?? existing?.hasSales ?? false,
+        soldTickets: event.soldTickets ?? existing?.soldTickets ?? 0,
+        reservedTickets: event.reservedTickets ?? existing?.reservedTickets ?? 0,
+        lotsCount: event.lotsCount ?? existing?.lotsCount ?? 0,
+        staffCount: event.staffCount ?? existing?.staffCount ?? 0,
       }
       const events = [...current.events.filter((item) => item.id !== event.id), mergedEvent].sort(
         (first, second) =>
@@ -372,13 +382,64 @@ export default function OrganizerPage() {
     CANCELLED: 'status-pill status-cancelled',
   }
 
-  const publishedCount = myEvents?.filter((e) => e.status === 'PUBLISHED').length ?? 0
-  const draftCount = myEvents?.filter((e) => e.status === 'DRAFT').length ?? 0
-  const archivedCount = myEvents?.filter((e) => e.status === 'CANCELLED').length ?? 0
+  const publishedEvents = myEvents?.filter((e) => e.status === 'PUBLISHED') ?? []
+  const draftEvents = myEvents?.filter((e) => e.status === 'DRAFT') ?? []
   const activeEvents = myEvents?.filter((e) => e.status !== 'CANCELLED') ?? []
   const archivedEvents = myEvents?.filter((e) => e.status === 'CANCELLED') ?? []
-  const showingArchived = archivedCount > 0 && eventFilter === 'archived'
-  const visibleEvents = showingArchived ? archivedEvents : activeEvents
+  const featuredEvents = publishedEvents.filter((e) => e.featured)
+
+  const publishedCount = publishedEvents.length
+  const draftCount = draftEvents.length
+  const archivedCount = archivedEvents.length
+  const featuredCount = featuredEvents.length
+
+  const totalSold = activeEvents.reduce((sum, item) => sum + (item.soldTickets ?? 0), 0)
+  const totalCapacity = activeEvents.reduce((sum, item) => sum + (item.capacity ?? 0), 0)
+  const occupancyPct = totalCapacity > 0 ? Math.min(100, Math.round((totalSold / totalCapacity) * 100)) : 0
+  const publishedPct = activeEvents.length > 0 ? Math.round((publishedCount / activeEvents.length) * 100) : 0
+  const upcomingPublished = publishedEvents.find((e) => new Date(e.startsAt).getTime() > mountNow) ?? publishedEvents[0] ?? null
+
+  const effectiveFilter: OrganizerEventFilter =
+    eventFilter === 'archived' && archivedCount === 0 ? 'active' : eventFilter
+
+  const visibleEvents =
+    effectiveFilter === 'published'
+      ? publishedEvents
+      : effectiveFilter === 'draft'
+        ? draftEvents
+        : effectiveFilter === 'featured'
+          ? featuredEvents
+          : effectiveFilter === 'archived'
+            ? archivedEvents
+            : activeEvents
+
+  function selectPanelFilter(nextFilter: OrganizerEventFilter, shouldScroll = false) {
+    setEventFilter(nextFilter)
+    setConfirmingRemoveId(null)
+    if (shouldScroll) {
+      scrollElementToTop(eventsSectionRef.current)
+    }
+  }
+
+  function updateEventStaffCount(eventId: string, staffCount: number) {
+    setPanel((current) => {
+      if (current.status !== 'ready') return current
+      return {
+        ...current,
+        events: current.events.map((item) =>
+          item.id === eventId ? { ...item, staffCount } : item
+        ),
+      }
+    })
+  }
+
+  const emptyFilterMessages: Record<OrganizerEventFilter, string> = {
+    active: 'Nenhum evento ativo cadastrado ainda. Clique em “Novo evento” para começar.',
+    published: 'Nenhum evento publicado no momento.',
+    draft: 'Nenhum rascunho pendente no momento.',
+    featured: 'Nenhum evento em destaque na página inicial ainda.',
+    archived: 'Nenhum evento arquivado.',
+  }
 
   return (
     <AppLayout>
@@ -409,107 +470,206 @@ export default function OrganizerPage() {
         )}
 
         {panel.status === 'ready' && (
-          <section className="dashboard-summary">
-            <div className="event-card dashboard-profile">
-              {canAccessPanel(panel.user.role) ? (
-                <>
-                  {panel.user.role === 'ADMIN' && (
-                    <p className="event-meta">
-                      Modo Administrador: todos os eventos da plataforma estão visíveis para gestão, lotes, destaque e publicação (equipe e ocupação permanecem exclusivos do organizador titular).
+          <section className="dashboard-summary" aria-label="Indicadores do painel">
+            {canAccessPanel(panel.user.role) ? (
+              <>
+                {panel.user.role === 'ADMIN' && (
+                  <div className="admin-mode-strip" role="note">
+                    <span className="role-badge">Administrador</span>
+                    <p>
+                      Todos os eventos da plataforma estão visíveis para gestão, lotes, destaque e publicação (equipe e ocupação permanecem exclusivos do organizador titular).
                     </p>
-                  )}
-                  {myEvents && (
-                    <dl className="dashboard-kpis">
-                      <div className="kpi-box">
-                        <dt>Ativos</dt>
-                        <dd>{activeEvents.length}</dd>
-                      </div>
-                      <div className="kpi-box">
-                        <dt>Publicados</dt>
-                        <dd>{publishedCount}</dd>
-                      </div>
-                      <div className="kpi-box">
-                        <dt>Rascunhos</dt>
-                        <dd>{draftCount}</dd>
-                      </div>
-                      {archivedCount > 0 && (
-                        <div className="kpi-box">
-                          <dt>Arquivados</dt>
-                          <dd>{archivedCount}</dd>
-                        </div>
-                      )}
-                    </dl>
-                  )}
-                </>
-              ) : (
-                <div>
-                  <p className="form-alert" role="alert">Seu perfil não tem acesso ao painel.</p>
-                  <div className="auth-actions">
-                    <Link to="/" className="btn btn-secondary btn-sm">Voltar aos eventos</Link>
-                    {canAccessBuyerTickets(panel.user.role) && (
-                      <Link to="/meus-ingressos" className="btn btn-primary btn-sm">Meus Ingressos</Link>
-                    )}
-                    {canAccessCheckin(panel.user.role) && (
-                      <Link to="/check-in" className="btn btn-primary btn-sm">Abrir check-in</Link>
-                    )}
                   </div>
+                )}
+
+                {myEvents && (
+                  <div className="dashboard-bento-grid">
+                    <button
+                      type="button"
+                      className="kpi-card kpi-card-interactive"
+                      onClick={() => selectPanelFilter('active', true)}
+                    >
+                      <div className="kpi-card-top">
+                        <span className="kpi-card-label">Eventos ativos</span>
+                        <span className="kpi-card-icon" aria-hidden="true">
+                          <CalendarIcon width={16} height={16} variant="gradient" />
+                        </span>
+                      </div>
+                      <div className="kpi-card-value-row">
+                        <strong className="kpi-card-value">{activeEvents.length}</strong>
+                      </div>
+                      <p className="kpi-card-sub">
+                        {publishedCount} publicados · {draftCount} rascunhos
+                      </p>
+                      <div className="kpi-progress-track" aria-hidden="true">
+                        <div className="kpi-progress-fill" style={{ width: `${publishedPct}%` }} />
+                      </div>
+                    </button>
+
+                    <div className="kpi-card kpi-card-emerald">
+                      <div className="kpi-card-top">
+                        <span className="kpi-card-label">Vendas & Ocupação</span>
+                        <span className="kpi-card-icon" aria-hidden="true">
+                          <TicketIcon width={16} height={16} />
+                        </span>
+                      </div>
+                      <div className="kpi-card-value-row">
+                        <strong className="kpi-card-value">{countFormat.format(totalSold)}</strong>
+                        <span className="kpi-card-pct">{occupancyPct}%</span>
+                      </div>
+                      <p className="kpi-card-sub">
+                        de {countFormat.format(totalCapacity)} vagas totais
+                      </p>
+                      <div className="kpi-progress-track" aria-hidden="true">
+                        <div className="kpi-progress-fill" style={{ width: `${occupancyPct}%` }} />
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      className="kpi-card kpi-card-gold kpi-card-interactive"
+                      onClick={() => selectPanelFilter('featured', true)}
+                    >
+                      <div className="kpi-card-top">
+                        <span className="kpi-card-label">Destaques na Home</span>
+                        <span className="kpi-card-icon" aria-hidden="true">
+                          <StarIcon width={16} height={16} />
+                        </span>
+                      </div>
+                      <div className="kpi-card-value-row">
+                        <strong className="kpi-card-value">{featuredCount}</strong>
+                      </div>
+                      <p className="kpi-card-sub">Exibidos no topo da vitrine</p>
+                    </button>
+
+                    <div className="kpi-card kpi-card-spotlight">
+                      <div className="kpi-card-top">
+                        <span className="kpi-card-label">Próximo evento</span>
+                        <span className="kpi-card-icon" aria-hidden="true">
+                          <ChartIcon width={16} height={16} />
+                        </span>
+                      </div>
+                      {upcomingPublished ? (
+                        <>
+                          <h2 className="kpi-spotlight-title">{upcomingPublished.title}</h2>
+                          <p className="kpi-spotlight-meta">
+                            {formatDate.format(new Date(upcomingPublished.startsAt))} · {upcomingPublished.location}
+                          </p>
+                          <button
+                            type="button"
+                            className="btn btn-secondary btn-sm"
+                            onClick={() => openEventDrawer(upcomingPublished.id, 'edit')}
+                          >
+                            <SlidersIcon width={14} height={14} />
+                            Abrir gestão
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <h2 className="kpi-spotlight-title">Nenhum evento publicado</h2>
+                          <p className="kpi-spotlight-meta">Crie ou publique um evento com lotes ativos.</p>
+                          <button
+                            type="button"
+                            className="btn btn-primary btn-sm"
+                            onClick={openCreateDrawer}
+                          >
+                            <PlusIcon width={14} height={14} />
+                            Criar evento
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="event-card">
+                <p className="form-alert" role="alert">Seu perfil não tem acesso ao painel.</p>
+                <div className="auth-actions">
+                  <Link to="/" className="btn btn-secondary btn-sm">Voltar aos eventos</Link>
+                  {canAccessBuyerTickets(panel.user.role) && (
+                    <Link to="/meus-ingressos" className="btn btn-primary btn-sm">Meus Ingressos</Link>
+                  )}
+                  {canAccessCheckin(panel.user.role) && (
+                    <Link to="/check-in" className="btn btn-primary btn-sm">Abrir check-in</Link>
+                  )}
                 </div>
-              )}
-            </div>
+              </div>
+            )}
           </section>
         )}
 
         {editNotice && <p className="form-status" role="status">{editNotice}</p>}
 
         {myEvents && (
-          <section aria-labelledby="my-events-title" className="panel-events">
+          <section aria-labelledby="my-events-title" className="panel-events" ref={eventsSectionRef}>
             <div className="panel-events-header">
               <h2 id="my-events-title">
                 {panel.status === 'ready' && panel.user.role === 'ADMIN' ? 'Eventos cadastrados' : 'Meus eventos'}
               </h2>
-              {archivedCount > 0 && (
-                <div className="panel-filter-tabs" role="tablist" aria-label="Filtrar eventos por situação">
+              <div className="panel-filter-tabs" role="tablist" aria-label="Filtrar eventos por situação">
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={effectiveFilter === 'active'}
+                  className={effectiveFilter === 'active' ? 'drawer-tab active' : 'drawer-tab'}
+                  onClick={() => selectPanelFilter('active')}
+                >
+                  Ativos ({activeEvents.length})
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={effectiveFilter === 'published'}
+                  className={effectiveFilter === 'published' ? 'drawer-tab active' : 'drawer-tab'}
+                  onClick={() => selectPanelFilter('published')}
+                >
+                  Publicados ({publishedCount})
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={effectiveFilter === 'draft'}
+                  className={effectiveFilter === 'draft' ? 'drawer-tab active' : 'drawer-tab'}
+                  onClick={() => selectPanelFilter('draft')}
+                >
+                  Rascunhos ({draftCount})
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={effectiveFilter === 'featured'}
+                  className={effectiveFilter === 'featured' ? 'drawer-tab active' : 'drawer-tab'}
+                  onClick={() => selectPanelFilter('featured')}
+                >
+                  Destaques ({featuredCount})
+                </button>
+                {archivedCount > 0 && (
                   <button
                     type="button"
                     role="tab"
-                    aria-selected={!showingArchived}
-                    className={!showingArchived ? 'drawer-tab active' : 'drawer-tab'}
-                    onClick={() => {
-                      setEventFilter('active')
-                      setConfirmingRemoveId(null)
-                    }}
-                  >
-                    Ativos ({activeEvents.length})
-                  </button>
-                  <button
-                    type="button"
-                    role="tab"
-                    aria-selected={showingArchived}
-                    className={showingArchived ? 'drawer-tab active' : 'drawer-tab'}
-                    onClick={() => {
-                      setEventFilter('archived')
-                      setConfirmingRemoveId(null)
-                    }}
+                    aria-selected={effectiveFilter === 'archived'}
+                    className={effectiveFilter === 'archived' ? 'drawer-tab active' : 'drawer-tab'}
+                    onClick={() => selectPanelFilter('archived')}
                   >
                     Arquivados ({archivedCount})
                   </button>
-                </div>
-              )}
+                )}
+              </div>
             </div>
 
             {visibleEvents.length === 0 ? (
               <div className="state-banner">
-                <p>
-                  {showingArchived
-                    ? 'Nenhum evento arquivado.'
-                    : 'Nenhum evento ativo cadastrado ainda. Clique em “Novo evento” para começar.'}
-                </p>
+                <p>{emptyFilterMessages[effectiveFilter]}</p>
               </div>
             ) : (
               <ul className="event-list">
                 {visibleEvents.map((event) => {
                   const isBusy = busyEventActionId === event.id
                   const isConfirming = confirmingRemoveId === event.id
+                  const soldCount = event.soldTickets ?? 0
+                  const totalCap = event.capacity ?? 0
+                  const staffCount = event.staffCount ?? 0
 
                   return (
                     <li key={event.id}>
@@ -541,6 +701,31 @@ export default function OrganizerPage() {
                           </p>
                         </div>
 
+                        <div className="organizer-metrics-row">
+                          <span className="organizer-metric-chip">
+                            <TicketIcon width={13} height={13} />
+                            {countFormat.format(soldCount)} / {countFormat.format(totalCap)} vendidos
+                          </span>
+                          {isOrganizer && event.status !== 'CANCELLED' && (
+                            staffCount === 0 ? (
+                              <button
+                                type="button"
+                                className="organizer-staff-warning"
+                                onClick={() => openEventDrawer(event.id, 'staff')}
+                                title="Vincule uma conta STAFF na aba Equipe para liberar este evento na tela de Check-in"
+                              >
+                                <UsersIcon width={13} height={13} />
+                                Sem equipe de check-in
+                              </button>
+                            ) : (
+                              <span className="organizer-metric-chip">
+                                <UsersIcon width={13} height={13} />
+                                Equipe: {staffCount}
+                              </span>
+                            )
+                          )}
+                        </div>
+
                         <div className="event-actions">
                           <button
                             type="button"
@@ -552,6 +737,20 @@ export default function OrganizerPage() {
                             <SlidersIcon width={14} height={14} />
                             Gestão do Evento
                           </button>
+
+                          {event.status === 'PUBLISHED' && (
+                            <button
+                              type="button"
+                              className={event.featured ? 'btn btn-featured-active btn-sm' : 'btn btn-ghost btn-sm'}
+                              aria-label={event.featured ? `Remover destaque de ${event.title}` : `Destacar ${event.title}`}
+                              aria-pressed={Boolean(event.featured)}
+                              disabled={togglingFeaturedId === event.id}
+                              onClick={() => void toggleFeatured(event)}
+                            >
+                              <StarIcon width={14} height={14} variant={event.featured ? 'gradient' : 'current'} />
+                              {event.featured ? 'Em destaque' : 'Destaque'}
+                            </button>
+                          )}
 
                           <PublishEventAction
                             event={event}
@@ -633,6 +832,7 @@ export default function OrganizerPage() {
           onClose={closeDrawer}
           side="right"
           size="lg"
+          scrollResetKey={drawer?.kind === 'event' ? `${drawer.eventId}:${drawer.tab}` : drawer?.kind}
           eyebrow={isCreateDrawer ? 'Cadastro de evento' : 'Gestão do evento'}
           title={isCreateDrawer ? 'Novo evento' : (drawerEvent?.title ?? 'Evento')}
           subtitle={drawerEvent ? `${drawerEvent.location} · ${formatDate.format(new Date(drawerEvent.startsAt))}` : undefined}
@@ -684,10 +884,10 @@ export default function OrganizerPage() {
                 )}
               </div>
 
-              {panel.status === 'ready' && panel.user.role === 'ADMIN' && drawerEvent.status === 'PUBLISHED' && (
+              {panel.status === 'ready' && canAccessPanel(panel.user.role) && drawerEvent.status === 'PUBLISHED' && (
                 <button
                   type="button"
-                  className="btn btn-ghost btn-sm"
+                  className={drawerEvent.featured ? 'btn btn-featured-active btn-sm' : 'btn btn-ghost btn-sm'}
                   aria-label={drawerEvent.featured ? `Remover destaque de ${drawerEvent.title}` : `Destacar ${drawerEvent.title}`}
                   aria-pressed={Boolean(drawerEvent.featured)}
                   disabled={togglingFeaturedId === drawerEvent.id}
@@ -747,6 +947,7 @@ export default function OrganizerPage() {
                   token={token}
                   onClose={closeDrawer}
                   onSessionExpired={logout}
+                  onStaffCountChange={(count) => updateEventStaffCount(drawerEvent.id, count)}
                   embedded
                 />
               )}

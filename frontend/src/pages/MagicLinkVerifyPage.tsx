@@ -2,9 +2,9 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
 import {
   canAccessBuyerTickets,
-  canAccessCheckin,
-  canAccessPanel,
+  defaultRouteForRole,
   notifyUserUpdated,
+  ROLE_LABELS,
   sessionTokenKey,
   verifyMagicLink,
   type LoginSession,
@@ -12,6 +12,7 @@ import {
 import AppLayout from '../components/AppLayout'
 import { MailIcon } from '../components/Icons'
 import type { ReservationDraft } from '../orders'
+import { showToast } from '../toast'
 
 const magicContextStorageKey = 'colaai:magic-login-context'
 const inFlightVerifications = new Map<string, Promise<LoginSession>>()
@@ -47,14 +48,13 @@ export default function MagicLinkVerifyPage() {
   const [searchParams] = useSearchParams()
   const rawToken = searchParams.get('token')?.trim() ?? ''
 
-  const [result, setResult] = useState<{ token: string; session?: LoginSession; error?: string } | null>(null)
-  const verifying = Boolean(rawToken) && result?.token !== rawToken
+  const [failure, setFailure] = useState<{ token: string; error: string } | null>(null)
   const error = !rawToken
     ? 'Token do link mágico ausente na URL.'
-    : result?.token === rawToken
-      ? result.error ?? ''
+    : failure?.token === rawToken
+      ? failure.error
       : ''
-  const session = result?.token === rawToken ? result.session ?? null : null
+  const verifying = Boolean(rawToken) && !error
 
   useEffect(() => {
     if (!rawToken) return
@@ -67,6 +67,11 @@ export default function MagicLinkVerifyPage() {
 
         sessionStorage.setItem(sessionTokenKey, verified.token)
         notifyUserUpdated(verified.user)
+        showToast({
+          message: `Sessão iniciada como ${verified.user.name}.`,
+          detail: ROLE_LABELS[verified.user.role],
+          tone: 'success',
+        })
 
         const context = consumeStoredMagicContext()
         const draft = context?.reservationDraft
@@ -82,11 +87,11 @@ export default function MagicLinkVerifyPage() {
           return
         }
 
-        setResult({ token: rawToken, session: verified })
+        void navigate(defaultRouteForRole(verified.user.role), { replace: true })
       })
       .catch((err) => {
         if (cancelled) return
-        setResult({
+        setFailure({
           token: rawToken,
           error: err instanceof Error ? err.message : 'Link mágico inválido ou expirado.',
         })
@@ -110,7 +115,7 @@ export default function MagicLinkVerifyPage() {
             <div className="auth-form" role="status">
               <p className="form-status">Validando seu link de acesso…</p>
             </div>
-          ) : error ? (
+          ) : (
             <div className="auth-form">
               <p className="form-alert" role="alert">{error}</p>
               <div className="auth-actions">
@@ -118,23 +123,6 @@ export default function MagicLinkVerifyPage() {
                   <MailIcon width={15} height={15} />
                   Solicitar novo link
                 </Link>
-              </div>
-            </div>
-          ) : session && (
-            <div className="auth-form">
-              <p className="form-status" role="status">Sessão iniciada como {session.user.name}.</p>
-              <p className="event-meta">E-mail autenticado: {session.user.email}</p>
-              <div className="auth-actions">
-                <Link to="/perfil" className="btn btn-primary">Meu Perfil</Link>
-                {canAccessBuyerTickets(session.user.role) && (
-                  <Link to="/meus-ingressos" className="btn btn-secondary">Meus Ingressos</Link>
-                )}
-                {canAccessPanel(session.user.role) && (
-                  <Link to="/painel" className="btn btn-secondary">Abrir painel</Link>
-                )}
-                {canAccessCheckin(session.user.role) && (
-                  <Link to="/check-in" className="btn btn-secondary">Abrir check-in</Link>
-                )}
               </div>
             </div>
           )}

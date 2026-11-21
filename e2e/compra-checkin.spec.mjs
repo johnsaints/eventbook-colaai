@@ -135,7 +135,8 @@ test('cadastro, compra e check-in do mesmo ingresso', async ({ browser, page, re
       const staffPage = await context.newPage()
       await staffPage.goto('/login')
       await signIn(staffPage, staffEmail, password)
-      await staffPage.getByRole('link', { name: 'Abrir check-in' }).click()
+      await expect(staffPage.locator('.ca-toast')).toContainText('Sessão iniciada como')
+      await expect(staffPage).toHaveURL(/\/check-in/)
       await expect(staffPage.getByRole('combobox', { name: 'Evento', exact: true })).toHaveValue(event.id)
 
       const input = staffPage.getByRole('textbox', { name: 'Código do ingresso' })

@@ -199,6 +199,7 @@ export class EventsService {
     return activePool
       .sort((a, b) => (
         Number(b.featured) - Number(a.featured) ||
+        (a.featured && b.featured ? b.updatedAt.getTime() - a.updatedAt.getTime() : 0) ||
         b.demandTickets - a.demandTickets ||
         b.capacity - a.capacity ||
         a.startsAt.getTime() - b.startsAt.getTime() ||
@@ -226,20 +227,41 @@ export class EventsService {
         status: true,
         featured: true,
         capacity: true,
+        lots: {
+          select: {
+            totalQuantity: true,
+            soldQuantity: true,
+            reservedQty: true,
+          },
+        },
         _count: {
           select: {
             orders: true,
             tickets: true,
+            staff: true,
           },
         },
       },
       orderBy: [{ startsAt: 'asc' }, { id: 'asc' }],
     });
 
-    return events.map(({ _count, ...event }) => ({
-      ...event,
-      hasSales: _count.orders > 0 || _count.tickets > 0,
-    }));
+    return events.map(({ _count, lots, ...event }) => {
+      let soldTickets = 0;
+      let reservedTickets = 0;
+      for (const lot of lots) {
+        soldTickets += lot.soldQuantity;
+        reservedTickets += lot.reservedQty;
+      }
+
+      return {
+        ...event,
+        hasSales: _count.orders > 0 || _count.tickets > 0,
+        staffCount: _count.staff,
+        lotsCount: lots.length,
+        soldTickets,
+        reservedTickets,
+      };
+    });
   }
   
   async getById(eventId: string, requester?: { id: string; role: Role }) {
@@ -439,17 +461,25 @@ export class EventsService {
     requester: { id: string; role: Role },
     featured: boolean
   ) {
-    if (requester.role !== Role.ADMIN) {
-      throw new AppError('FORBIDDEN', 'Apenas administradores podem destacar eventos.', 403);
-    }
-
     const existing = await prisma.event.findUnique({
       where: { id: eventId },
-      select: { id: true },
+      select: { id: true, organizerId: true, status: true },
     });
 
     if (!existing) {
       throw new AppError('EVENT_NOT_FOUND', 'Evento não encontrado', 404);
+    }
+
+    if (requester.role !== Role.ADMIN && existing.organizerId !== requester.id) {
+      throw new AppError('FORBIDDEN', 'Sem permissão para destacar este evento.', 403);
+    }
+
+    if (featured && existing.status !== EventStatus.PUBLISHED) {
+      throw new AppError(
+        'EVENT_NOT_PUBLISHED',
+        'Apenas eventos publicados podem ser destacados na página inicial.',
+        422
+      );
     }
 
     return prisma.event.update({

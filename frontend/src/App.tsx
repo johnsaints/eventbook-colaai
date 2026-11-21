@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ComponentType, type FormEvent } from 'react'
-import { BrowserRouter, Link, Route, Routes } from 'react-router'
+import { BrowserRouter, Link, Route, Routes, useLocation } from 'react-router'
 import {
   apiUrl,
   getStoredSessionUser,
@@ -28,6 +28,7 @@ import {
 } from './components/Icons'
 import { CatalogSkeleton } from './components/Skeletons'
 import SymplaHeroCarousel from './components/SymplaHeroCarousel'
+import ToastViewport from './components/ToastViewport'
 import {
   formatDate,
   getEventCategoryVisual,
@@ -44,6 +45,7 @@ import MagicLinkVerifyPage from './pages/MagicLinkVerifyPage'
 import OrganizerPage from './pages/OrganizerPage'
 import ProfilePage from './pages/ProfilePage'
 import RegisterPage from './pages/RegisterPage'
+import { scrollElementToTop, scrollWindowToTop } from './scroll'
 
 type CatalogMeta = {
   page: number
@@ -88,6 +90,7 @@ function CatalogPage() {
   const [activeCategory, setActiveCategory] = useState('all')
   const [sessionUser, setSessionUser] = useState<AuthUser | null>(() => getStoredSessionUser())
   const headingRef = useRef<HTMLHeadingElement>(null)
+  const catalogSectionRef = useRef<HTMLElement>(null)
 
   useEffect(() => {
     function handleUserUpdated(event: Event) {
@@ -100,7 +103,7 @@ function CatalogPage() {
 
   useEffect(() => {
     const controller = new AbortController()
-    void getEventHighlights(controller.signal, 5).then((items) => {
+    void getEventHighlights(controller.signal, 8).then((items) => {
       if (!controller.signal.aborted) setHighlights(items)
     })
     return () => controller.abort()
@@ -169,11 +172,20 @@ function CatalogPage() {
     setActiveQuery('')
   }
 
+  function goToPage(nextPage: number) {
+    setPage(nextPage)
+    scrollElementToTop(catalogSectionRef.current)
+  }
+
   const isFiltered = Boolean(activeQuery.trim())
 
   return (
     <AppLayout>
       <main className="catalog home-sympla">
+        {!isFiltered && highlights.length > 0 && (
+          <SymplaHeroCarousel events={highlights} />
+        )}
+
         <section className="sympla-top-bar" aria-label="Busca e boas-vindas ColaAí">
           <HeroAmbientBackdrop />
           <div className="sympla-top-bar-content">
@@ -208,10 +220,6 @@ function CatalogPage() {
           </div>
         </section>
 
-        {!isFiltered && highlights.length > 0 && (
-          <SymplaHeroCarousel events={highlights} />
-        )}
-
         <section className="sympla-categories" aria-label="Explorar por categoria">
           <div className="sympla-cat-strip" role="group" aria-label="Filtrar por categoria">
             {CATEGORIES.map((cat) => {
@@ -235,7 +243,7 @@ function CatalogPage() {
           </div>
         </section>
 
-        <section className="events-section" aria-labelledby="events-title">
+        <section className="events-section" ref={catalogSectionRef} aria-labelledby="events-title">
           <div className="section-header">
             <div className="ca-section-heading">
               <h2 id="events-title" tabIndex={-1} ref={headingRef}>
@@ -365,7 +373,7 @@ function CatalogPage() {
                       type="button"
                       className="btn btn-ghost btn-sm"
                       disabled={page <= 1}
-                      onClick={() => setPage(p => Math.max(1, p - 1))}
+                      onClick={() => goToPage(Math.max(1, page - 1))}
                     >
                       <ArrowLeftIcon width={15} height={15} />
                       Anterior
@@ -377,7 +385,7 @@ function CatalogPage() {
                       type="button"
                       className="btn btn-ghost btn-sm"
                       disabled={page >= catalog.meta.totalPages}
-                      onClick={() => setPage(p => Math.min(catalog.meta.totalPages, p + 1))}
+                      onClick={() => goToPage(Math.min(catalog.meta.totalPages, page + 1))}
                     >
                       Próxima
                       <ArrowRightIcon width={15} height={15} />
@@ -410,6 +418,16 @@ function CatalogPage() {
   )
 }
 
+function ScrollToTop() {
+  const { pathname } = useLocation()
+
+  useEffect(() => {
+    scrollWindowToTop(false)
+  }, [pathname])
+
+  return null
+}
+
 function NotFoundPage() {
   return (
     <AppLayout>
@@ -427,6 +445,8 @@ function NotFoundPage() {
 export default function App() {
   return (
     <BrowserRouter>
+      <ScrollToTop />
+      <ToastViewport />
       <Routes>
         <Route path="/" element={<CatalogPage />} />
         <Route path="/login" element={<LoginPage />} />

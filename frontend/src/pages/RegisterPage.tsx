@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router'
-import { login, notifyUserUpdated, registerUser, sessionTokenKey } from '../api'
+import { login, notifyUserUpdated, registerUser, ROLE_LABELS, sessionTokenKey } from '../api'
 import AppLayout from '../components/AppLayout'
 import type { ReservationDraft } from '../orders'
+import { showToast } from '../toast'
 
 export default function RegisterPage() {
   const navigate = useNavigate()
@@ -40,6 +41,11 @@ export default function RegisterPage() {
       if (session) {
         sessionStorage.setItem(sessionTokenKey, session.token)
         notifyUserUpdated(session.user)
+        showToast({
+          message: `Sessão iniciada como ${session.user.name}.`,
+          detail: ROLE_LABELS[session.user.role],
+          tone: 'success',
+        })
         if (typeof reservationDraft?.eventId === 'string' && Array.isArray(reservationDraft.items)) {
           void navigate('/events/' + encodeURIComponent(reservationDraft.eventId), {
             replace: true,

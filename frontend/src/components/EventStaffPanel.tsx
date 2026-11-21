@@ -7,6 +7,7 @@ type Props = {
   token: string
   onClose: () => void
   onSessionExpired: () => void
+  onStaffCountChange?: (count: number) => void
   embedded?: boolean
 }
 
@@ -17,7 +18,15 @@ type TeamState =
 
 type Mutation = { kind: 'add' } | { kind: 'remove'; userId: string }
 
-export default function EventStaffPanel({ eventId, eventTitle, token, onClose, onSessionExpired, embedded = false }: Props) {
+export default function EventStaffPanel({
+  eventId,
+  eventTitle,
+  token,
+  onClose,
+  onSessionExpired,
+  onStaffCountChange,
+  embedded = false,
+}: Props) {
   const [team, setTeam] = useState<TeamState>({ status: 'loading' })
   const [revision, setRevision] = useState(0)
   const [email, setEmail] = useState('')
@@ -29,6 +38,17 @@ export default function EventStaffPanel({ eventId, eventTitle, token, onClose, o
   const emailRef = useRef<HTMLInputElement>(null)
   const confirmRef = useRef<HTMLButtonElement>(null)
   const requestRef = useRef<AbortController | null>(null)
+  const staffCountChangeRef = useRef(onStaffCountChange)
+
+  useEffect(() => {
+    staffCountChangeRef.current = onStaffCountChange
+  }, [onStaffCountChange])
+
+  useEffect(() => {
+    if (team.status === 'ready') {
+      staffCountChangeRef.current?.(team.members.length)
+    }
+  }, [team])
 
   useEffect(() => {
     headingRef.current?.focus()
@@ -161,7 +181,9 @@ export default function EventStaffPanel({ eventId, eventTitle, token, onClose, o
                 aria-describedby="staff-email-help"
               />
             </label>
-            <p id="staff-email-help" className="event-meta">Use o e-mail de uma conta com perfil STAFF.</p>
+            <p id="staff-email-help" className="event-meta">
+              Somente contas STAFF adicionadas aqui verão este evento na tela de Check-in (ex.: checkin@colaai.com).
+            </p>
             <button type="submit" className="btn btn-primary btn-sm" disabled={mutation !== null || confirming !== null}>
               {mutation?.kind === 'add' ? 'Adicionando…' : 'Adicionar à equipe'}
             </button>

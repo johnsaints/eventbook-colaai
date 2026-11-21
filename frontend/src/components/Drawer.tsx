@@ -14,6 +14,7 @@ type DrawerProps = {
   subtitle?: string
   side?: DrawerSide
   size?: DrawerSize
+  scrollResetKey?: string | number
   headerExtra?: ReactNode
   footer?: ReactNode
   children: ReactNode
@@ -28,12 +29,14 @@ export default function Drawer({
   subtitle,
   side = 'right',
   size = 'md',
+  scrollResetKey,
   headerExtra,
   footer,
   children,
 }: DrawerProps) {
   const titleId = useId()
   const panelRef = useRef<HTMLDivElement>(null)
+  const bodyRef = useRef<HTMLDivElement>(null)
   const previousFocusRef = useRef<HTMLElement | null>(null)
   const backdropPressRef = useRef(false)
   const onCloseRef = useRef(onClose)
@@ -41,6 +44,11 @@ export default function Drawer({
   useEffect(() => {
     onCloseRef.current = onClose
   }, [onClose])
+
+  useEffect(() => {
+    if (!open || !bodyRef.current) return
+    bodyRef.current.scrollTop = 0
+  }, [open, scrollResetKey])
 
   useEffect(() => {
     if (!open) return
@@ -121,7 +129,7 @@ export default function Drawer({
           {headerExtra && <div className="ca-drawer-header-extra">{headerExtra}</div>}
         </header>
 
-        <div className="ca-drawer-body">{children}</div>
+        <div className="ca-drawer-body" ref={bodyRef}>{children}</div>
 
         {footer && <footer className="ca-drawer-footer">{footer}</footer>}
       </div>

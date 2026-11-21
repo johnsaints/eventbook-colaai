@@ -56,8 +56,8 @@ it('RN-01 bloqueia a edição de um evento que já começou', async () => {
   }
 });
 
-it('prioriza eventos em destaque e demanda real em GET /events/highlights, ordena em GET /events e restringe PATCH /events/:id/featured ao ADMIN', async () => {
-  const [admin, organizer, buyer] = await prisma.$transaction([
+it('prioriza eventos em destaque e demanda real em GET /events/highlights, ordena em GET /events e permite destaque para ORGANIZER dono ou ADMIN', async () => {
+  const [admin, organizer, otherOrganizer, buyer] = await prisma.$transaction([
     prisma.user.create({
       data: {
         name: 'Admin Destaques',
@@ -76,6 +76,14 @@ it('prioriza eventos em destaque e demanda real em GET /events/highlights, orden
     }),
     prisma.user.create({
       data: {
+        name: 'Outro Organizador Destaques',
+        email: `other-org-${randomUUID()}@eventbook.test`,
+        password: 'fixture-sem-login',
+        role: 'ORGANIZER',
+      },
+    }),
+    prisma.user.create({
+      data: {
         name: 'Comprador Destaques',
         email: `buyer-${randomUUID()}@eventbook.test`,
         password: 'fixture-sem-login',
@@ -86,6 +94,7 @@ it('prioriza eventos em destaque e demanda real em GET /events/highlights, orden
 
   const adminToken = jwt.sign({ role: admin.role }, env.JWT_SECRET, { subject: admin.id });
   const orgToken = jwt.sign({ role: organizer.role }, env.JWT_SECRET, { subject: organizer.id });
+  const otherOrgToken = jwt.sign({ role: otherOrganizer.role }, env.JWT_SECRET, { subject: otherOrganizer.id });
   const buyerToken = jwt.sign({ role: buyer.role }, env.JWT_SECRET, { subject: buyer.id });
 
   const now = Date.now();
@@ -96,7 +105,7 @@ it('prioriza eventos em destaque e demanda real em GET /events/highlights, orden
   };
 
   try {
-    const [smallSoonest, bigPopular, curatedLater] = await prisma.$transaction([
+    const [smallSoonest, bigPopular, curatedLater, draftEvent] = await prisma.$transaction([
       prisma.event.create({
         data: {
           title: `Evento Pequeno Próximo ${marker}`,
@@ -139,6 +148,19 @@ it('prioriza eventos em destaque e demanda real em GET /events/highlights, orden
           lots: { create: { ...window, name: 'Pista', price: 90, totalQuantity: 800, soldQuantity: 150 } },
         },
       }),
+      prisma.event.create({
+        data: {
+          title: `Evento Rascunho Destaque ${marker}`,
+          description: 'Evento em rascunho não pode ser destacado na vitrine pública.',
+          location: 'Fortaleza, CE',
+          startsAt: new Date(now + 12 * 86_400_000),
+          endsAt: new Date(now + 12 * 86_400_000 + 10_800_000),
+          capacity: 100,
+          status: 'DRAFT',
+          featured: false,
+          organizerId: organizer.id,
+        },
+      }),
     ]);
 
     const highlightsRes = await request(app).get('/events/highlights?limit=10');
@@ -167,11 +189,11 @@ it('prioriza eventos em destaque e demanda real em GET /events/highlights, orden
       smallSoonest.id,
     ]);
 
-    const orgToggle = await request(app)
+    const otherOrgToggle = await request(app)
       .patch(`/events/${smallSoonest.id}/featured`)
-      .set('Authorization', `Bearer ${orgToken}`)
+      .set('Authorization', `Bearer ${otherOrgToken}`)
       .send({ featured: true });
-    expect(orgToggle.status).toBe(403);
+    expect(otherOrgToggle.status).toBe(403);
 
     const buyerToggle = await request(app)
       .patch(`/events/${smallSoonest.id}/featured`)
@@ -179,16 +201,35 @@ it('prioriza eventos em destaque e demanda real em GET /events/highlights, orden
       .send({ featured: true });
     expect(buyerToggle.status).toBe(403);
 
+    const draftToggle = await request(app)
+      .patch(`/events/${draftEvent.id}/featured`)
+      .set('Authorization', `Bearer ${orgToken}`)
+      .send({ featured: true });
+    expect(draftToggle.status).toBe(422);
+    expect(draftToggle.body.code).toBe('EVENT_NOT_PUBLISHED');
+
+    const ownerToggle = await request(app)
+      .patch(`/events/${smallSoonest.id}/featured`)
+      .set('Authorization', `Bearer ${orgToken}`)
+      .send({ featured: true });
+    expect(ownerToggle.status).toBe(200);
+    expect(ownerToggle.body.featured).toBe(true);
+
+    const updatedHighlights = await request(app).get('/events/highlights?limit=10');
+    expect(updatedHighlights.status).toBe(200);
+    const updatedIds = (updatedHighlights.body.data as Array<{ id: string }>).map(e => e.id);
+    expect(updatedIds[0]).toBe(smallSoonest.id);
+
     const adminToggle = await request(app)
       .patch(`/events/${smallSoonest.id}/featured`)
       .set('Authorization', `Bearer ${adminToken}`)
-      .send({ featured: true });
+      .send({ featured: false });
     expect(adminToggle.status).toBe(200);
-    expect(adminToggle.body.featured).toBe(true);
+    expect(adminToggle.body.featured).toBe(false);
   } finally {
     await prisma.$transaction([
       prisma.event.deleteMany({ where: { organizerId: organizer.id } }),
-      prisma.user.deleteMany({ where: { id: { in: [admin.id, organizer.id, buyer.id] } } }),
+      prisma.user.deleteMany({ where: { id: { in: [admin.id, organizer.id, otherOrganizer.id, buyer.id] } } }),
     ]);
   }
 });
@@ -351,9 +392,28 @@ it('oculta evento publicado em POST /events/:id/unpublish, exclui sem vendas ou 
       .get('/events/mine')
       .set('Authorization', `Bearer ${ownerToken}`)
       .expect(200);
-    const mineListBefore = mineBefore.body.data as Array<{ id: string; hasSales: boolean }>;
-    expect(mineListBefore.find(e => e.id === emptyEvent.id)?.hasSales).toBe(false);
-    expect(mineListBefore.find(e => e.id === soldEvent.id)?.hasSales).toBe(true);
+    const mineListBefore = mineBefore.body.data as Array<{
+      id: string;
+      hasSales: boolean;
+      soldTickets: number;
+      reservedTickets: number;
+      lotsCount: number;
+      staffCount: number;
+    }>;
+    expect(mineListBefore.find(e => e.id === emptyEvent.id)).toMatchObject({
+      hasSales: false,
+      soldTickets: 0,
+      reservedTickets: 0,
+      lotsCount: 1,
+      staffCount: 0,
+    });
+    expect(mineListBefore.find(e => e.id === soldEvent.id)).toMatchObject({
+      hasSales: true,
+      soldTickets: 1,
+      reservedTickets: 0,
+      lotsCount: 1,
+      staffCount: 0,
+    });
 
     await request(app)
       .post(`/events/${emptyEvent.id}/unpublish`)

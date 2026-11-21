@@ -2,18 +2,17 @@ import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router'
 import {
   canAccessBuyerTickets,
-  canAccessCheckin,
-  canAccessPanel,
+  defaultRouteForRole,
   login,
   notifyUserUpdated,
   requestMagicLink,
   ROLE_LABELS,
   sessionTokenKey,
-  type AuthUser,
 } from '../api'
 import AppLayout from '../components/AppLayout'
 import { LockIcon, MailIcon } from '../components/Icons'
 import type { ReservationDraft } from '../orders'
+import { showToast } from '../toast'
 
 type AuthMode = 'password' | 'magic'
 
@@ -35,7 +34,6 @@ export default function LoginPage() {
   const reservationDraft = loginContext?.reservationDraft
 
   const [mode, setMode] = useState<AuthMode>('password')
-  const [user, setUser] = useState<AuthUser | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [magicStatus, setMagicStatus] = useState('')
@@ -74,6 +72,11 @@ export default function LoginPage() {
 
       sessionStorage.setItem(sessionTokenKey, session.token)
       notifyUserUpdated(session.user)
+      showToast({
+        message: `Sessão iniciada como ${session.user.name}.`,
+        detail: ROLE_LABELS[session.user.role],
+        tone: 'success',
+      })
 
       if (typeof reservationDraft?.eventId === 'string' && Array.isArray(reservationDraft.items)) {
         void navigate('/events/' + encodeURIComponent(reservationDraft.eventId), {
@@ -86,7 +89,7 @@ export default function LoginPage() {
         void navigate('/meus-ingressos', { replace: true })
         return
       }
-      setUser(session.user)
+      void navigate(defaultRouteForRole(session.user.role), { replace: true })
     } catch (err) {
       if (controller.signal.aborted) return
 
@@ -152,90 +155,75 @@ export default function LoginPage() {
             <p className="event-meta">Entre com sua conta de comprador, organizador ou staff.</p>
           </header>
 
-          {user ? (
-            <div className="auth-form">
-              <p className="form-status" role="status">Sessão iniciada como {user.name}.</p>
-              <p className="event-meta">Perfil: <span className="role-badge">{ROLE_LABELS[user.role]}</span></p>
-              <div className="auth-actions">
-                {canAccessPanel(user.role) && <Link to="/painel" className="btn btn-primary">Abrir painel</Link>}
-                {canAccessBuyerTickets(user.role) && <Link to="/meus-ingressos" className="btn btn-primary">Meus Ingressos</Link>}
-                {canAccessCheckin(user.role) && <Link to="/check-in" className="btn btn-primary">Abrir check-in</Link>}
-                <Link to="/perfil" className="btn btn-secondary">Meu Perfil</Link>
-              </div>
-            </div>
+          <div className="auth-mode-tabs" role="tablist" aria-label="Método de autenticação">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={mode === 'password'}
+              className={mode === 'password' ? 'auth-mode-tab active' : 'auth-mode-tab'}
+              onClick={() => switchMode('password')}
+            >
+              <LockIcon width={15} height={15} variant={mode === 'password' ? 'gradient' : 'current'} />
+              <span>Com senha</span>
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={mode === 'magic'}
+              className={mode === 'magic' ? 'auth-mode-tab active' : 'auth-mode-tab'}
+              onClick={() => switchMode('magic')}
+            >
+              <MailIcon width={15} height={15} variant={mode === 'magic' ? 'gradient' : 'current'} />
+              <span>Link mágico</span>
+            </button>
+          </div>
+
+          {mode === 'password' ? (
+            <form className="auth-form" onSubmit={handlePasswordSubmit}>
+              <label>
+                E-mail
+                <input name="email" type="email" autoComplete="username" placeholder="voce@exemplo.com" required />
+              </label>
+              <label>
+                Senha
+                <input name="password" type="password" autoComplete="current-password" placeholder="Sua senha" required />
+              </label>
+              {error && <p className="form-alert" role="alert">{error}</p>}
+              <button type="submit" className="btn btn-primary" disabled={submitting}>
+                {submitting ? 'Entrando…' : 'Entrar'}
+              </button>
+            </form>
           ) : (
-            <>
-              <div className="auth-mode-tabs" role="tablist" aria-label="Método de autenticação">
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={mode === 'password'}
-                  className={mode === 'password' ? 'auth-mode-tab active' : 'auth-mode-tab'}
-                  onClick={() => switchMode('password')}
-                >
-                  <LockIcon width={15} height={15} variant={mode === 'password' ? 'gradient' : 'current'} />
-                  <span>Com senha</span>
-                </button>
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={mode === 'magic'}
-                  className={mode === 'magic' ? 'auth-mode-tab active' : 'auth-mode-tab'}
-                  onClick={() => switchMode('magic')}
-                >
-                  <MailIcon width={15} height={15} variant={mode === 'magic' ? 'gradient' : 'current'} />
-                  <span>Link mágico</span>
-                </button>
-              </div>
-
-              {mode === 'password' ? (
-                <form className="auth-form" onSubmit={handlePasswordSubmit}>
-                  <label>
-                    E-mail
-                    <input name="email" type="email" autoComplete="username" placeholder="voce@exemplo.com" required />
-                  </label>
-                  <label>
-                    Senha
-                    <input name="password" type="password" autoComplete="current-password" placeholder="Sua senha" required />
-                  </label>
-                  {error && <p className="form-alert" role="alert">{error}</p>}
-                  <button type="submit" className="btn btn-primary" disabled={submitting}>
-                    {submitting ? 'Entrando…' : 'Entrar'}
-                  </button>
-                </form>
-              ) : (
-                <form className="auth-form" onSubmit={handleMagicSubmit}>
-                  <label>
-                    E-mail cadastrado
-                    <input name="magicEmail" type="email" autoComplete="email" placeholder="voce@exemplo.com" required />
-                  </label>
-                  <p className="event-meta">
-                    Enviaremos um link de uso único válido por 15 minutos para entrar sem digitar senha.
-                  </p>
-                  {error && <p className="form-alert" role="alert">{error}</p>}
-                  {magicStatus && <p className="form-status" role="status">{magicStatus}</p>}
-                  {magicPreviewPath && (
-                    <div className="magic-preview-box">
-                      <span className="eyebrow">Prévia em desenvolvimento/teste</span>
-                      <p className="event-meta">Nenhum SMTP configurado neste ambiente local.</p>
-                      <Link to={magicPreviewPath} className="btn btn-secondary btn-sm">
-                        <MailIcon width={14} height={14} />
-                        Abrir link mágico de acesso
-                      </Link>
-                    </div>
-                  )}
-                  <button type="submit" className="btn btn-primary" disabled={submitting}>
-                    {submitting ? 'Enviando link…' : 'Enviar link mágico'}
-                  </button>
-                </form>
-              )}
-
-              <p className="auth-switch">
-                Ainda não tem conta?{' '}
-                <Link to="/register" state={state}>Criar conta</Link>
+            <form className="auth-form" onSubmit={handleMagicSubmit}>
+              <label>
+                E-mail cadastrado
+                <input name="magicEmail" type="email" autoComplete="email" placeholder="voce@exemplo.com" required />
+              </label>
+              <p className="event-meta">
+                Enviaremos um link de uso único válido por 15 minutos para entrar sem digitar senha.
               </p>
-            </>
+              {error && <p className="form-alert" role="alert">{error}</p>}
+              {magicStatus && <p className="form-status" role="status">{magicStatus}</p>}
+              {magicPreviewPath && (
+                <div className="magic-preview-box">
+                  <span className="eyebrow">Prévia em desenvolvimento/teste</span>
+                  <p className="event-meta">Nenhum SMTP configurado neste ambiente local.</p>
+                  <Link to={magicPreviewPath} className="btn btn-secondary btn-sm">
+                    <MailIcon width={14} height={14} />
+                    Abrir link mágico de acesso
+                  </Link>
+                </div>
+              )}
+              <button type="submit" className="btn btn-primary" disabled={submitting}>
+                {submitting ? 'Enviando link…' : 'Enviar link mágico'}
+              </button>
+            </form>
           )}
+
+          <p className="auth-switch">
+            Ainda não tem conta?{' '}
+            <Link to="/register" state={state}>Criar conta</Link>
+          </p>
         </div>
       </main>
     </AppLayout>

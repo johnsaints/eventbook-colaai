@@ -99,9 +99,13 @@ export type OrganizerEvent = Pick<EventSummary, 'id' | 'title' | 'location' | 's
   featured?: boolean
   capacity?: number
   hasSales?: boolean
+  soldTickets?: number
+  reservedTickets?: number
+  lotsCount?: number
+  staffCount?: number
 }
 
-export async function getEventHighlights(signal: AbortSignal, limit = 5): Promise<EventSummary[]> {
+export async function getEventHighlights(signal: AbortSignal, limit = 8): Promise<EventSummary[]> {
   try {
     const response = await fetch(`${apiUrl}/events/highlights?limit=${encodeURIComponent(String(limit))}`, {
       signal,

@@ -224,6 +224,12 @@ export function isAdminRole(role?: UserRole | null) {
   return role === 'ADMIN'
 }
 
+export function defaultRouteForRole(role: UserRole): string {
+  if (role === 'STAFF') return '/check-in'
+  if (role === 'ORGANIZER' || role === 'ADMIN') return '/painel'
+  return '/'
+}
+
 export async function getCurrentUser(token: string, signal: AbortSignal) {
   const response = await fetch(`${apiUrl}/me`, {
     headers: { Authorization: `Bearer ${token}` },
