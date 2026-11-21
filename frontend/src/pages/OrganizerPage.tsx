@@ -35,10 +35,12 @@ import {
   type OrganizerEvent,
 } from '../events'
 import { scrollElementToTop } from '../scroll'
+import { listOrganizerDefaultStaff } from '../staff'
 import EventForm from '../components/EventForm'
 import EventLotsPanel from '../components/EventLotsPanel'
-import EventStaffPanel from '../components/EventStaffPanel'
 import EventOccupancyPanel from '../components/EventOccupancyPanel'
+import EventStaffPanel from '../components/EventStaffPanel'
+import OrganizerTeamPanel from '../components/OrganizerTeamPanel'
 import PublishEventAction from '../components/PublishEventAction'
 
 type PanelState =
@@ -54,6 +56,7 @@ type OrganizerDrawerTab = 'edit' | 'lots' | 'staff' | 'occupancy'
 type OrganizerEventFilter = 'active' | 'published' | 'draft' | 'featured' | 'archived'
 type OrganizerDrawerState =
   | { kind: 'create' }
+  | { kind: 'team' }
   | { kind: 'event'; eventId: string; tab: OrganizerDrawerTab; autoCreateLot?: boolean; lotGuidance?: string }
 
 const countFormat = new Intl.NumberFormat('pt-BR')
@@ -73,6 +76,7 @@ export default function OrganizerPage() {
   const eventsSectionRef = useRef<HTMLElement>(null)
 
   const [drawer, setDrawer] = useState<OrganizerDrawerState | null>(null)
+  const [defaultStaffCount, setDefaultStaffCount] = useState(0)
   const [editing, setEditing] = useState<EditState | null>(null)
   const [editNotice, setEditNotice] = useState('')
   const [eventFilter, setEventFilter] = useState<OrganizerEventFilter>('active')
@@ -96,9 +100,14 @@ export default function OrganizerPage() {
     async function loadPanel(sessionToken: string) {
       try {
         const user = await getCurrentUser(sessionToken, controller.signal)
-        const events = user && canAccessPanel(user.role)
-          ? await getMyEvents(sessionToken, controller.signal)
-          : []
+        const [events, defaultTeam] = user && canAccessPanel(user.role)
+          ? await Promise.all([
+              getMyEvents(sessionToken, controller.signal),
+              user.role === 'ORGANIZER'
+                ? listOrganizerDefaultStaff(sessionToken, controller.signal).catch(() => [])
+                : Promise.resolve([]),
+            ])
+          : [[], []]
 
         if (controller.signal.aborted) return
 
@@ -108,6 +117,9 @@ export default function OrganizerPage() {
           return
         }
 
+        if (Array.isArray(defaultTeam)) {
+          setDefaultStaffCount(defaultTeam.length)
+        }
         setPanel({ status: 'ready', user, events })
       } catch {
         if (!controller.signal.aborted) setPanel({ status: 'error' })
@@ -169,6 +181,14 @@ export default function OrganizerPage() {
     setDrawer({ kind: 'create' })
   }
 
+  function openTeamDrawer() {
+    editRequest.current?.abort()
+    setEditing(null)
+    setEditNotice('')
+    setConfirmingRemoveId(null)
+    setDrawer({ kind: 'team' })
+  }
+
   function openEventDrawer(eventId: string, tab: OrganizerDrawerTab) {
     setEditNotice('')
     setConfirmingRemoveId(null)
@@ -215,13 +235,17 @@ export default function OrganizerPage() {
     setEditing(null)
     if (isNewEvent) {
       setEventFilter('active')
-      setEditNotice('Evento criado! Cadastre pelo menos um lote para poder publicá-lo.')
+      const staffCount = event.staffCount ?? 0
+      const staffNote = staffCount > 0
+        ? ` com ${staffCount} ${staffCount === 1 ? 'integrante da equipe padrão vinculado' : 'integrantes da equipe padrão vinculados'}`
+        : ''
+      setEditNotice(`Evento criado${staffNote}! Cadastre pelo menos um lote para poder publicá-lo.`)
       setDrawer({
         kind: 'event',
         eventId: event.id,
         tab: 'lots',
         autoCreateLot: true,
-        lotGuidance: 'Evento criado! Cadastre pelo menos um lote para liberar a publicação.',
+        lotGuidance: `Evento criado${staffNote}! Cadastre pelo menos um lote para liberar a publicação.`,
       })
       return
     }
@@ -372,7 +396,8 @@ export default function OrganizerPage() {
     ? myEvents?.find((event) => event.id === drawer.eventId) ?? null
     : null
   const isCreateDrawer = drawer?.kind === 'create'
-  const drawerOpen = Boolean(myEvents && (isCreateDrawer || drawerEvent))
+  const isTeamDrawer = drawer?.kind === 'team' && isOrganizer
+  const drawerOpen = Boolean(myEvents && (isCreateDrawer || isTeamDrawer || drawerEvent))
 
   const statusPillClass: Record<OrganizerEvent['status'], string> = {
     DRAFT: 'status-pill status-neutral',
@@ -448,14 +473,29 @@ export default function OrganizerPage() {
             <h1 tabIndex={-1} ref={panelHeadingRef}>Painel de eventos</h1>
           </div>
           {myEvents && (
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={openCreateDrawer}
-            >
-              <PlusIcon />
-              Novo evento
-            </button>
+            <div className="dashboard-header-actions">
+              {isOrganizer && (
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={openTeamDrawer}
+                >
+                  <UsersIcon width={16} height={16} />
+                  <span>Minha equipe</span>
+                  {defaultStaffCount > 0 && (
+                    <span className="header-count-pill">{defaultStaffCount}</span>
+                  )}
+                </button>
+              )}
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={openCreateDrawer}
+              >
+                <PlusIcon />
+                Novo evento
+              </button>
+            </div>
           )}
         </header>
 
@@ -831,9 +871,27 @@ export default function OrganizerPage() {
           side="right"
           size="lg"
           scrollResetKey={drawer?.kind === 'event' ? `${drawer.eventId}:${drawer.tab}` : drawer?.kind}
-          eyebrow={isCreateDrawer ? 'Cadastro de evento' : 'Gestão do evento'}
-          title={isCreateDrawer ? 'Novo evento' : (drawerEvent?.title ?? 'Evento')}
-          subtitle={drawerEvent ? `${drawerEvent.location} · ${formatDate.format(new Date(drawerEvent.startsAt))}` : undefined}
+          eyebrow={
+            isCreateDrawer
+              ? 'Cadastro de evento'
+              : isTeamDrawer
+                ? 'Portaria do organizador'
+                : 'Gestão do evento'
+          }
+          title={
+            isCreateDrawer
+              ? 'Novo evento'
+              : isTeamDrawer
+                ? 'Minha equipe padrão'
+                : (drawerEvent?.title ?? 'Evento')
+          }
+          subtitle={
+            isTeamDrawer
+              ? 'Gerencie os integrantes fixos de check-in e crie contas STAFF diretamente.'
+              : drawerEvent
+                ? `${drawerEvent.location} · ${formatDate.format(new Date(drawerEvent.startsAt))}`
+                : undefined
+          }
           headerExtra={drawerEvent && drawer?.kind === 'event' ? (
             <div className="drawer-header-tools">
               <div className="drawer-tabs" role="tablist" aria-label="Seções do evento">
@@ -902,8 +960,16 @@ export default function OrganizerPage() {
             <EventForm
               key="new"
               token={token}
+              defaultTeamCount={isOrganizer ? defaultStaffCount : 0}
               onSaved={savePanelEvent}
               onSessionExpired={logout}
+            />
+          ) : isTeamDrawer ? (
+            <OrganizerTeamPanel
+              key="organizer-team"
+              token={token}
+              onSessionExpired={logout}
+              onCountChange={setDefaultStaffCount}
             />
           ) : drawerEvent && drawer?.kind === 'event' && (
             <>
@@ -946,6 +1012,8 @@ export default function OrganizerPage() {
                   onClose={closeDrawer}
                   onSessionExpired={logout}
                   onStaffCountChange={(count) => updateEventStaffCount(drawerEvent.id, count)}
+                  onDefaultTeamCountChange={setDefaultStaffCount}
+                  onOpenDefaultTeam={openTeamDrawer}
                   embedded
                 />
               )}

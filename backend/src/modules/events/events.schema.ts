@@ -25,9 +25,10 @@ export const createEventSchema = z.object({
   endsAt: z.coerce.date(),
   capacity: z.coerce.number().int().positive('A capacidade deve ser maior que zero'),
   coverImage: coverImageSchema,
+  attachDefaultTeam: z.boolean().optional().default(true),
 });
 
-export const updateEventSchema = createEventSchema.partial();
+export const updateEventSchema = createEventSchema.omit({ attachDefaultTeam: true }).partial();
 
 export const setFeaturedSchema = z.object({
   featured: z.boolean(),

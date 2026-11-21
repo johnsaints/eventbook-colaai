@@ -1098,6 +1098,214 @@ paths:
           $ref: '#/components/responses/EventNotFound'
         '500':
           $ref: '#/components/responses/InternalError'
+  /events/{id}/staff/apply-default:
+    post:
+      tags:
+        - Equipe
+      operationId: applyDefaultStaffToEvent
+      summary: Aplicar equipe padrão do organizador ao evento
+      description: Acesso para ORGANIZER dono. Adiciona em lote membros da equipe padrão ainda não vinculados ao evento.
+      parameters:
+        - $ref: '#/components/parameters/EventId'
+      responses:
+        '200':
+          description: Equipe atualizada com contagem de novos vínculos aplicados.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplyDefaultStaffResult'
+          headers:
+            Cache-Control:
+              description: A resposta contém dados privados.
+              schema:
+                type: string
+                const: no-store
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/EventNotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /organizer/staff:
+    get:
+      tags:
+        - Equipe
+      operationId: listOrganizerDefaultStaff
+      summary: Consultar equipe padrão do organizador autenticado
+      description: Acesso para ORGANIZER.
+      responses:
+        '200':
+          description: Integrantes STAFF da equipe padrão.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/StaffAssignment'
+          headers:
+            Cache-Control:
+              description: A resposta contém dados privados.
+              schema:
+                type: string
+                const: no-store
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      tags:
+        - Equipe
+      operationId: addOrganizerDefaultStaff
+      summary: Adicionar conta STAFF à equipe padrão do organizador
+      description: Acesso para ORGANIZER.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddStaffInput'
+      responses:
+        '201':
+          description: Integrante vinculado à equipe padrão.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StaffAssignment'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Conta STAFF ausente (`STAFF_NOT_FOUND`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '409':
+          description: Pessoa já faz parte da equipe padrão (`STAFF_ALREADY_IN_TEAM`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /organizer/staff/{userId}:
+    delete:
+      tags:
+        - Equipe
+      operationId: removeOrganizerDefaultStaff
+      summary: Remover integrante da equipe padrão do organizador
+      description: Acesso para ORGANIZER. Não remove vínculos já criados em eventos existentes.
+      parameters:
+        - $ref: '#/components/parameters/StaffUserId'
+      responses:
+        '204':
+          description: Vínculo padrão removido ou já ausente.
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /organizer/staff/candidates:
+    get:
+      tags:
+        - Equipe
+      operationId: searchStaffCandidates
+      summary: Buscar contas STAFF elegíveis para portaria
+      description: Acesso para ORGANIZER. Retorna apenas contas Role.STAFF, priorizando a equipe padrão do organizador.
+      parameters:
+        - name: q
+          in: query
+          required: false
+          description: Filtro opcional por nome ou e-mail.
+          schema:
+            type: string
+            maxLength: 100
+        - name: eventId
+          in: query
+          required: false
+          description: Evento próprio opcional para sinalizar `assignedToEvent`.
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Lista de até 20 contas STAFF correspondentes.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/StaffCandidate'
+          headers:
+            Cache-Control:
+              description: A resposta contém dados privados.
+              schema:
+                type: string
+                const: no-store
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/EventNotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /organizer/staff/provision:
+    post:
+      tags:
+        - Equipe
+      operationId: provisionStaffMember
+      summary: Cadastrar conta STAFF diretamente pelo organizador
+      description: Acesso para ORGANIZER. Cria uma nova conta exclusivamente com perfil Role.STAFF, sem sobrescrever contas existentes.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProvisionStaffInput'
+      responses:
+        '201':
+          description: Conta STAFF criada e vinculada conforme opções selecionadas.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProvisionStaffResult'
+          headers:
+            Cache-Control:
+              description: A resposta pode conter senha temporária gerada.
+              schema:
+                type: string
+                const: no-store
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/EventNotFound'
+        '409':
+          description: E-mail já cadastrado (`EMAIL_ALREADY_EXISTS`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '500':
+          $ref: '#/components/responses/InternalError'
   /tickets/me:
     get:
       tags:
@@ -1704,6 +1912,10 @@ components:
             - 'null'
           maxLength: 1400000
           description: Imagem de capa personalizada opcional em Data URL (PNG, JPEG ou WebP de até 1 MB).
+        attachDefaultTeam:
+          type: boolean
+          default: true
+          description: Quando verdadeiro, vincula automaticamente a equipe padrão do organizador ao novo evento.
       description: O término deve ser posterior ao início.
     EventUpdateInput:
       type: object
@@ -1731,7 +1943,11 @@ components:
             - string
             - 'null'
           maxLength: 1400000
-          description: Imagem de capa personalizada opcional em Data URL (PNG, JPEG ou WebP de até 1 MB). Informe null para voltar ao padrão da categoria.
+          description: Imagem de capa personalizada opcional em Data URL (PNG, JPEG ou WebP de até 1 MB).
+        attachDefaultTeam:
+          type: boolean
+          default: true
+          description: Quando verdadeiro, vincula automaticamente a equipe padrão do organizador ao novo evento. Informe null para voltar ao padrão da categoria.
       description: Informe os campos a alterar. O término resultante deve ser posterior ao início.
     Event:
       type: object
@@ -2331,6 +2547,83 @@ components:
           format: email
           maxLength: 191
       additionalProperties: false
+    StaffCandidate:
+      type: object
+      required:
+        - userId
+        - name
+        - email
+        - inDefaultTeam
+        - assignedToEvent
+      properties:
+        userId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        inDefaultTeam:
+          type: boolean
+        assignedToEvent:
+          type: boolean
+    ProvisionStaffInput:
+      type: object
+      required:
+        - name
+        - email
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 100
+        email:
+          type: string
+          format: email
+          maxLength: 191
+        password:
+          type: string
+          minLength: 6
+          maxLength: 128
+          format: password
+          writeOnly: true
+        addToDefaultTeam:
+          type: boolean
+          default: true
+        eventId:
+          type: string
+          format: uuid
+      additionalProperties: false
+    ProvisionStaffResult:
+      type: object
+      required:
+        - member
+        - addedToDefaultTeam
+        - assignedToEvent
+      properties:
+        member:
+          $ref: '#/components/schemas/StaffAssignment'
+        addedToDefaultTeam:
+          type: boolean
+        assignedToEvent:
+          type: boolean
+        temporaryPassword:
+          type: string
+          writeOnly: true
+    ApplyDefaultStaffResult:
+      type: object
+      required:
+        - addedCount
+        - members
+      properties:
+        addedCount:
+          type: integer
+          minimum: 0
+        members:
+          type: array
+          items:
+            $ref: '#/components/schemas/StaffAssignment'
     CheckInInput:
       type: object
       required:

@@ -76,6 +76,7 @@ test('navegação contextual por perfil (ORGANIZER, STAFF, ADMIN) e gestão de c
   const emails = {
     organizer: `e2e-org-${tag}@eventbook.test`,
     staff: `e2e-staff-${tag}@eventbook.test`,
+    provisionedStaff: `e2e-provisioned-${tag}@eventbook.test`,
     admin: `e2e-admin-${tag}@eventbook.test`,
     target: `e2e-target-${tag}@eventbook.test`,
   }
@@ -159,8 +160,24 @@ test('navegação contextual por perfil (ORGANIZER, STAFF, ADMIN) e gestão de c
     await expect(nav.getByRole('link', { name: 'Meus Ingressos', exact: true })).toHaveCount(0)
     await expect(nav.getByRole('link', { name: 'Check-in', exact: true })).toHaveCount(0)
     await expect(page.locator('.dashboard-bento-grid')).toBeVisible()
-    await page.getByRole('button', { name: 'Novo evento' }).click()
+
+    // Equipe padrão do organizador: cadastra conta STAFF direta sem depender de Admin
+    await page.getByRole('button', { name: /Minha equipe/ }).click()
     const organizerDrawer = page.getByRole('dialog')
+    await expect(organizerDrawer).toBeVisible()
+    await expect(organizerDrawer.getByRole('heading', { name: 'Minha equipe padrão' })).toBeVisible()
+    await organizerDrawer.getByRole('tab', { name: 'Cadastrar novo membro' }).click()
+    await organizerDrawer.getByLabel('Nome completo').fill('Portaria Novo E2E')
+    await organizerDrawer.getByLabel('E-mail').fill(emails.provisionedStaff)
+    await organizerDrawer.getByRole('button', { name: 'Criar conta STAFF' }).click()
+    const credentialsBox = organizerDrawer.getByRole('region', { name: 'Credenciais da nova conta STAFF' })
+    await expect(credentialsBox).toBeVisible()
+    await expect(credentialsBox).toContainText('ColaAi-')
+    await expect(organizerDrawer.locator('.event-list').getByRole('heading', { name: 'Portaria Novo E2E' })).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(organizerDrawer).toHaveCount(0)
+
+    await page.getByRole('button', { name: 'Novo evento' }).click()
     await expect(organizerDrawer).toBeVisible()
     await expect(organizerDrawer.getByRole('heading', { name: 'Novo evento' })).toBeVisible()
 
@@ -171,6 +188,7 @@ test('navegação contextual por perfil (ORGANIZER, STAFF, ADMIN) e gestão de c
     await organizerDrawer.getByLabel('Capacidade').fill('120')
     await organizerDrawer.getByLabel('Início').fill(toLocalInputString(now + 48 * 3_600_000))
     await organizerDrawer.getByLabel('Término').fill(toLocalInputString(now + 52 * 3_600_000))
+    await expect(organizerDrawer.getByLabel(/Vincular automaticamente minha equipe padrão \(1\)/)).toBeChecked()
     await organizerDrawer.getByRole('button', { name: 'Criar evento' }).click()
 
     await expect(organizerDrawer.getByRole('tab', { name: 'Lotes' })).toHaveAttribute('aria-selected', 'true')
@@ -188,6 +206,21 @@ test('navegação contextual por perfil (ORGANIZER, STAFF, ADMIN) e gestão de c
 
     const eventCard = page.locator('article.organizer-event-card')
       .filter({ has: page.getByRole('heading', { name: createdTitle, exact: true }) })
+    await expect(eventCard.getByText('Equipe: 1')).toBeVisible()
+
+    // Abre Gestão do Evento -> aba Equipe, confirma membro padrão automático e adiciona via autocomplete STAFF
+    await eventCard.getByRole('button', { name: `Gestão do Evento ${createdTitle}` }).click()
+    await expect(organizerDrawer).toBeVisible()
+    await organizerDrawer.getByRole('tab', { name: 'Equipe' }).click()
+    await expect(organizerDrawer.locator('.event-list').getByRole('heading', { name: 'Portaria Novo E2E' })).toBeVisible()
+    await organizerDrawer.getByLabel('E-mail da conta STAFF').fill(emails.staff)
+    const candidateRow = organizerDrawer.locator('.staff-candidate-row').filter({ hasText: 'Staff RBAC' })
+    await expect(candidateRow).toBeVisible()
+    await candidateRow.getByRole('button', { name: 'Adicionar' }).click()
+    await expect(organizerDrawer.locator('.event-list').getByRole('heading', { name: 'Staff RBAC' })).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(organizerDrawer).toHaveCount(0)
+    await expect(eventCard.getByText('Equipe: 2')).toBeVisible()
     await expect(eventCard.getByRole('button', { name: `Gestão do Evento ${createdTitle}` })).toBeVisible()
     await expect(eventCard.getByRole('button', { name: `Editar ${createdTitle}` })).toHaveCount(0)
     await expect(eventCard.getByRole('button', { name: `Equipe de ${createdTitle}` })).toHaveCount(0)

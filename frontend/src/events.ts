@@ -151,6 +151,7 @@ export async function getMyEvents(token: string, signal: AbortSignal) {
 export type CreateEventInput = Pick<EventSummary, 'title' | 'description' | 'location' | 'startsAt' | 'coverImage'> & {
   endsAt: string
   capacity: number
+  attachDefaultTeam?: boolean
 }
 
 export type EditableEvent = OrganizerEvent & CreateEventInput

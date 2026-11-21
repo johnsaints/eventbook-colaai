@@ -14,6 +14,7 @@ import { CloseIcon, ImageIcon, UploadIcon } from './Icons'
 type Props = {
   token: string
   initialEvent?: EditableEvent
+  defaultTeamCount?: number
   onSaved: (event: OrganizerEvent) => void
   onSessionExpired: () => void
 }
@@ -22,11 +23,12 @@ type Submission =
   | { status: 'idle' | 'submitting' }
   | { status: 'error' | 'saved'; message: string }
 
-export default function EventForm({ token, initialEvent, onSaved, onSessionExpired }: Props) {
+export default function EventForm({ token, initialEvent, defaultTeamCount = 0, onSaved, onSessionExpired }: Props) {
   const [submission, setSubmission] = useState<Submission>({ status: 'idle' })
   const [titlePreview, setTitlePreview] = useState(() => initialEvent?.title ?? '')
   const [descPreview, setDescPreview] = useState(() => initialEvent?.description ?? '')
   const [coverImage, setCoverImage] = useState<string | null>(() => initialEvent?.coverImage ?? null)
+  const [attachDefaultTeam, setAttachDefaultTeam] = useState(true)
   const [coverError, setCoverError] = useState('')
   const [processingCover, setProcessingCover] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -93,6 +95,7 @@ export default function EventForm({ token, initialEvent, onSaved, onSessionExpir
       startsAt: startsAt.toISOString(),
       endsAt: endsAt.toISOString(),
       coverImage,
+      ...(!initialEvent ? { attachDefaultTeam: defaultTeamCount > 0 ? attachDefaultTeam : false } : {}),
     }
 
     const changes: Partial<CreateEventInput> = {}
@@ -227,6 +230,19 @@ export default function EventForm({ token, initialEvent, onSaved, onSessionExpir
         Término
         <input name="endsAt" defaultValue={initialEnd} type="datetime-local" required />
       </label>
+      {!initialEvent && defaultTeamCount > 0 && (
+        <label className="remember-access-field">
+          <input
+            type="checkbox"
+            checked={attachDefaultTeam}
+            onChange={(event) => setAttachDefaultTeam(event.target.checked)}
+          />
+          <span className="remember-access-copy">
+            <strong>Vincular automaticamente minha equipe padrão ({defaultTeamCount})</strong>
+            <span>Os integrantes da sua portaria fixa já terão acesso a este evento no Check-in.</span>
+          </span>
+        </label>
+      )}
       {submission.status === 'error' && <p role="alert">{submission.message}</p>}
       {submission.status === 'saved' && <p role="status">{submission.message}</p>}
       <button type="submit" disabled={submission.status === 'submitting' || processingCover}>

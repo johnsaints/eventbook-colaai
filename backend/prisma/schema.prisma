@@ -46,11 +46,13 @@ model User {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  organizedEvents  Event[]          @relation("OrganizerEvents")
-  orders           Order[]
-  staffAssignments EventStaff[]
-  checkIns         CheckIn[]
-  magicLinkTokens  MagicLinkToken[]
+  organizedEvents          Event[]          @relation("OrganizerEvents")
+  orders                   Order[]
+  staffAssignments         EventStaff[]
+  organizerTeamMembers     OrganizerStaff[] @relation("OrganizerTeamOwner")
+  organizerTeamMemberships OrganizerStaff[] @relation("OrganizerTeamMember")
+  checkIns                 CheckIn[]
+  magicLinkTokens          MagicLinkToken[]
 
   @@map("users")
 }
@@ -128,6 +130,20 @@ model EventStaff {
 
   @@unique([eventId, userId])
   @@map("event_staff")
+}
+
+model OrganizerStaff {
+  id          String   @id @default(uuid())
+  organizerId String
+  userId      String
+  createdAt   DateTime @default(now())
+
+  organizer User @relation("OrganizerTeamOwner", fields: [organizerId], references: [id], onDelete: Cascade)
+  user      User @relation("OrganizerTeamMember", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizerId, userId])
+  @@index([userId])
+  @@map("organizer_staff")
 }
 
 model Order {

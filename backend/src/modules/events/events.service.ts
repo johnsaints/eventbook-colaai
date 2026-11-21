@@ -308,19 +308,38 @@ export class EventsService {
   async create(organizerId: string, data: CreateEventInput) {
     assertValidEventDates(data.startsAt, data.endsAt);
 
-    return prisma.event.create({
-      data: {
-        title: data.title,
-        description: data.description,
-        location: data.location,
-        startsAt: data.startsAt,
-        endsAt: data.endsAt,
-        capacity: data.capacity,
-        coverImage: data.coverImage ?? null,
-        status: EventStatus.DRAFT,
-        organizerId,
-      },
-    });
+    return prisma.$transaction(async (tx) => {
+      const created = await tx.event.create({
+        data: {
+          title: data.title,
+          description: data.description,
+          location: data.location,
+          startsAt: data.startsAt,
+          endsAt: data.endsAt,
+          capacity: data.capacity,
+          coverImage: data.coverImage ?? null,
+          status: EventStatus.DRAFT,
+          organizerId,
+        },
+      });
+
+      let staffCount = 0;
+      if (data.attachDefaultTeam !== false) {
+        const defaultMembers = await tx.organizerStaff.findMany({
+          where: { organizerId, user: { role: Role.STAFF } },
+          select: { userId: true },
+        });
+        if (defaultMembers.length > 0) {
+          const inserted = await tx.eventStaff.createMany({
+            data: defaultMembers.map((member) => ({ eventId: created.id, userId: member.userId })),
+            skipDuplicates: true,
+          });
+          staffCount = inserted.count;
+        }
+      }
+
+      return { ...created, staffCount };
+    }, { isolationLevel: 'ReadCommitted' });
   }
 
     async update(

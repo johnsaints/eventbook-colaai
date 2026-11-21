@@ -147,3 +147,199 @@ it('lista apenas eventos atribuídos ao staff autenticado', async () => {
     expect((await assignedEvents().expect(200)).body.map((event: { id: string }) => event.id)).toEqual([secondEventId]);
   });
 });
+
+it('gerencia equipe padrão do organizador e aplica em 1 clique ou na criação do evento', async () => {
+  await withEvents(async ({ eventId, ownerAuth, otherOrganizerAuth, staffAuth, staffId, staffEmail, buyerEmail }) => {
+    await request(app).get('/organizer/staff').expect(401);
+    const adminAuth = authorization(randomUUID(), 'ADMIN');
+    for (const auth of [otherOrganizerAuth, staffAuth, adminAuth]) {
+      const check = auth === otherOrganizerAuth ? null : auth;
+      if (check) {
+        await request(app).get('/organizer/staff').set('Authorization', check).expect(403);
+        await request(app).post('/organizer/staff').set('Authorization', check).send({ email: staffEmail }).expect(403);
+      }
+      await request(app).post(`/events/${eventId}/staff/apply-default`).set('Authorization', auth).expect(403);
+    }
+
+    // Não vaza contas não-STAFF na equipe padrão
+    await request(app)
+      .post('/organizer/staff')
+      .set('Authorization', ownerAuth)
+      .send({ email: buyerEmail })
+      .expect(404);
+
+    const added = await request(app)
+      .post('/organizer/staff')
+      .set('Authorization', ownerAuth)
+      .send({ email: staffEmail })
+      .expect(201);
+    expect(added.body).toEqual({
+      userId: staffId,
+      name: 'STAFF',
+      email: staffEmail,
+      createdAt: expect.any(String),
+    });
+
+    await request(app)
+      .post('/organizer/staff')
+      .set('Authorization', ownerAuth)
+      .send({ email: staffEmail })
+      .expect(409);
+
+    expect((await request(app).get('/organizer/staff').set('Authorization', ownerAuth).expect(200)).body).toEqual([
+      added.body,
+    ]);
+
+    // Aplica equipe padrão em evento existente de forma idempotente
+    const firstApply = await request(app)
+      .post(`/events/${eventId}/staff/apply-default`)
+      .set('Authorization', ownerAuth)
+      .expect(200);
+    expect(firstApply.body.addedCount).toBe(1);
+    expect(firstApply.body.members.map((m: { userId: string }) => m.userId)).toEqual([staffId]);
+
+    const secondApply = await request(app)
+      .post(`/events/${eventId}/staff/apply-default`)
+      .set('Authorization', ownerAuth)
+      .expect(200);
+    expect(secondApply.body.addedCount).toBe(0);
+
+    // Ao criar novo evento com attachDefaultTeam padrão (true), vincula automaticamente; com false, mantém vazio
+    const now = Date.now();
+    const baseEventPayload = {
+      title: 'Evento Equipe Auto',
+      description: 'Validando vínculo automático da equipe padrão.',
+      location: 'Fortaleza, CE',
+      capacity: 50,
+      startsAt: new Date(now + 10 * 3_600_000).toISOString(),
+      endsAt: new Date(now + 14 * 3_600_000).toISOString(),
+    };
+    const autoRes = await request(app)
+      .post('/events')
+      .set('Authorization', ownerAuth)
+      .send(baseEventPayload)
+      .expect(201);
+    expect(autoRes.body.staffCount).toBe(1);
+    const autoMembers = await list(autoRes.body.id, ownerAuth).expect(200);
+    expect(autoMembers.body.map((m: { userId: string }) => m.userId)).toEqual([staffId]);
+
+    const optOutRes = await request(app)
+      .post('/events')
+      .set('Authorization', ownerAuth)
+      .send({ ...baseEventPayload, title: 'Evento Sem Equipe', attachDefaultTeam: false })
+      .expect(201);
+    expect(optOutRes.body.staffCount).toBe(0);
+    expect((await list(optOutRes.body.id, ownerAuth).expect(200)).body).toEqual([]);
+
+    // Remover da equipe padrão não remove retroativamente dos eventos existentes
+    await request(app).delete(`/organizer/staff/${staffId}`).set('Authorization', ownerAuth).expect(204);
+    expect((await request(app).get('/organizer/staff').set('Authorization', ownerAuth).expect(200)).body).toEqual([]);
+    expect((await list(eventId, ownerAuth).expect(200)).body).toHaveLength(1);
+  });
+});
+
+it('busca candidatos STAFF (sem vazar BUYER) e cria conta STAFF direta para o organizador', async () => {
+  await withEvents(async ({ eventId, ownerAuth, otherOrganizerAuth, staffId, staffEmail, buyerEmail }) => {
+    const provisionedEmail = `portaria-${randomUUID()}@eventbook.test`;
+    const otherStaffEmail = `portaria-custom-${randomUUID()}@eventbook.test`;
+
+    try {
+      await request(app).post('/organizer/staff').set('Authorization', ownerAuth).send({ email: staffEmail }).expect(201);
+
+      // Busca por candidato nunca retorna contas BUYER
+      const buyerSearch = await request(app)
+        .get('/organizer/staff/candidates')
+        .query({ q: buyerEmail, eventId })
+        .set('Authorization', ownerAuth)
+        .expect(200);
+      expect(buyerSearch.body).toEqual([]);
+
+      // Busca encontra a conta STAFF priorizando inDefaultTeam e indicando assignedToEvent
+      const found = await request(app)
+        .get('/organizer/staff/candidates')
+        .query({ q: staffEmail, eventId })
+        .set('Authorization', ownerAuth)
+        .expect(200);
+      expect(found.body).toEqual([
+        {
+          userId: staffId,
+          name: 'STAFF',
+          email: staffEmail,
+          inDefaultTeam: true,
+          assignedToEvent: false,
+        },
+      ]);
+
+      // Não permite criar conta STAFF com e-mail já existente (evita hijack de BUYER/ORGANIZER)
+      const duplicate = await request(app)
+        .post('/organizer/staff/provision')
+        .set('Authorization', ownerAuth)
+        .send({ name: 'Tentativa Duplicada', email: buyerEmail, addToDefaultTeam: true })
+        .expect(409);
+      expect(duplicate.body.code).toBe('EMAIL_ALREADY_EXISTS');
+
+      // Não permite vincular a evento de outro organizador
+      await request(app)
+        .post('/organizer/staff/provision')
+        .set('Authorization', otherOrganizerAuth)
+        .send({ name: 'Invasor', email: otherStaffEmail, addToDefaultTeam: false, eventId })
+        .expect(403);
+
+      // Provisiona conta STAFF com senha temporária automática, salvando na equipe padrão e no evento
+      const provisioned = await request(app)
+        .post('/organizer/staff/provision')
+        .set('Authorization', ownerAuth)
+        .send({
+          name: 'Portaria Direta',
+          email: provisionedEmail,
+          addToDefaultTeam: true,
+          eventId,
+        })
+        .expect(201);
+
+      expect(provisioned.body).toMatchObject({
+        member: {
+          name: 'Portaria Direta',
+          email: provisionedEmail,
+        },
+        addedToDefaultTeam: true,
+        assignedToEvent: true,
+      });
+      expect(typeof provisioned.body.temporaryPassword).toBe('string');
+      expect(provisioned.body.temporaryPassword.length).toBeGreaterThanOrEqual(8);
+
+      // Nova conta já consegue autenticar via /login como STAFF e enxergar o evento em /staff/events
+      const loginRes = await request(app)
+        .post('/login')
+        .send({ email: provisionedEmail, password: provisioned.body.temporaryPassword })
+        .expect(200);
+      expect(loginRes.body.user.role).toBe('STAFF');
+
+      const staffEvents = await request(app)
+        .get('/staff/events')
+        .set('Authorization', `Bearer ${loginRes.body.token}`)
+        .expect(200);
+      expect(staffEvents.body.map((item: { id: string }) => item.id)).toEqual([eventId]);
+
+      // Candidato recém-criado aparece na busca com ambos inDefaultTeam e assignedToEvent = true
+      const afterSearch = await request(app)
+        .get('/organizer/staff/candidates')
+        .query({ q: provisionedEmail, eventId })
+        .set('Authorization', ownerAuth)
+        .expect(200);
+      expect(afterSearch.body).toEqual([
+        {
+          userId: provisioned.body.member.userId,
+          name: 'Portaria Direta',
+          email: provisionedEmail,
+          inDefaultTeam: true,
+          assignedToEvent: true,
+        },
+      ]);
+    } finally {
+      await prisma.user.deleteMany({
+        where: { email: { in: [provisionedEmail, otherStaffEmail] } },
+      });
+    }
+  });
+});
