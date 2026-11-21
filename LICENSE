@@ -1,0 +1,43 @@
+Copyright (c) 2026 John Facundo.
+Todos os direitos reservados / All Rights Reserved.
+
+AVISO LEGAL E TERMOS DE LICENCIAMENTO PROPRIETÁRIO (PT-BR)
+---------------------------------------------------------
+Este repositório e todo o seu conteúdo — incluindo código-fonte (back-end,
+front-end, migrações, testes, infraestrutura e documentação), arquitetura,
+interfaces visuais, ativos gráficos e marca ("EventBook" / "ColaAí Eventos") —
+são de propriedade intelectual exclusiva de John Facundo, protegidos pela
+Lei de Software brasileira (Lei nº 9.609/1998), pela Lei de Direitos Autorais
+(Lei nº 9.610/1998) e pela Convenção de Berna.
+
+Escopo permitido:
+- Este código é mantido em repositório público exclusivamente para leitura,
+  auditoria de código e avaliação acadêmica no âmbito do projeto final da
+  Formação Full Cycle.
+
+Restrições expressas:
+- Nenhuma licença de código aberto (como MIT, Apache ou GPL) é concedida.
+- É estritamente proibido copiar, clonar para fins diversos da avaliação,
+  modificar, mesclar, publicar, distribuir, sublicenciar, vender, alugar,
+  implantar em produção ou explorar comercialmente este software ou obras
+  derivadas, no todo ou em parte, sem autorização prévia e expressa por
+  escrito do titular dos direitos.
+- A ausência de medidas tecnológicas de ofuscação neste repositório público
+  não constitui cessão de direitos nem permissão de uso comercial.
+
+Isenção de garantia:
+O software é disponibilizado "NO ESTADO EM QUE SE ENCONTRA" ("AS IS"), apenas
+para fins de demonstração e avaliação acadêmica, sem garantias de qualquer
+natureza.
+
+
+PROPRIETARY LICENSE NOTICE (EN)
+-------------------------------
+Copyright (c) 2026 John Facundo. All Rights Reserved.
+
+This repository (EventBook / ColaAí Eventos) is published publicly solely for
+code inspection and academic evaluation in the Formação Full Cycle program. No
+open-source license is granted. Unauthorized copying, modification,
+distribution, sublicensing, production hosting, or commercial exploitation of
+any part of this codebase, design, or assets is strictly prohibited without the
+prior express written consent of the copyright holder.

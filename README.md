@@ -59,3 +59,9 @@ A expiração de reservas usa o índice composto de `status` e `expiresAt` e lê
 | `GET /events/:id/occupancy` | Consultar ocupação |
 
 [Contrato completo OpenAPI](docs/api/openapi.yaml) · [Segurança e CORS](docs/api/seguranca.md) · [Estados da interface](docs/ui/estados-e-erros.md)
+
+## Licença e Propriedade Intelectual
+
+Copyright © 2026 **John Facundo** — **Todos os direitos reservados (`All Rights Reserved`)**.
+
+Este repositório é mantido público **exclusivamente para leitura e avaliação acadêmica** no contexto do projeto final da Formação Full Cycle. Nenhuma licença open source é concedida: é proibida a cópia, redistribuição, modificação, implantação em produção ou exploração comercial (total ou parcial) deste código, interface e ativos sem autorização prévia e expressa por escrito do titular. Consulte [LICENSE](LICENSE) para os termos completos.
