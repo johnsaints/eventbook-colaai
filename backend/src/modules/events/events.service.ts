@@ -216,7 +216,7 @@ export class EventsService {
       throw new AppError('UNAUTHORIZED', 'Usuário não autenticado', 401);
     }
 
-    return prisma.event.findMany({
+    const events = await prisma.event.findMany({
       where: isAdmin ? {} : { organizerId: requesterId },
       select: {
         id: true,
@@ -226,9 +226,20 @@ export class EventsService {
         status: true,
         featured: true,
         capacity: true,
+        _count: {
+          select: {
+            orders: true,
+            tickets: true,
+          },
+        },
       },
       orderBy: [{ startsAt: 'asc' }, { id: 'asc' }],
     });
+
+    return events.map(({ _count, ...event }) => ({
+      ...event,
+      hasSales: _count.orders > 0 || _count.tickets > 0,
+    }));
   }
   
   async getById(eventId: string, requester?: { id: string; role: Role }) {
@@ -354,6 +365,10 @@ export class EventsService {
       throw new AppError('FORBIDDEN', 'Sem permissão para publicar este evento', 403);
     }
 
+    if (event.status === EventStatus.CANCELLED) {
+      throw new AppError('EVENT_ARCHIVED', 'Eventos arquivados não podem ser publicados.', 422);
+    }
+
     // RN-01: Evento passado não pode ser editado/publicado e requer lotes
     assertEventNotInPast(event.startsAt);
     assertEventHasLotsForPublish(event._count.lots);
@@ -362,6 +377,61 @@ export class EventsService {
       where: { id: eventId },
       data: { status: EventStatus.PUBLISHED },
     });
+  }
+
+  async unpublish(eventId: string, requester: { id: string; role: Role }) {
+    return prisma.$transaction(async (tx) => {
+      const event = await lockEventForWrite(tx, eventId);
+
+      if (requester.role !== Role.ADMIN && event.organizerId !== requester.id) {
+        throw new AppError('FORBIDDEN', 'Sem permissão para ocultar este evento', 403);
+      }
+
+      if (event.status === EventStatus.CANCELLED) {
+        throw new AppError('EVENT_ARCHIVED', 'Eventos arquivados não podem ser ocultados.', 422);
+      }
+
+      return tx.event.update({
+        where: { id: eventId },
+        data: { status: EventStatus.DRAFT, featured: false },
+      });
+    }, { isolationLevel: 'ReadCommitted' });
+  }
+
+  async removeOrArchive(eventId: string, requester: { id: string; role: Role }) {
+    return prisma.$transaction(async (tx) => {
+      const event = await lockEventForWrite(tx, eventId);
+
+      if (requester.role !== Role.ADMIN && event.organizerId !== requester.id) {
+        throw new AppError('FORBIDDEN', 'Sem permissão para remover este evento', 403);
+      }
+
+      const [ordersCount, ticketsCount] = await Promise.all([
+        tx.order.count({ where: { eventId } }),
+        tx.ticket.count({ where: { eventId } }),
+      ]);
+
+      if (ordersCount === 0 && ticketsCount === 0) {
+        await tx.event.delete({ where: { id: eventId } });
+        return {
+          action: 'DELETED' as const,
+          id: eventId,
+          message: 'Evento excluído permanentemente.',
+        };
+      }
+
+      const updated = await tx.event.update({
+        where: { id: eventId },
+        data: { status: EventStatus.CANCELLED, featured: false },
+      });
+
+      return {
+        action: 'ARCHIVED' as const,
+        id: eventId,
+        event: updated,
+        message: 'Evento arquivado para preservar o histórico de pedidos e ingressos.',
+      };
+    }, { isolationLevel: 'ReadCommitted' });
   }
 
   async setFeatured(

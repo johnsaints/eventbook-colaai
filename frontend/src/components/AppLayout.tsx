@@ -66,8 +66,10 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     void navigate('/login')
   }
 
+  const isStaff = user?.role === 'STAFF'
+
   const navItems = [
-    { to: '/', end: true, label: 'Eventos', Icon: BrandGridIcon, visible: true },
+    { to: '/', end: true, label: 'Eventos', Icon: BrandGridIcon, visible: !isStaff },
     {
       to: '/meus-ingressos',
       end: false,
@@ -95,7 +97,11 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     <div className="app-shell">
       <header className="navbar">
         <div className="navbar-inner">
-          <Link to="/" className="brand-link" aria-label="ColaAí — Página inicial">
+          <Link
+            to={isStaff ? '/check-in' : '/'}
+            className="brand-link"
+            aria-label={isStaff ? 'ColaAí — Check-in' : 'ColaAí — Página inicial'}
+          >
             <img src={logoWordmark} alt="ColaAí" className="brand-wordmark" />
             <span className="brand-subline">
               <span className="brand-subline-rule" aria-hidden="true" />

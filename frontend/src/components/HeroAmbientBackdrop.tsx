@@ -19,6 +19,9 @@ export default function HeroAmbientBackdrop() {
     const video = videoRef.current
     if (!video || videoFailed) return
 
+    video.defaultMuted = true
+    video.muted = true
+
     if (paused) {
       video.pause()
       return
@@ -45,7 +48,7 @@ export default function HeroAmbientBackdrop() {
             muted
             loop
             playsInline
-            preload="metadata"
+            preload="auto"
             aria-hidden="true"
             onError={() => setVideoFailed(true)}
           >

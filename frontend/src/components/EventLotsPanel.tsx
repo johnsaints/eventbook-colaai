@@ -9,6 +9,8 @@ type Props = {
   onClose: () => void
   onSessionExpired: () => void
   embedded?: boolean
+  autoOpenCreate?: boolean
+  initialNotice?: string
 }
 
 type LotsState =
@@ -28,10 +30,19 @@ function lotStatus(lot: ManagedLot) {
   return 'Ativo'
 }
 
-export default function EventLotsPanel({ eventId, eventTitle, token, onClose, onSessionExpired, embedded = false }: Props) {
+export default function EventLotsPanel({
+  eventId,
+  eventTitle,
+  token,
+  onClose,
+  onSessionExpired,
+  embedded = false,
+  autoOpenCreate = false,
+  initialNotice = '',
+}: Props) {
   const [state, setState] = useState<LotsState>({ status: 'loading' })
-  const [form, setForm] = useState<FormMode | null>(null)
-  const [notice, setNotice] = useState('')
+  const [form, setForm] = useState<FormMode | null>(() => (autoOpenCreate ? { kind: 'create' } : null))
+  const [notice, setNotice] = useState(() => initialNotice)
   const [revision, setRevision] = useState(0)
   const newLotButton = useRef<HTMLButtonElement>(null)
   const headingRef = useRef<HTMLHeadingElement>(null)
@@ -78,7 +89,11 @@ export default function EventLotsPanel({ eventId, eventTitle, token, onClose, on
   }
 
   function handleSaved() {
-    setNotice(form?.kind === 'edit' ? 'Lote atualizado.' : 'Lote cadastrado.')
+    setNotice(
+      form?.kind === 'edit'
+        ? 'Lote atualizado.'
+        : 'Lote cadastrado! Você já pode publicar este evento no painel ou cadastrar novos lotes.',
+    )
     setForm(null)
     reloadLots()
   }

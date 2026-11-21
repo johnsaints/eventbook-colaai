@@ -81,14 +81,43 @@ test('navegação contextual por perfil (ORGANIZER, STAFF, ADMIN) e gestão de c
   }
 
   try {
-    await prisma.$transaction([
+    const now = Date.now()
+    const [organizerUser] = await prisma.$transaction([
       prisma.user.create({ data: { name: 'Org RBAC', email: emails.organizer, password: passwordHash, role: 'ORGANIZER' } }),
       prisma.user.create({ data: { name: 'Staff RBAC', email: emails.staff, password: passwordHash, role: 'STAFF' } }),
       prisma.user.create({ data: { name: 'Admin RBAC', email: emails.admin, password: passwordHash, role: 'ADMIN' } }),
       prisma.user.create({ data: { name: 'Alvo RBAC', email: emails.target, password: passwordHash, role: 'BUYER' } }),
     ])
 
+    const staffSampleEvent = await prisma.event.create({
+      data: {
+        organizerId: organizerUser.id,
+        title: `Evento Portaria ReadOnly ${tag.slice(0, 6)}`,
+        description: 'Evento publicado para validar bloqueio de compra pelo perfil STAFF.',
+        location: 'Fortaleza, CE',
+        capacity: 50,
+        status: 'PUBLISHED',
+        startsAt: new Date(now + 24 * 3_600_000),
+        endsAt: new Date(now + 28 * 3_600_000),
+        lots: {
+          create: {
+            name: 'Pista Staff',
+            price: '45.00',
+            totalQuantity: 50,
+            salesStartsAt: new Date(now - 3_600_000),
+            salesEndsAt: new Date(now + 24 * 3_600_000),
+          },
+        },
+      },
+      select: { id: true },
+    })
+
     const nav = page.locator('.navbar .nav-links')
+
+    const toLocalInputString = (ms) => {
+      const date = new Date(ms)
+      return new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 16)
+    }
 
     async function signIn(email) {
       await page.goto('/login')
@@ -98,7 +127,7 @@ test('navegação contextual por perfil (ORGANIZER, STAFF, ADMIN) e gestão de c
       await expect(page.getByRole('status')).toContainText('Sessão iniciada como')
     }
 
-    // ORGANIZER vê Eventos e Painel; abre Novo evento no Drawer e fecha com Escape
+    // ORGANIZER cria evento -> vai direto para Lotes -> publica, oculta e exclui no painel simplificado
     await signIn(emails.organizer)
     await expect(nav.getByRole('link', { name: 'Eventos', exact: true })).toBeVisible()
     await expect(nav.getByRole('link', { name: 'Painel', exact: true })).toBeVisible()
@@ -109,16 +138,58 @@ test('navegação contextual por perfil (ORGANIZER, STAFF, ADMIN) e gestão de c
     const organizerDrawer = page.getByRole('dialog')
     await expect(organizerDrawer).toBeVisible()
     await expect(organizerDrawer.getByRole('heading', { name: 'Novo evento' })).toBeVisible()
+
+    const createdTitle = `Evento Painel E2E ${tag.slice(0, 6)}`
+    await organizerDrawer.getByLabel('Título').fill(createdTitle)
+    await organizerDrawer.getByLabel('Descrição').fill('Descrição completa para validar criação direta para lotes e gestão.')
+    await organizerDrawer.getByLabel('Local').fill('Arena ColaAí, Fortaleza')
+    await organizerDrawer.getByLabel('Capacidade').fill('120')
+    await organizerDrawer.getByLabel('Início').fill(toLocalInputString(now + 48 * 3_600_000))
+    await organizerDrawer.getByLabel('Término').fill(toLocalInputString(now + 52 * 3_600_000))
+    await organizerDrawer.getByRole('button', { name: 'Criar evento' }).click()
+
+    await expect(organizerDrawer.getByRole('tab', { name: 'Lotes' })).toHaveAttribute('aria-selected', 'true')
+    await expect(organizerDrawer.getByRole('heading', { name: 'Novo lote' })).toBeVisible()
+    await organizerDrawer.getByLabel('Nome do lote').fill('Lote Único E2E')
+    await organizerDrawer.getByLabel('Preço (R$)').fill('50')
+    await organizerDrawer.getByLabel('Quantidade de ingressos').fill('40')
+    await organizerDrawer.getByLabel('Início das vendas').fill(toLocalInputString(now + 60_000))
+    await organizerDrawer.getByLabel('Fim das vendas').fill(toLocalInputString(now + 47 * 3_600_000))
+    await organizerDrawer.getByRole('button', { name: 'Cadastrar lote' }).click()
+    await expect(organizerDrawer.getByRole('status')).toContainText('Lote cadastrado!')
+
     await page.keyboard.press('Escape')
     await expect(organizerDrawer).toHaveCount(0)
+
+    const eventCard = page.locator('article.organizer-event-card')
+      .filter({ has: page.getByRole('heading', { name: createdTitle, exact: true }) })
+    await expect(eventCard.getByRole('button', { name: `Gestão do Evento ${createdTitle}` })).toBeVisible()
+    await expect(eventCard.getByRole('button', { name: `Editar ${createdTitle}` })).toHaveCount(0)
+    await expect(eventCard.getByRole('button', { name: `Equipe de ${createdTitle}` })).toHaveCount(0)
+
+    await eventCard.getByRole('button', { name: `Publicar ${createdTitle}` }).click()
+    await expect(eventCard.getByText('Publicado', { exact: true })).toBeVisible()
+    const hideBtn = eventCard.getByRole('button', { name: `Ocultar ${createdTitle}` })
+    await expect(hideBtn).toBeVisible()
+    await hideBtn.click()
+    await expect(eventCard.getByText('Rascunho', { exact: true })).toBeVisible()
+
+    await eventCard.getByRole('button', { name: `Excluir ${createdTitle}` }).click()
+    await eventCard.getByRole('button', { name: 'Confirmar exclusão' }).click()
+    await expect(eventCard).toHaveCount(0)
+
     await page.locator('.navbar').getByRole('button', { name: 'Sair' }).click()
 
-    // STAFF vê Eventos e Check-in; não vê Meus Ingressos nem Painel
+    // STAFF vê apenas Check-in na navegação e fica em modo somente leitura na página de evento
     await signIn(emails.staff)
-    await expect(nav.getByRole('link', { name: 'Eventos', exact: true })).toBeVisible()
+    await expect(nav.getByRole('link', { name: 'Eventos', exact: true })).toHaveCount(0)
     await expect(nav.getByRole('link', { name: 'Check-in', exact: true })).toBeVisible()
     await expect(nav.getByRole('link', { name: 'Meus Ingressos', exact: true })).toHaveCount(0)
     await expect(nav.getByRole('link', { name: 'Painel', exact: true })).toHaveCount(0)
+
+    await page.goto(`/events/${staffSampleEvent.id}`)
+    await expect(page.getByRole('alert')).toContainText('A reserva e compra de ingressos está disponível apenas para contas de Comprador')
+    await expect(page.getByRole('button', { name: 'Adicionar ingresso de Pista Staff' })).toBeDisabled()
     await page.locator('.navbar').getByRole('button', { name: 'Sair' }).click()
 
     // ADMIN vê todas as 4 abas e altera perfil de usuário em /perfil
@@ -147,6 +218,7 @@ test('navegação contextual por perfil (ORGANIZER, STAFF, ADMIN) e gestão de c
     const updatedTarget = await prisma.user.findUniqueOrThrow({ where: { email: emails.target } })
     expect(updatedTarget.role).toBe('ORGANIZER')
   } finally {
+    await prisma.event.deleteMany({ where: { organizer: { email: emails.organizer } } })
     await prisma.user.deleteMany({ where: { email: { in: Object.values(emails) } } })
     await prisma.$disconnect()
   }
@@ -156,13 +228,20 @@ test('layout responsivo (mobile, tablet, desktop e ultrawide) sem overflow horiz
   const prisma = new PrismaClient({ datasourceUrl: getE2EDatabaseUrl() })
   const tag = randomUUID()
   const email = `e2e-mobile-${tag}@eventbook.test`
+  const buyerEmail = `e2e-mobile-buyer-${tag}@eventbook.test`
 
   try {
-    const passwordHash = await bcrypt.hash('EventBook-Mobile-123!', 10)
+    const mobilePassword = 'EventBook-Mobile-123!'
+    const passwordHash = await bcrypt.hash(mobilePassword, 10)
     const now = Date.now()
-    const organizer = await prisma.user.create({
-      data: { name: 'Produtor Mobile', email, password: passwordHash, role: 'ORGANIZER' },
-    })
+    const [organizer, buyer] = await prisma.$transaction([
+      prisma.user.create({
+        data: { name: 'Produtor Mobile', email, password: passwordHash, role: 'ORGANIZER' },
+      }),
+      prisma.user.create({
+        data: { name: 'Comprador Mobile', email: buyerEmail, password: passwordHash, role: 'BUYER' },
+      }),
+    ])
 
     const createdEvents = await Promise.all(
       [1, 2].map((index) =>
@@ -186,17 +265,47 @@ test('layout responsivo (mobile, tablet, desktop e ultrawide) sem overflow horiz
               },
             },
           },
-          select: { id: true },
+          select: { id: true, lots: { select: { id: true }, take: 1 } },
         }),
       ),
     )
 
     const firstEventId = createdEvents[0].id
+    const firstLotId = createdEvents[0].lots[0].id
+    const order = await prisma.order.create({
+      data: {
+        buyerId: buyer.id,
+        eventId: firstEventId,
+        totalAmount: '80.00',
+        status: 'PAID',
+        expiresAt: new Date(now + 900_000),
+        paidAt: new Date(now),
+        items: { create: { lotId: firstLotId, quantity: 1, unitPriceSnapshot: '80.00' } },
+      },
+      select: { id: true },
+    })
+
+    await prisma.ticket.create({
+      data: {
+        code: `CA-RESP-${tag.slice(0, 8).toUpperCase()}`,
+        orderId: order.id,
+        eventId: firstEventId,
+        lotId: firstLotId,
+        status: 'VALID',
+      },
+    })
+
+    await page.goto('/login')
+    await page.getByLabel('E-mail').fill(buyerEmail)
+    await page.getByLabel('Senha').fill(mobilePassword)
+    await page.getByRole('button', { name: 'Entrar', exact: true }).click()
+    await expect(page.getByRole('status')).toContainText('Sessão iniciada como')
+
     const viewports = [
-      { name: 'mobile', width: 360, height: 800, expectsDrawer: true },
-      { name: 'tablet', width: 768, height: 1024, expectsDrawer: true },
-      { name: 'desktop', width: 1280, height: 720, expectsDrawer: false },
-      { name: 'large', width: 1920, height: 1080, expectsDrawer: false },
+      { name: 'mobile', width: 360, height: 800, expectsDrawer: true, verticalTicket: true },
+      { name: 'tablet', width: 768, height: 1024, expectsDrawer: true, verticalTicket: false },
+      { name: 'desktop', width: 1280, height: 720, expectsDrawer: false, verticalTicket: false },
+      { name: 'large', width: 1920, height: 1080, expectsDrawer: false, verticalTicket: false },
     ]
 
     for (const vp of viewports) {
@@ -248,6 +357,23 @@ test('layout responsivo (mobile, tablet, desktop e ultrawide) sem overflow horiz
       await assertBoxFitsViewport('.lot-row-card')
       await assertNoHorizontalOverflow()
 
+      await page.goto('/meus-ingressos')
+      await expect(page.locator('.colaai-ticket').first()).toBeVisible()
+      await assertBoxFitsViewport('.colaai-ticket')
+      const brandBox = await page.locator('.colaai-ticket-brand').first().boundingBox()
+      const stubBox = await page.locator('.colaai-ticket-stub').first().boundingBox()
+      const mainBox = await page.locator('.colaai-ticket-main').first().boundingBox()
+      expect(brandBox).not.toBeNull()
+      expect(stubBox).not.toBeNull()
+      expect(mainBox).not.toBeNull()
+      if (vp.verticalTicket) {
+        expect(mainBox.y).toBeGreaterThan(brandBox.y + brandBox.height * 0.4)
+        expect(stubBox.y).toBeGreaterThan(mainBox.y + mainBox.height * 0.5)
+      } else {
+        expect(stubBox.x).toBeGreaterThan(mainBox.x)
+      }
+      await assertNoHorizontalOverflow()
+
       await page.goto('/login')
       await expect(page.getByRole('heading', { name: 'Entrar no ColaAí' })).toBeVisible()
       await assertBoxFitsViewport('.auth-card')
@@ -264,8 +390,10 @@ test('layout responsivo (mobile, tablet, desktop e ultrawide) sem overflow horiz
     await page.keyboard.press('Escape')
     await expect(mobileDrawer).toHaveCount(0)
   } finally {
+    await prisma.ticket.deleteMany({ where: { order: { buyer: { email: buyerEmail } } } })
+    await prisma.order.deleteMany({ where: { buyer: { email: buyerEmail } } })
     await prisma.event.deleteMany({ where: { organizer: { email } } })
-    await prisma.user.deleteMany({ where: { email } })
+    await prisma.user.deleteMany({ where: { email: { in: [email, buyerEmail] } } })
     await prisma.$disconnect()
   }
 })

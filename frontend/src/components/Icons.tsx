@@ -467,3 +467,60 @@ export function PauseIcon(props: CaIconProps) {
     </CaSvg>
   )
 }
+
+export function SlidersIcon(props: CaIconProps) {
+  return (
+    <CaSvg {...props}>
+      {(fill) => (
+        <>
+          <path d="M4 7h16M4 12h16M4 17h16" />
+          <circle cx="8.5" cy="7" r="2.2" fill={fill} fillOpacity="0.24" />
+          <circle cx="15.5" cy="12" r="2.2" fill={fill} fillOpacity="0.24" />
+          <circle cx="10.5" cy="17" r="2.2" fill={fill} fillOpacity="0.24" />
+        </>
+      )}
+    </CaSvg>
+  )
+}
+
+export function EyeOffIcon(props: CaIconProps) {
+  return (
+    <CaSvg {...props}>
+      {(fill) => (
+        <>
+          <path d="M3 3l18 18" />
+          <path d="M10.6 10.6a2.5 2.5 0 0 0 3.3 3.3" fill={fill} fillOpacity="0.14" />
+          <path d="M9.9 5.2A9.8 9.8 0 0 1 21 12c-.7 1.3-1.8 2.6-3.2 3.7M6.7 6.7C4.8 8 3.5 9.9 3 12c1.8 3.8 5.2 6.2 9 6.2 1.6 0 3.1-.4 4.4-1.1" />
+        </>
+      )}
+    </CaSvg>
+  )
+}
+
+export function TrashIcon(props: CaIconProps) {
+  return (
+    <CaSvg {...props}>
+      {(fill) => (
+        <>
+          <path d="M4.5 6.8h15" />
+          <path d="M9.5 6.8V5a1.5 1.5 0 0 1 1.5-1.5h2a1.5 1.5 0 0 1 1.5 1.5v1.8" />
+          <path d="M6.8 6.8 7.7 19a1.8 1.8 0 0 0 1.8 1.7h5a1.8 1.8 0 0 0 1.8-1.7l.9-12.2" fill={fill} fillOpacity="0.12" />
+        </>
+      )}
+    </CaSvg>
+  )
+}
+
+export function ArchiveIcon(props: CaIconProps) {
+  return (
+    <CaSvg {...props}>
+      {(fill) => (
+        <>
+          <rect x="3" y="4" width="18" height="4.2" rx="1.2" fill={fill} fillOpacity="0.16" />
+          <path d="M4.5 8.2v10a1.8 1.8 0 0 0 1.8 1.8h11.4a1.8 1.8 0 0 0 1.8-1.8v-10" fill={fill} fillOpacity="0.1" />
+          <path d="M10 12.5h4" />
+        </>
+      )}
+    </CaSvg>
+  )
+}

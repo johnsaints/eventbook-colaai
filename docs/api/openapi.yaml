@@ -531,13 +531,36 @@ paths:
                 $ref: '#/components/schemas/ApiError'
         '500':
           $ref: '#/components/responses/InternalError'
+    delete:
+      tags:
+        - Eventos
+      operationId: deleteOrArchiveEvent
+      summary: Excluir ou arquivar um evento
+      description: Acesso para ORGANIZER dono ou ADMIN. Exclui permanentemente quando não há pedidos ou ingressos vinculados; caso haja histórico financeiro, arquiva como `CANCELLED`.
+      parameters:
+        - $ref: '#/components/parameters/EventId'
+      responses:
+        '200':
+          description: Evento excluído ou arquivado com sucesso.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventDeleteOrArchiveResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/EventNotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
   /events/{id}/publish:
     post:
       tags:
         - Eventos
       operationId: publishEvent
       summary: Publicar um evento
-      description: Acesso para ORGANIZER dono ou ADMIN. O evento precisa ser futuro e ter pelo menos um
+      description: Acesso para ORGANIZER dono ou ADMIN. O evento precisa ser futuro, não estar arquivado e ter pelo menos um
         lote.
       parameters:
         - $ref: '#/components/parameters/EventId'
@@ -555,7 +578,37 @@ paths:
         '404':
           $ref: '#/components/responses/EventNotFound'
         '422':
-          description: Publicação recusada. Códigos `EVENT_IN_PAST` e `EVENT_WITHOUT_LOTS`.
+          description: Publicação recusada. Códigos `EVENT_IN_PAST`, `EVENT_WITHOUT_LOTS` e `EVENT_ARCHIVED`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /events/{id}/unpublish:
+    post:
+      tags:
+        - Eventos
+      operationId: unpublishEvent
+      summary: Ocultar evento publicado (voltar para rascunho)
+      description: Acesso para ORGANIZER dono ou ADMIN. Move o evento publicado de volta para `DRAFT` e remove o destaque da vitrine.
+      parameters:
+        - $ref: '#/components/parameters/EventId'
+      responses:
+        '200':
+          description: Evento ocultado da vitrine pública.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Event'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/EventNotFound'
+        '422':
+          description: Evento arquivado não pode ser ocultado (`EVENT_ARCHIVED`).
           content:
             application/json:
               schema:
@@ -1563,6 +1616,27 @@ components:
             capacity:
               type: integer
               minimum: 1
+            hasSales:
+              type: boolean
+    EventDeleteOrArchiveResponse:
+      type: object
+      required:
+        - action
+        - id
+        - message
+      properties:
+        action:
+          type: string
+          enum:
+            - DELETED
+            - ARCHIVED
+        id:
+          type: string
+          format: uuid
+        message:
+          type: string
+        event:
+          $ref: '#/components/schemas/Event'
     EventFeaturedInput:
       type: object
       required:

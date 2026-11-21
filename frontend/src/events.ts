@@ -98,6 +98,7 @@ export type OrganizerEvent = Pick<EventSummary, 'id' | 'title' | 'location' | 's
   status: 'DRAFT' | 'PUBLISHED' | 'CANCELLED'
   featured?: boolean
   capacity?: number
+  hasSales?: boolean
 }
 
 export async function getEventHighlights(signal: AbortSignal, limit = 5): Promise<EventSummary[]> {
@@ -209,9 +210,48 @@ export function updateEvent(
 
 export function publishEvent(eventId: string, token: string, signal: AbortSignal) {
   return saveEvent(`${apiUrl}/events/${encodeURIComponent(eventId)}/publish`, 'POST', {}, token, signal, {
-    EVENT_WITHOUT_LOTS: 'Cadastre pelo menos um lote em Ver lotes antes de publicar.',
+    EVENT_WITHOUT_LOTS: 'Cadastre pelo menos um lote na aba Lotes em Gestão do Evento antes de publicar.',
     EVENT_IN_PAST: 'Eventos que já começaram não podem ser publicados.',
+    EVENT_ARCHIVED: 'Eventos arquivados não podem ser publicados.',
   })
+}
+
+export function unpublishEvent(eventId: string, token: string, signal: AbortSignal) {
+  return saveEvent(`${apiUrl}/events/${encodeURIComponent(eventId)}/unpublish`, 'POST', {}, token, signal, {
+    EVENT_ARCHIVED: 'Eventos arquivados não podem ser ocultados.',
+  })
+}
+
+export type RemoveOrArchiveResult = {
+  action: 'DELETED' | 'ARCHIVED'
+  id: string
+  event?: OrganizerEvent
+  message: string
+}
+
+export async function removeOrArchiveEvent(
+  eventId: string,
+  token: string,
+  signal: AbortSignal,
+): Promise<RemoveOrArchiveResult | null> {
+  const response = await fetch(`${apiUrl}/events/${encodeURIComponent(eventId)}`, {
+    method: 'DELETE',
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    signal,
+  }).catch(() => {
+    throw new Error('Não foi possível conectar à API.')
+  })
+
+  if (response.status === 401) return null
+
+  if (!response.ok) {
+    const error = (await response.json().catch(() => null)) as { message?: string } | null
+    throw new Error(error?.message ?? 'Não foi possível remover o evento.')
+  }
+
+  return (await response.json()) as RemoveOrArchiveResult
 }
 
 export function toLocalInput(iso: string) {

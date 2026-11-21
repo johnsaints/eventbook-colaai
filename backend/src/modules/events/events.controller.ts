@@ -91,6 +91,24 @@ export class EventsController {
     }
   }
 
+  async unpublish(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const event = await eventsService.unpublish(String(req.params.id), req.user!);
+      res.status(200).json(event);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async removeOrArchive(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const result = await eventsService.removeOrArchive(String(req.params.id), req.user!);
+      res.status(200).json(result);
+    } catch (error) {
+      next(error);
+    }
+  }
+
   async setFeatured(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { featured } = setFeaturedSchema.parse(req.body);

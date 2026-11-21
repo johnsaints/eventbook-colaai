@@ -57,6 +57,20 @@ eventsRoutes.post(
   (req, res, next) => eventsController.publish(req, res, next)
 );
 
+eventsRoutes.post(
+  '/events/:id/unpublish',
+  authenticate,
+  authorize(Role.ORGANIZER, Role.ADMIN),
+  (req, res, next) => eventsController.unpublish(req, res, next)
+);
+
+eventsRoutes.delete(
+  '/events/:id',
+  authenticate,
+  authorize(Role.ORGANIZER, Role.ADMIN),
+  (req, res, next) => eventsController.removeOrArchive(req, res, next)
+);
+
 eventsRoutes.patch(
   '/events/:id/featured',
   authenticate,

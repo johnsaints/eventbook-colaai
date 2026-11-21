@@ -61,13 +61,14 @@ export default function TicketSelection({ event, initialItems }: {
     .map(({ lot, quantity }) => ({ lot, quantity, subtotal: priceInCents(lot.price) * BigInt(quantity) }))
   const totalQuantity = selected.reduce((sum, item) => sum + item.quantity, 0)
   const total = selected.reduce((sum, item) => sum + item.subtotal, 0n)
+  const cannotPurchase = Boolean(sessionUser && !canAccessBuyerTickets(sessionUser.role))
   const draft: ReservationDraft = {
     eventId: event.id,
     items: selected.map(({ lot, quantity }) => ({ lotId: lot.id, quantity })),
   }
 
   function changeQuantity(lotId: string, available: number, delta: number) {
-    if (requestRef.current) return
+    if (requestRef.current || cannotPurchase) return
     setQuantities(current => {
       const quantity = Math.min(available, current[lotId] ?? 0)
       const next = Math.max(0, Math.min(available, quantity + delta))
@@ -133,7 +134,20 @@ export default function TicketSelection({ event, initialItems }: {
 
   if (reservation) return <ReservationConfirmation order={reservation.order} lotNames={reservation.lotNames} />
 
-  const cartSummaryBody = (
+  const cartSummaryBody = cannotPurchase && sessionUser ? (
+    <>
+      <p className="form-alert" role="alert">
+        Sua conta está no perfil {ROLE_LABELS[sessionUser.role]}. A reserva e compra de ingressos está disponível apenas para contas de Comprador (ou Admin).
+      </p>
+      <Link
+        to="/login"
+        state={{ reservationDraft: draft }}
+        className="btn btn-secondary btn-full"
+      >
+        Trocar para conta de comprador
+      </Link>
+    </>
+  ) : (
     <>
       {selected.length === 0 ? (
         <p className="event-meta">Selecione ingressos para montar sua reserva.</p>
@@ -162,19 +176,6 @@ export default function TicketSelection({ event, initialItems }: {
           >
             Entrar para reservar
           </Link>
-        ) : sessionUser && !canAccessBuyerTickets(sessionUser.role) ? (
-          <>
-            <p className="form-alert" role="alert">
-              Sua conta está no perfil {ROLE_LABELS[sessionUser.role]}. A reserva e compra de ingressos está disponível apenas para contas de Comprador (ou Admin).
-            </p>
-            <Link
-              to="/login"
-              state={{ reservationDraft: draft }}
-              className="btn btn-secondary btn-full"
-            >
-              Trocar para conta de comprador
-            </Link>
-          </>
         ) : (
           <button className="ticket-cart-action btn-full" type="button" disabled={busy} onClick={() => void submit()}>
             {busy ? 'Confirmando reserva…' : 'Reservar ingressos'}
@@ -214,7 +215,8 @@ export default function TicketSelection({ event, initialItems }: {
                     <button
                       type="button"
                       aria-label={'Remover ingresso de ' + lot.name}
-                      aria-disabled={busy || quantity === 0}
+                      disabled={cannotPurchase || busy || quantity === 0}
+                      aria-disabled={cannotPurchase || busy || quantity === 0}
                       onClick={() => changeQuantity(lot.id, available, -1)}
                     >
                       −
@@ -223,7 +225,8 @@ export default function TicketSelection({ event, initialItems }: {
                     <button
                       type="button"
                       aria-label={'Adicionar ingresso de ' + lot.name}
-                      aria-disabled={busy || quantity >= available}
+                      disabled={cannotPurchase || busy || quantity >= available}
+                      aria-disabled={cannotPurchase || busy || quantity >= available}
                       onClick={() => changeQuantity(lot.id, available, 1)}
                     >
                       +
@@ -243,7 +246,7 @@ export default function TicketSelection({ event, initialItems }: {
         </section>
       </aside>
 
-      {selected.length > 0 && (
+      {selected.length > 0 && !cannotPurchase && (
         <div className="mobile-cart-bar">
           <div className="mobile-cart-bar-info">
             <span>{totalQuantity} {totalQuantity === 1 ? 'ingresso' : 'ingressos'}</span>

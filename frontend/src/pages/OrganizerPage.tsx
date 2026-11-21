@@ -11,12 +11,26 @@ import {
 } from '../api'
 import AppLayout from '../components/AppLayout'
 import Drawer from '../components/Drawer'
-import { CalendarIcon, ChartIcon, PinIcon, PlusIcon, StarIcon, TicketIcon, UsersIcon } from '../components/Icons'
+import {
+  ArchiveIcon,
+  CalendarIcon,
+  ChartIcon,
+  EyeOffIcon,
+  PinIcon,
+  PlusIcon,
+  SlidersIcon,
+  StarIcon,
+  TicketIcon,
+  TrashIcon,
+  UsersIcon,
+} from '../components/Icons'
 import {
   formatDate,
   getEventForEdit,
   getMyEvents,
+  removeOrArchiveEvent,
   setEventFeatured,
+  unpublishEvent,
   type EditableEvent,
   type OrganizerEvent,
 } from '../events'
@@ -38,12 +52,12 @@ type EditState =
 type OrganizerDrawerTab = 'edit' | 'lots' | 'staff' | 'occupancy'
 type OrganizerDrawerState =
   | { kind: 'create' }
-  | { kind: 'event'; eventId: string; tab: OrganizerDrawerTab }
+  | { kind: 'event'; eventId: string; tab: OrganizerDrawerTab; autoCreateLot?: boolean; lotGuidance?: string }
 
 const statusLabel: Record<OrganizerEvent['status'], string> = {
   DRAFT: 'Rascunho',
   PUBLISHED: 'Publicado',
-  CANCELLED: 'Cancelado',
+  CANCELLED: 'Arquivado',
 }
 
 export default function OrganizerPage() {
@@ -55,13 +69,18 @@ export default function OrganizerPage() {
   const [drawer, setDrawer] = useState<OrganizerDrawerState | null>(null)
   const [editing, setEditing] = useState<EditState | null>(null)
   const [editNotice, setEditNotice] = useState('')
+  const [eventFilter, setEventFilter] = useState<'active' | 'archived'>('active')
+  const [confirmingRemoveId, setConfirmingRemoveId] = useState<string | null>(null)
+  const [busyEventActionId, setBusyEventActionId] = useState<string | null>(null)
   const [togglingFeaturedId, setTogglingFeaturedId] = useState<string | null>(null)
   const editRequest = useRef<AbortController | null>(null)
   const featureRequest = useRef<AbortController | null>(null)
+  const actionRequest = useRef<AbortController | null>(null)
 
   useEffect(() => () => {
     editRequest.current?.abort()
     featureRequest.current?.abort()
+    actionRequest.current?.abort()
   }, [])
 
   useEffect(() => {
@@ -142,11 +161,13 @@ export default function OrganizerPage() {
     editRequest.current?.abort()
     setEditing(null)
     setEditNotice('')
+    setConfirmingRemoveId(null)
     setDrawer({ kind: 'create' })
   }
 
   function openEventDrawer(eventId: string, tab: OrganizerDrawerTab) {
     setEditNotice('')
+    setConfirmingRemoveId(null)
     setDrawer({ kind: 'event', eventId, tab })
     if (tab === 'edit') {
       void openEditor(eventId)
@@ -167,19 +188,37 @@ export default function OrganizerPage() {
   }
 
   function savePanelEvent(event: OrganizerEvent) {
-    const wasEdit = drawer?.kind === 'event' && drawer.tab === 'edit'
+    const isNewEvent = drawer?.kind === 'create'
     setPanel((current) => {
       if (current.status !== 'ready') return current
 
-      const events = [...current.events.filter((item) => item.id !== event.id), event].sort(
+      const existing = current.events.find((item) => item.id === event.id)
+      const mergedEvent: OrganizerEvent = {
+        ...event,
+        hasSales: event.hasSales ?? existing?.hasSales ?? false,
+      }
+      const events = [...current.events.filter((item) => item.id !== event.id), mergedEvent].sort(
         (first, second) =>
           first.startsAt.localeCompare(second.startsAt) || first.id.localeCompare(second.id)
       )
       return { ...current, events }
     })
 
-    setEditNotice(wasEdit ? 'Evento atualizado.' : 'Evento criado.')
     setEditing(null)
+    if (isNewEvent) {
+      setEventFilter('active')
+      setEditNotice('Evento criado! Cadastre pelo menos um lote para poder publicá-lo.')
+      setDrawer({
+        kind: 'event',
+        eventId: event.id,
+        tab: 'lots',
+        autoCreateLot: true,
+        lotGuidance: 'Evento criado! Cadastre pelo menos um lote para liberar a publicação.',
+      })
+      return
+    }
+
+    setEditNotice('Evento atualizado.')
     setDrawer(null)
   }
 
@@ -192,6 +231,85 @@ export default function OrganizerPage() {
       )
       return { ...current, events }
     })
+  }
+
+  async function handleUnpublish(event: OrganizerEvent) {
+    if (!token || actionRequest.current) return
+    const controller = new AbortController()
+    actionRequest.current = controller
+    setBusyEventActionId(event.id)
+    setConfirmingRemoveId(null)
+    setEditNotice('')
+
+    try {
+      const updated = await unpublishEvent(event.id, token, controller.signal)
+      if (controller.signal.aborted) return
+      if (!updated) {
+        logout()
+        return
+      }
+      setPanel((current) => {
+        if (current.status !== 'ready') return current
+        return {
+          ...current,
+          events: current.events.map((item) =>
+            item.id === event.id ? { ...item, status: 'DRAFT' as const, featured: false } : item
+          ),
+        }
+      })
+      setEditNotice(`“${event.title}” ocultado da vitrine e movido para rascunhos.`)
+    } catch (error) {
+      if (!controller.signal.aborted) {
+        setEditNotice(error instanceof Error ? error.message : 'Não foi possível ocultar o evento.')
+      }
+    } finally {
+      actionRequest.current = null
+      if (!controller.signal.aborted) setBusyEventActionId(null)
+    }
+  }
+
+  async function handleRemoveOrArchive(event: OrganizerEvent) {
+    if (!token || actionRequest.current) return
+    const controller = new AbortController()
+    actionRequest.current = controller
+    setBusyEventActionId(event.id)
+    setEditNotice('')
+
+    try {
+      const result = await removeOrArchiveEvent(event.id, token, controller.signal)
+      if (controller.signal.aborted) return
+      if (!result) {
+        logout()
+        return
+      }
+      setPanel((current) => {
+        if (current.status !== 'ready') return current
+        if (result.action === 'DELETED') {
+          return {
+            ...current,
+            events: current.events.filter((item) => item.id !== event.id),
+          }
+        }
+        return {
+          ...current,
+          events: current.events.map((item) =>
+            item.id === event.id ? { ...item, status: 'CANCELLED' as const, featured: false } : item
+          ),
+        }
+      })
+      setConfirmingRemoveId(null)
+      if (drawer?.kind === 'event' && drawer.eventId === event.id && result.action === 'DELETED') {
+        closeDrawer()
+      }
+      setEditNotice(result.message)
+    } catch (error) {
+      if (!controller.signal.aborted) {
+        setEditNotice(error instanceof Error ? error.message : 'Não foi possível remover o evento.')
+      }
+    } finally {
+      actionRequest.current = null
+      if (!controller.signal.aborted) setBusyEventActionId(null)
+    }
   }
 
   async function toggleFeatured(event: OrganizerEvent) {
@@ -256,6 +374,11 @@ export default function OrganizerPage() {
 
   const publishedCount = myEvents?.filter((e) => e.status === 'PUBLISHED').length ?? 0
   const draftCount = myEvents?.filter((e) => e.status === 'DRAFT').length ?? 0
+  const archivedCount = myEvents?.filter((e) => e.status === 'CANCELLED').length ?? 0
+  const activeEvents = myEvents?.filter((e) => e.status !== 'CANCELLED') ?? []
+  const archivedEvents = myEvents?.filter((e) => e.status === 'CANCELLED') ?? []
+  const showingArchived = archivedCount > 0 && eventFilter === 'archived'
+  const visibleEvents = showingArchived ? archivedEvents : activeEvents
 
   return (
     <AppLayout>
@@ -292,14 +415,14 @@ export default function OrganizerPage() {
                 <>
                   {panel.user.role === 'ADMIN' && (
                     <p className="event-meta">
-                      Modo Administrador: todos os eventos da plataforma estão visíveis para edição, lotes e publicação (equipe e ocupação permanecem exclusivos do organizador titular).
+                      Modo Administrador: todos os eventos da plataforma estão visíveis para gestão, lotes, destaque e publicação (equipe e ocupação permanecem exclusivos do organizador titular).
                     </p>
                   )}
                   {myEvents && (
                     <dl className="dashboard-kpis">
                       <div className="kpi-box">
-                        <dt>Total</dt>
-                        <dd>{myEvents.length}</dd>
+                        <dt>Ativos</dt>
+                        <dd>{activeEvents.length}</dd>
                       </div>
                       <div className="kpi-box">
                         <dt>Publicados</dt>
@@ -309,6 +432,12 @@ export default function OrganizerPage() {
                         <dt>Rascunhos</dt>
                         <dd>{draftCount}</dd>
                       </div>
+                      {archivedCount > 0 && (
+                        <div className="kpi-box">
+                          <dt>Arquivados</dt>
+                          <dd>{archivedCount}</dd>
+                        </div>
+                      )}
                     </dl>
                   )}
                 </>
@@ -334,114 +463,166 @@ export default function OrganizerPage() {
 
         {myEvents && (
           <section aria-labelledby="my-events-title" className="panel-events">
-            <h2 id="my-events-title">
-              {panel.status === 'ready' && panel.user.role === 'ADMIN' ? 'Eventos cadastrados' : 'Meus eventos'}
-            </h2>
-            {myEvents.length === 0 ? (
+            <div className="panel-events-header">
+              <h2 id="my-events-title">
+                {panel.status === 'ready' && panel.user.role === 'ADMIN' ? 'Eventos cadastrados' : 'Meus eventos'}
+              </h2>
+              {archivedCount > 0 && (
+                <div className="panel-filter-tabs" role="tablist" aria-label="Filtrar eventos por situação">
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={!showingArchived}
+                    className={!showingArchived ? 'drawer-tab active' : 'drawer-tab'}
+                    onClick={() => {
+                      setEventFilter('active')
+                      setConfirmingRemoveId(null)
+                    }}
+                  >
+                    Ativos ({activeEvents.length})
+                  </button>
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={showingArchived}
+                    className={showingArchived ? 'drawer-tab active' : 'drawer-tab'}
+                    onClick={() => {
+                      setEventFilter('archived')
+                      setConfirmingRemoveId(null)
+                    }}
+                  >
+                    Arquivados ({archivedCount})
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {visibleEvents.length === 0 ? (
               <div className="state-banner">
-                <p>Nenhum evento cadastrado ainda. Clique em “Novo evento” para começar.</p>
+                <p>
+                  {showingArchived
+                    ? 'Nenhum evento arquivado.'
+                    : 'Nenhum evento ativo cadastrado ainda. Clique em “Novo evento” para começar.'}
+                </p>
               </div>
             ) : (
               <ul className="event-list">
-                {myEvents.map((event) => (
-                  <li key={event.id}>
-                    <article className="event-card organizer-event-card">
-                      <div className="organizer-card-head">
-                        <h3>{event.title}</h3>
-                        <div className="organizer-head-pills">
-                          {event.featured && (
-                            <span className="ca-featured-pill">
-                              <StarIcon width={12} height={12} />
-                              Destaque
+                {visibleEvents.map((event) => {
+                  const isBusy = busyEventActionId === event.id
+                  const isConfirming = confirmingRemoveId === event.id
+
+                  return (
+                    <li key={event.id}>
+                      <article className="event-card organizer-event-card">
+                        <div className="organizer-card-head">
+                          <h3>{event.title}</h3>
+                          <div className="organizer-head-pills">
+                            {event.featured && (
+                              <span className="ca-featured-pill">
+                                <StarIcon width={12} height={12} />
+                                Destaque
+                              </span>
+                            )}
+                            <span className={statusPillClass[event.status]}>
+                              {statusLabel[event.status]}
                             </span>
-                          )}
-                          <span className={statusPillClass[event.status]}>
-                            {statusLabel[event.status]}
-                          </span>
+                          </div>
                         </div>
-                      </div>
-                      <div className="card-meta-list">
-                        <p className="event-meta meta-row">
-                          <PinIcon variant="gradient" className="meta-icon" />
-                          <span>{event.location}</span>
-                        </p>
-                        <p className="event-meta meta-row">
-                          <CalendarIcon variant="gradient" className="meta-icon" />
-                          <time dateTime={event.startsAt}>
-                            {formatDate.format(new Date(event.startsAt))}
-                          </time>
-                        </p>
-                      </div>
-                      <div className="event-actions">
-                        <button
-                          type="button"
-                          className="btn btn-ghost btn-sm"
-                          aria-label={`Editar ${event.title}`}
-                          aria-expanded={drawer?.kind === 'event' && drawer.eventId === event.id && drawer.tab === 'edit'}
-                          onClick={() => openEventDrawer(event.id, 'edit')}
-                        >
-                          Editar
-                        </button>
-                        <button
-                          id={`lots-trigger-${event.id}`}
-                          type="button"
-                          className="btn btn-secondary btn-sm"
-                          aria-label={`Lotes de ${event.title}`}
-                          aria-expanded={drawer?.kind === 'event' && drawer.eventId === event.id && drawer.tab === 'lots'}
-                          onClick={() => openEventDrawer(event.id, 'lots')}
-                        >
-                          <TicketIcon />
-                          Lotes
-                        </button>
-                        {isOrganizer && (
-                          <button
-                            id={`staff-trigger-${event.id}`}
-                            type="button"
-                            className="btn btn-ghost btn-sm"
-                            aria-label={`Equipe de ${event.title}`}
-                            aria-expanded={drawer?.kind === 'event' && drawer.eventId === event.id && drawer.tab === 'staff'}
-                            onClick={() => openEventDrawer(event.id, 'staff')}
-                          >
-                            <UsersIcon />
-                            Equipe
-                          </button>
-                        )}
-                        {isOrganizer && (
-                          <button
-                            id={`occupancy-trigger-${event.id}`}
-                            type="button"
-                            className="btn btn-ghost btn-sm"
-                            aria-label={`Ocupação de ${event.title}`}
-                            aria-expanded={drawer?.kind === 'event' && drawer.eventId === event.id && drawer.tab === 'occupancy'}
-                            onClick={() => openEventDrawer(event.id, 'occupancy')}
-                          >
-                            <ChartIcon />
-                            Ocupação
-                          </button>
-                        )}
-                        {panel.status === 'ready' && panel.user.role === 'ADMIN' && event.status === 'PUBLISHED' && (
+                        <div className="card-meta-list">
+                          <p className="event-meta meta-row">
+                            <PinIcon variant="gradient" className="meta-icon" />
+                            <span>{event.location}</span>
+                          </p>
+                          <p className="event-meta meta-row">
+                            <CalendarIcon variant="gradient" className="meta-icon" />
+                            <time dateTime={event.startsAt}>
+                              {formatDate.format(new Date(event.startsAt))}
+                            </time>
+                          </p>
+                        </div>
+
+                        <div className="event-actions">
                           <button
                             type="button"
-                            className="btn btn-ghost btn-sm"
-                            aria-label={event.featured ? `Remover destaque de ${event.title}` : `Destacar ${event.title}`}
-                            aria-pressed={Boolean(event.featured)}
-                            disabled={togglingFeaturedId === event.id}
-                            onClick={() => void toggleFeatured(event)}
+                            className="btn btn-secondary btn-sm"
+                            aria-label={`Gestão do Evento ${event.title}`}
+                            aria-expanded={drawer?.kind === 'event' && drawer.eventId === event.id}
+                            onClick={() => openEventDrawer(event.id, 'edit')}
                           >
-                            <StarIcon width={14} height={14} variant={event.featured ? 'gradient' : 'current'} />
-                            {event.featured ? 'Em destaque' : 'Destacar'}
+                            <SlidersIcon width={14} height={14} />
+                            Gestão do Evento
                           </button>
+
+                          <PublishEventAction
+                            event={event}
+                            token={token}
+                            onPublished={markPublished}
+                            onSessionExpired={logout}
+                          />
+
+                          {event.status === 'PUBLISHED' && (
+                            <button
+                              type="button"
+                              className="btn btn-ghost btn-sm"
+                              aria-label={`Ocultar ${event.title}`}
+                              disabled={isBusy}
+                              onClick={() => void handleUnpublish(event)}
+                            >
+                              <EyeOffIcon width={14} height={14} />
+                              {isBusy ? 'Ocultando…' : 'Ocultar'}
+                            </button>
+                          )}
+
+                          {event.status !== 'CANCELLED' && (
+                            <button
+                              type="button"
+                              className="btn btn-danger-ghost btn-sm"
+                              aria-label={event.hasSales ? `Arquivar ${event.title}` : `Excluir ${event.title}`}
+                              aria-expanded={isConfirming}
+                              disabled={isBusy}
+                              onClick={() => setConfirmingRemoveId((current) => (current === event.id ? null : event.id))}
+                            >
+                              {event.hasSales ? <ArchiveIcon width={14} height={14} /> : <TrashIcon width={14} height={14} />}
+                              {event.hasSales ? 'Arquivar' : 'Excluir'}
+                            </button>
+                          )}
+                        </div>
+
+                        {isConfirming && (
+                          <div className="organizer-confirm-box" role="region" aria-label={`Confirmar ação para ${event.title}`}>
+                            <p className="event-meta">
+                              {event.hasSales
+                                ? 'Este evento já possui pedidos/ingressos. Deseja arquivá-lo para ocultar da vitrine mantendo o histórico?'
+                                : 'Excluir este evento permanentemente?'}
+                            </p>
+                            <div className="history-confirm-actions">
+                              <button
+                                type="button"
+                                className="btn btn-danger btn-sm"
+                                disabled={isBusy}
+                                onClick={() => void handleRemoveOrArchive(event)}
+                              >
+                                {isBusy
+                                  ? 'Processando…'
+                                  : event.hasSales
+                                    ? 'Confirmar arquivamento'
+                                    : 'Confirmar exclusão'}
+                              </button>
+                              <button
+                                type="button"
+                                className="btn btn-ghost btn-sm"
+                                disabled={isBusy}
+                                onClick={() => setConfirmingRemoveId(null)}
+                              >
+                                Cancelar
+                              </button>
+                            </div>
+                          </div>
                         )}
-                        <PublishEventAction
-                          event={event}
-                          token={token}
-                          onPublished={markPublished}
-                          onSessionExpired={logout}
-                        />
-                      </div>
-                    </article>
-                  </li>
-                ))}
+                      </article>
+                    </li>
+                  )
+                })}
               </ul>
             )}
           </section>
@@ -456,49 +637,65 @@ export default function OrganizerPage() {
           title={isCreateDrawer ? 'Novo evento' : (drawerEvent?.title ?? 'Evento')}
           subtitle={drawerEvent ? `${drawerEvent.location} · ${formatDate.format(new Date(drawerEvent.startsAt))}` : undefined}
           headerExtra={drawerEvent && drawer?.kind === 'event' ? (
-            <div className="drawer-tabs" role="tablist" aria-label="Seções do evento">
-              <button
-                type="button"
-                role="tab"
-                aria-selected={drawer.tab === 'edit'}
-                className={drawer.tab === 'edit' ? 'drawer-tab active' : 'drawer-tab'}
-                onClick={() => switchDrawerTab('edit')}
-              >
-                Dados do evento
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={drawer.tab === 'lots'}
-                className={drawer.tab === 'lots' ? 'drawer-tab active' : 'drawer-tab'}
-                onClick={() => switchDrawerTab('lots')}
-              >
-                <TicketIcon width={14} height={14} />
-                Lotes
-              </button>
-              {isOrganizer && (
-                <>
-                  <button
-                    type="button"
-                    role="tab"
-                    aria-selected={drawer.tab === 'staff'}
-                    className={drawer.tab === 'staff' ? 'drawer-tab active' : 'drawer-tab'}
-                    onClick={() => switchDrawerTab('staff')}
-                  >
-                    <UsersIcon width={14} height={14} />
-                    Equipe
-                  </button>
-                  <button
-                    type="button"
-                    role="tab"
-                    aria-selected={drawer.tab === 'occupancy'}
-                    className={drawer.tab === 'occupancy' ? 'drawer-tab active' : 'drawer-tab'}
-                    onClick={() => switchDrawerTab('occupancy')}
-                  >
-                    <ChartIcon width={14} height={14} />
-                    Ocupação
-                  </button>
-                </>
+            <div className="drawer-header-tools">
+              <div className="drawer-tabs" role="tablist" aria-label="Seções do evento">
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={drawer.tab === 'edit'}
+                  className={drawer.tab === 'edit' ? 'drawer-tab active' : 'drawer-tab'}
+                  onClick={() => switchDrawerTab('edit')}
+                >
+                  Dados do evento
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={drawer.tab === 'lots'}
+                  className={drawer.tab === 'lots' ? 'drawer-tab active' : 'drawer-tab'}
+                  onClick={() => switchDrawerTab('lots')}
+                >
+                  <TicketIcon width={14} height={14} />
+                  Lotes
+                </button>
+                {isOrganizer && (
+                  <>
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={drawer.tab === 'staff'}
+                      className={drawer.tab === 'staff' ? 'drawer-tab active' : 'drawer-tab'}
+                      onClick={() => switchDrawerTab('staff')}
+                    >
+                      <UsersIcon width={14} height={14} />
+                      Equipe
+                    </button>
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={drawer.tab === 'occupancy'}
+                      className={drawer.tab === 'occupancy' ? 'drawer-tab active' : 'drawer-tab'}
+                      onClick={() => switchDrawerTab('occupancy')}
+                    >
+                      <ChartIcon width={14} height={14} />
+                      Ocupação
+                    </button>
+                  </>
+                )}
+              </div>
+
+              {panel.status === 'ready' && panel.user.role === 'ADMIN' && drawerEvent.status === 'PUBLISHED' && (
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  aria-label={drawerEvent.featured ? `Remover destaque de ${drawerEvent.title}` : `Destacar ${drawerEvent.title}`}
+                  aria-pressed={Boolean(drawerEvent.featured)}
+                  disabled={togglingFeaturedId === drawerEvent.id}
+                  onClick={() => void toggleFeatured(drawerEvent)}
+                >
+                  <StarIcon width={14} height={14} variant={drawerEvent.featured ? 'gradient' : 'current'} />
+                  {drawerEvent.featured ? 'Em destaque' : 'Destacar'}
+                </button>
               )}
             </div>
           ) : undefined}
@@ -530,13 +727,15 @@ export default function OrganizerPage() {
 
               {drawer.tab === 'lots' && (
                 <EventLotsPanel
-                  key={`lots-${drawerEvent.id}`}
+                  key={`lots-${drawerEvent.id}-${drawer.autoCreateLot ? 'auto' : 'view'}`}
                   eventId={drawerEvent.id}
                   eventTitle={drawerEvent.title}
                   token={token}
                   onClose={closeDrawer}
                   onSessionExpired={logout}
                   embedded
+                  autoOpenCreate={drawer.autoCreateLot}
+                  initialNotice={drawer.lotGuidance}
                 />
               )}
 

@@ -178,6 +178,9 @@ export default function CheckinPage() {
                   ))}
                 </select>
               </label>
+              <p className="event-meta">
+                Apenas eventos em que sua conta foi adicionada à equipe aparecem aqui (peça ao organizador em Gestão do Evento → Equipe). O check-in abre 2h antes do início do evento.
+              </p>
               {selectedEvent && (
                 <p className="event-meta checkin-event-details">
                   <time dateTime={selectedEvent.startsAt}>{formatDate.format(new Date(selectedEvent.startsAt))}</time>
